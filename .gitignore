@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data & SQLite databases
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+backups/
+releases/
+staging/
+
+# Environment and secrets
+.env
+.env.*
+*.env
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Operating system & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+__pycache__/
+_scratch/
+_local/
+*.tar.gz
+*.zip
+
+# ==============================================================================
+# AI Tooling & Local Cognition (纯本地辅助，严禁提交远端)
+# ==============================================================================
+# AOCI 全量本地认知资产与索引
+aoci.*
+.aoci/
+.mcp.json
+.mcp.json.backup.*
+AGENTS.md.backup.*
+
+# 本地 Agent 垫片与私有上下文覆盖
+AGENT.md
+agent.md
+*.local.md
+CLAUDE.local.md
+AGENTS.local.md
+
+# Claude 本地临时运行态
+.claude/settings.json
+.claude/settings.json.backup.*
+.claude/worktrees/
+.claude/settings.local.json
+.claude/scheduled_tasks.json

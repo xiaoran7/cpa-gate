@@ -1,0 +1,19 @@
+[Unit]
+Description=Gate — LLM API Gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/gate
+ExecStart=/usr/bin/node /opt/gate/server.mjs
+EnvironmentFile=/etc/gate.env
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/gate
+
+[Install]
+WantedBy=multi-user.target
