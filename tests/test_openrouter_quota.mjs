@@ -63,23 +63,51 @@ console.log('测试 2: OpenRouter 凭证数据加载与归一化');
 // 3. 独立账号探针与 getProviderQuota 路由
 console.log('测试 3: 独立凭证探针查询与提供商配额接入');
 {
-  const quota = await getProviderQuota('openrouter-1');
-  assert.equal(quota.provider, 'openrouter');
-  assert.equal(quota.results?.quota?.status_code, 200);
-  assert.ok(Number.isFinite(quota.results?.quota?.data?.today_requests));
-  console.log('  ✓ getProviderQuota 成功返回规范的 OpenRouter 纯数字配额');
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    if (String(url).includes('openrouter.ai')) {
+      return new Response(JSON.stringify({
+        data: { data: [{ request_count: 42 }] }
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return origFetch(url, opts);
+  };
+
+  try {
+    const quota = await getProviderQuota('openrouter-1');
+    assert.equal(quota.provider, 'openrouter');
+    assert.equal(quota.results?.quota?.status_code, 200);
+    assert.ok(Number.isFinite(quota.results?.quota?.data?.today_requests));
+    console.log('  ✓ getProviderQuota 成功返回规范的 OpenRouter 纯数字配额');
+  } finally {
+    globalThis.fetch = origFetch;
+  }
 }
 
 // 4. 激活窗口接口 activateUpstreamQuotaWindow 支持 openrouter
 console.log('测试 4: activateUpstreamQuotaWindow 探针兼容性');
 {
-  const activated = await activateUpstreamQuotaWindow({
-    authIndex: 'openrouter-1',
-    provider: 'openrouter'
-  });
-  assert.equal(activated.success, true);
-  assert.equal(activated.probe_response?.status_code, 200);
-  console.log('  ✓ activateUpstreamQuotaWindow 对 openrouter 凭证激活成功');
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => {
+    if (String(url).includes('openrouter.ai')) {
+      return new Response(JSON.stringify({
+        data: { data: [{ request_count: 42 }] }
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return origFetch(url, opts);
+  };
+
+  try {
+    const activated = await activateUpstreamQuotaWindow({
+      authIndex: 'openrouter-1',
+      provider: 'openrouter'
+    });
+    assert.equal(activated.success, true);
+    assert.equal(activated.probe_response?.status_code, 200);
+    console.log('  ✓ activateUpstreamQuotaWindow 对 openrouter 凭证激活成功');
+  } finally {
+    globalThis.fetch = origFetch;
+  }
 }
 
 // 5. Gate 本地自治数据存储与 CRUD 增删改查

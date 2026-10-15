@@ -1,5 +1,22 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.9.35] - 2026-10-15
+
+重构凭证统计主视图：剥离已删除留痕账号至底部折叠归档面板，彻底释放主监控工作区（Prune Deleted Historical Accounts to Bottom Collapsible Archive & Free Up Upstream Stats Workspace）：
+
+- **视觉层级与数据流清晰分离（Clear Visual Hierarchy & Data Stream Separation）**：
+  - **核心痛点解决**：针对在 CPA 中已被移除、但在 Gate 数据库仍保留历史审计流水的账号（`已删除账号 <前8位>`），过去作为同尺寸大卡片直接混排在主卡片网格中，大面积霸占首屏与工作区空间；
+  - **双通道数据流渲染**：在 `lib/analytics/status-summary.mjs` 中显式赋予 `is_deleted` 字段；在前端 `admin.html` 的 `renderUpstreamStatsTable()` 中将凭证精准拆分为活跃列表 (`activeItems`) 与已删除留痕列表 (`deletedItems`)；
+  - **主卡片网格专注有效资产**：主 CSS Grid 网格现在仅渲染正常运行的活跃上游凭证卡片，彻底排除无效干扰，信噪比大幅提高。
+- **Aozora UI 弱化次级收纳归档区（Aozora UI Subdued Collapsible Archive）**：
+  - 在卡片网格下方提供轻量半透明虚线框折叠组件（`<details class="deleted-accounts-archive">`），默认处于收起状态；
+  - **收起时极度克制**：仅呈现一条约 38px 高、低饱和度的折叠摘要条（`已删除账号历史留痕 (N 个账号) · 已从 CPA 移除，仅保留 Gate 审计流水与历史 Token`），完全不抢占视线；
+  - **展开时紧凑结构化**：采用轻量紧凑表格（`.deleted-accounts-table`），单行展示账号 ID、提供商 Pill、请求总数（成/败）、成功率、Token 消耗细分、分时水位（5h/24h/累计）及最后调用模型，5~10 个留痕凭据仅需一小段纵向空间即可纵览全局；
+  - **交互体验保持连贯**：搜索过滤或刷新时自动保留展开/收起状态，无留痕账号时自动隐藏。
+- **测试与验证（Test & Verification）**：
+  - `tests/test_openrouter_quota.mjs` 网络隔离与独立探针 Mock 完善；
+  - 全量 `npm test`（25 项功能测试、AST 语法验证、缓存水合测试等）与 `npm run test:management:ui`（Playwright 响应式测试）通过。
+
 ## [v2.9.34] - 2026-10-15
 
 彻底剥离内嵌 CPA 日志与配置，并重构「凭证统计」为 Aozora UI 账号卡片看板（Prune Embedded CPA Pages & Overhaul Upstream Stats with Account Cards Grid）：
