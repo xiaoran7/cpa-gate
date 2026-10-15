@@ -2969,7 +2969,7 @@
 <img alt="" src="/admin/assets/gate-sakura-mark-128.webp" width="39" height="39"/>
 </div>
 <div class="title-group">
-<h1>Gate <span class="version-tag">v2.9.36</span></h1>
+<h1>Gate <span class="version-tag">v2.9.37</span></h1>
 <div class="title-desc">LLM Gateway</div>
 </div>
 </div>
@@ -3486,6 +3486,10 @@
 <div class="filter-control-item" id="logs-key-filter-container">
 <span class="filter-label">筛选密钥:</span>
 <div aria-label="请求密钥筛选" class="dropdown" id="logs-key-dropdown" style="max-width:220px;"></div>
+</div>
+<div class="filter-control-item" id="logs-provider-filter-container">
+<span class="filter-label">服务商:</span>
+<div aria-label="请求服务商筛选" class="dropdown" id="logs-provider-dropdown" style="min-width:140px; max-width:200px;"></div>
 </div>
 <div class="filter-control-item" id="logs-time-filter-container">
 <span class="filter-label">时间跨度:</span>
@@ -4328,6 +4332,7 @@
     let nextPollTime = Date.now() + (pollingIntervalMs > 0 ? pollingIntervalMs : 60000);
     let eventFilter = 'all';
     let logsKeyFilter = 'all'; // all | key_id
+    let logsProviderFilter = 'all'; // all | provider_key
     let logsAuthFilter = 'all'; // all | auth_index
     let logsTimeRange = 'all'; // all | today | 24h | 3d | 7d | 30d
     let logsSearchQuery = '';
@@ -7928,6 +7933,7 @@
       });
       if (eventFilter && eventFilter !== 'all') params.set('filter', eventFilter);
       if (logsKeyFilter && logsKeyFilter !== 'all') params.set('key_id', logsKeyFilter);
+      if (logsProviderFilter && logsProviderFilter !== 'all') params.set('provider', logsProviderFilter);
       if (logsTimeRange && logsTimeRange !== 'all') params.set('time_range', logsTimeRange);
       if (!isMember && logsAuthFilter && logsAuthFilter !== 'all') params.set('auth_index', logsAuthFilter);
       if (logsSearchQuery) params.set('search', logsSearchQuery);
@@ -7941,6 +7947,7 @@
         if (badge) badge.innerText = cachedEventsTotal > 9999 ? '9999+' : cachedEventsTotal;
         renderEventsTable(cachedEvents, cachedEventsTotal);
         if (!isMember) updateLogsKeySelect(cachedEvents);
+        updateLogsProviderSelect(cachedEvents);
         // 如果缓存极新鲜 (< 4s)，直接返回，实现瞬时翻页体验
         if (Date.now() - cached.ts < 4000) return;
       }
@@ -7975,7 +7982,7 @@
         cachedEventsTotal = incomingTotal;
         const badge = document.getElementById('nav-badge-logs');
         if (badge) badge.innerText = cachedEventsTotal > 9999 ? '9999+' : cachedEventsTotal;
-        if (logsPage === 1 && (!eventFilter || eventFilter === 'all') && (!logsKeyFilter || logsKeyFilter === 'all') && (!logsTimeRange || logsTimeRange === 'all') && (!logsAuthFilter || logsAuthFilter === 'all') && !logsSearchQuery) {
+        if (logsPage === 1 && (!eventFilter || eventFilter === 'all') && (!logsKeyFilter || logsKeyFilter === 'all') && (!logsProviderFilter || logsProviderFilter === 'all') && (!logsTimeRange || logsTimeRange === 'all') && (!logsAuthFilter || logsAuthFilter === 'all') && !logsSearchQuery) {
           try {
             localStorage.setItem(KEY_STORAGE_LOGS, JSON.stringify({ events: cachedEvents.slice(0, 50), total: cachedEventsTotal, ts: Date.now() }));
           } catch {}
@@ -7983,6 +7990,7 @@
         if (!isMember) {
           updateLogsKeySelect(cachedEvents);
         }
+        updateLogsProviderSelect(cachedEvents);
 
         // 热加载：若数据一模一样，静默更新分页器文字，绝不销毁重建 DOM，杜绝抖动与选区丢失
         if (isExactSame && !force) {
@@ -8051,6 +8059,71 @@
       logsKeyFilter = val;
       logsPage = 1;
       fetchEventsData();
+    }
+
+    function changeLogsProviderFilter(val) {
+      logsProviderFilter = val || 'all';
+      logsPage = 1;
+      fetchEventsData();
+    }
+
+    function filterBySpecificProvider(provider) {
+      if (!provider) return;
+      logsProviderFilter = String(provider).toLowerCase();
+      if (dropdownInstances['logs-provider-dropdown']) {
+        dropdownInstances['logs-provider-dropdown'].setValue(logsProviderFilter, false);
+      }
+      logsPage = 1;
+      fetchEventsData();
+      const brand = getProviderBrand(logsProviderFilter);
+      showToast(`已仅筛选服务商 ${brand.name || logsProviderFilter} 的请求流水`, 'success');
+    }
+
+    function updateLogsProviderSelect(events = []) {
+      if (!dropdownInstances['logs-provider-dropdown']) return;
+      const provMap = new Map();
+      const presetProviders = [
+        { value: 'antigravity', label: '反重力 Antigravity' },
+        { value: 'codex', label: 'OpenAI Codex' },
+        { value: 'gemini', label: 'Google Gemini' },
+        { value: 'claude', label: 'Anthropic Claude' },
+        { value: 'stepfun', label: 'StepFun 阶跃星辰' },
+        { value: 'opencode', label: 'OpenCode Zen' },
+        { value: 'workbuddy', label: '腾讯 WorkBuddy' },
+        { value: 'workbuddy-cn', label: 'WorkBuddy (CodeBuddy)' },
+        { value: 'deepseek', label: 'DeepSeek' },
+        { value: 'openrouter', label: 'OpenRouter' },
+        { value: 'qwen', label: 'Qwen 通义千问' },
+        { value: 'moonshot', label: 'Moonshot Kimi' },
+        { value: 'zhipu', label: 'Zhipu GLM' },
+        { value: 'stealth', label: 'stealth' },
+        { value: 'other', label: '其他上游' }
+      ];
+      for (const p of presetProviders) {
+        provMap.set(p.value, p.label);
+      }
+      if (typeof cachedUpstream !== 'undefined' && Array.isArray(cachedUpstream?.accounts)) {
+        for (const acc of cachedUpstream.accounts) {
+          if (acc?.provider && acc.provider !== 'unknown' && !provMap.has(acc.provider)) {
+            const brand = getProviderBrand(acc.provider);
+            provMap.set(acc.provider, brand.name || acc.provider);
+          }
+        }
+      }
+      if (Array.isArray(events)) {
+        for (const ev of events) {
+          const p = resolveEventProvider(ev);
+          if (p && !provMap.has(p)) {
+            const brand = getProviderBrand(p);
+            provMap.set(p, brand.name || p);
+          }
+        }
+      }
+      const options = [{ value: 'all', label: '全部服务商 (不限)' }];
+      for (const [val, label] of provMap.entries()) {
+        options.push({ value: val, label });
+      }
+      dropdownInstances['logs-provider-dropdown'].updateOptions(options, logsProviderFilter);
     }
 
     function changeLogsTimeRange(val) {
@@ -8252,7 +8325,7 @@
         authTdHtml = `
           <div style="cursor:pointer;" onclick="filterBySpecificAuth('${escapeHtml(ev.auth_index)}')" title="点击筛选此上游账号的流水">
             <div style="display:flex; align-items:center; gap:5px;">
-              <span class="provider-pill ${authBrand.pillClass}" style="font-size:9.5px; padding:0 4px;">${escapeHtml(authBrand.name)}</span>
+              <span class="provider-pill ${authBrand.pillClass}" style="font-size:9.5px; padding:0 4px; cursor:pointer;" onclick="event.stopPropagation(); filterBySpecificProvider('${escapeHtml(authBrand.id)}');" title="点击仅看该服务商的请求流水">${escapeHtml(authBrand.name)}</span>
               <span style="font-weight:600; color:var(--text-main); font-size:11.5px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(authName || ev.auth_index)}">
                 ${escapeHtml(authName || ev.auth_index)}
               </span>
@@ -8975,6 +9048,33 @@
         value: logsKeyFilter || 'all',
         onChange: val => changeLogsKeyFilter(val)
       });
+
+      // 3.5 流水服务商筛选
+      if (document.getElementById('logs-provider-dropdown')) {
+        dropdownInstances['logs-provider-dropdown'] = new CustomDropdown({
+          containerId: 'logs-provider-dropdown',
+          options: [
+            { value: 'all', label: '全部服务商 (不限)' },
+            { value: 'antigravity', label: '反重力 Antigravity' },
+            { value: 'codex', label: 'OpenAI Codex' },
+            { value: 'gemini', label: 'Google Gemini' },
+            { value: 'claude', label: 'Anthropic Claude' },
+            { value: 'stepfun', label: 'StepFun 阶跃星辰' },
+            { value: 'opencode', label: 'OpenCode Zen' },
+            { value: 'workbuddy', label: '腾讯 WorkBuddy' },
+            { value: 'workbuddy-cn', label: 'WorkBuddy (CodeBuddy)' },
+            { value: 'deepseek', label: 'DeepSeek' },
+            { value: 'openrouter', label: 'OpenRouter' },
+            { value: 'qwen', label: 'Qwen 通义千问' },
+            { value: 'moonshot', label: 'Moonshot Kimi' },
+            { value: 'zhipu', label: 'Zhipu GLM' },
+            { value: 'stealth', label: 'stealth' },
+            { value: 'other', label: '其他上游' }
+          ],
+          value: logsProviderFilter || 'all',
+          onChange: val => changeLogsProviderFilter(val)
+        });
+      }
 
       // 4. 流水时间跨度筛选
       if (document.getElementById('logs-time-dropdown')) {

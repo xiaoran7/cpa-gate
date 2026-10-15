@@ -1,5 +1,23 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.9.37] - 2026-10-15
+
+实时请求流水新增上游服务商维度筛选与全链路打通（Add Upstream Provider Filter to Activity Logs & End-to-End Pipeline Alignment）：
+
+- **服务端过滤与统一口径对齐（Server-Side SQLite Extension & Zero Drift Inference）**：
+  - **核心痛点解决**：过去在管理后台与成员中心的“请求流水”面板中，仅支持按密钥、时间跨度、错误类型及文本模糊搜索，无法按具体的 AI 服务商（如 OpenAI Codex、Claude、Gemini、StepFun、OpenCode、WorkBuddy 等）快速聚焦定位；
+  - **Better-SQLite3 运行时原生扩展**：在 [lib/analytics/audit-logs.mjs](lib/analytics/audit-logs.mjs) 中通过 `quotaDb.function('resolve_event_provider', ...)` 原生注册 JavaScript 提供商推断函数，使得 SQL 层的 `WHERE resolve_event_provider(auth_index, model) = ?` 筛选口径与列表展示层的 `resolveEventAuthInfo` 实现 100% 绝对一致，杜绝了重新编写 SQL 正则导致的分类漂移与抢断顺序错乱；
+  - **覆盖索引与多级缓存防抖**：分页查询继续保持延迟关联（Deferred Join）极致性能；同时将 `provider` 精准纳入 `pagedRequestsCache` 的缓存键计算，确保切换服务商时缓存严格隔离并支持即时更新；
+  - **REST API 双重视图全覆盖**：在 [lib/routes/admin-routes.mjs](lib/routes/admin-routes.mjs) 与 [lib/routes/member-routes.mjs](lib/routes/member-routes.mjs) 的 `/admin/api/requests` 与 `/api/member/requests` 中同步解析并透传 `provider` 参数，实现管理员端全局查看与成员端个人视角的一致可用。
+- **前端 Aozora UI 交互与下拉组件整合（Aozora UI Modern Dropdown & Interactive Pills）**：
+  - **专属控制栏筛选器**：在 [admin.html](admin.html) 的流水控制条中，于密钥筛选器旁新增 `#logs-provider-filter-container` 与 `#logs-provider-dropdown` 轻量定制下拉组件；
+  - **内置主流与动态上游选项聚合**：下拉框默认预设所有官方认证的主流服务商，并结合已同步的活跃凭据账号与当前流水动态补充未见服务商，选项完整且不产生布局重绘；
+  - **一键胶囊快捷聚焦**：流水表格中各行的提供商 Pill 胶囊绑定点击筛选事件，支持用户在滚动日志时一键点击快速只看该服务商的全部流水；
+  - **热加载与无损体验**：筛选切换时维持防抖与平滑加载，不破坏滚动条与页面选区。
+- **自动化测试闭环（Integration Test & Verification）**：
+  - 在 [tests/test_gate_features.mjs](tests/test_gate_features.mjs) 中新增“测试 26”，端到端模拟插入多提供商流水，严格校验单服务商精确匹配、多服务商排除、全部模式兼容性、多级缓存键隔离，以及路由透传与前端 DOM 契约；
+  - 全套 `npm test`（26 项功能测试、语法校验、多级缓存与水合测试等）全绿通过。
+
 ## [v2.9.36] - 2026-10-15
 
 优化提供商注册表空壳平滑升级机制并补齐前端推断覆盖（Optimize Provider Registry CPA Skeleton Upgrade & Frontend Fallback Matching）：

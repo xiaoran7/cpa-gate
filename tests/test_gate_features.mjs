@@ -1832,4 +1832,106 @@ console.log('测试 25: 腾讯 WorkBuddy / CodeBuddy 上游提供商接入与全
   console.log('');
 }
 
+// -------------------------------------------------------------
+// 测试 26: 请求流水按服务商筛选端到端与全链路契约 (v2.9.37)
+// -------------------------------------------------------------
+{
+  console.log('测试 26: 请求流水按服务商筛选端到端与全链路契约');
+  const auditLogs = await import('../lib/analytics/audit-logs.mjs');
+  const { quotaDb } = await import('../lib/db/sqlite.mjs');
+
+  const nowTs = Math.floor(Date.now() / 1000);
+  const authClaude = 'test_filter_claude_auth';
+  const modelClaude = 'claude-3-7-sonnet-20250219';
+  const authCodex = 'test_filter_codex_auth';
+  const modelCodex = 'gpt-4o';
+
+  // 1) 插入测试流水数据
+  const stmtInsert = quotaDb.prepare(`
+    INSERT INTO request_events (ts, key_id, model, status, prompt_tokens, completion_tokens, cached_tokens, total_tokens, latency_ms, ttft_ms, stream, estimated, error_type, auth_index)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  stmtInsert.run(nowTs, 1, modelClaude, 200, 100, 50, 0, 150, 1200, 400, 1, 0, null, authClaude);
+  stmtInsert.run(nowTs, 1, modelCodex, 200, 200, 80, 0, 280, 900, 300, 1, 0, null, authCodex);
+
+  auditLogs.clearAuditLogsCache();
+
+  try {
+    // 2) 筛选 provider = 'claude'
+    const resClaude = auditLogs.getPagedRequests({ page: 1, pageSize: 20, provider: 'claude' });
+    assert.ok(resClaude.events.length > 0, '筛选 claude 时应能查到记录');
+    assert.ok(resClaude.events.every(e => e.provider === 'claude'), '筛选 claude 时所有返回流水 provider 必须为 claude');
+    assert.ok(resClaude.events.some(e => e.auth_index === authClaude), '必须包含测试插入的 claude 流水');
+    assert.ok(!resClaude.events.some(e => e.auth_index === authCodex), '不能包含 codex 流水');
+
+    // 3) 筛选 provider = 'codex'
+    const resCodex = auditLogs.getPagedRequests({ page: 1, pageSize: 20, provider: 'codex' });
+    assert.ok(resCodex.events.length > 0, '筛选 codex 时应能查到记录');
+    assert.ok(resCodex.events.every(e => e.provider === 'codex'), '筛选 codex 时所有返回流水 provider 必须为 codex');
+    assert.ok(resCodex.events.some(e => e.auth_index === authCodex), '必须包含测试插入的 codex 流水');
+    assert.ok(!resCodex.events.some(e => e.auth_index === authClaude), '不能包含 claude 流水');
+
+    // 4) provider = 'all' 或 null 包含两者
+    const resAll = auditLogs.getPagedRequests({ page: 1, pageSize: 50, provider: 'all' });
+    assert.ok(resAll.events.some(e => e.auth_index === authClaude), '全部流水必须包含 claude');
+    assert.ok(resAll.events.some(e => e.auth_index === authCodex), '全部流水必须包含 codex');
+
+    // 5) 缓存隔离验证：连续调用命中缓存，且不同 provider 互不覆盖
+    const cachedClaude = auditLogs.getPagedRequests({ page: 1, pageSize: 20, provider: 'claude' });
+    assert.strictEqual(resClaude, cachedClaude, '相同查询应命中内存缓存引用');
+    const cachedCodex = auditLogs.getPagedRequests({ page: 1, pageSize: 20, provider: 'codex' });
+    assert.strictEqual(resCodex, cachedCodex, '相同查询应命中内存缓存引用');
+    assert.notStrictEqual(cachedClaude, cachedCodex, '不同 provider 缓存键必须严格隔离');
+
+    console.log('  ✓ getPagedRequests 服务端多服务商过滤与缓存隔离验证通过');
+  } finally {
+    quotaDb.prepare('DELETE FROM request_events WHERE auth_index IN (?, ?)').run(authClaude, authCodex);
+    auditLogs.clearAuditLogsCache();
+  }
+
+  // 6) 路由参数透传契约校验
+  const adminRoutesSrc = fs.readFileSync('lib/routes/admin-routes.mjs', 'utf8');
+  assert.ok(
+    adminRoutesSrc.includes("provider: url.searchParams.get('provider') || null"),
+    'admin-routes.mjs 必须透传 provider 查询参数'
+  );
+
+  const memberRoutesSrc = fs.readFileSync('lib/routes/member-routes.mjs', 'utf8');
+  assert.ok(
+    memberRoutesSrc.includes("provider: url.searchParams.get('provider') || null"),
+    'member-routes.mjs 必须透传 provider 查询参数'
+  );
+  console.log('  ✓ 路由层 provider 参数接收与透传契约验证通过');
+
+  // 7) 前端 DOM 与脚本契约校验
+  const adminHtml = fs.readFileSync('admin.html', 'utf8');
+  assert.ok(
+    adminHtml.includes('id="logs-provider-filter-container"'),
+    'admin.html 必须包含 logs-provider-filter-container 容器'
+  );
+  assert.ok(
+    adminHtml.includes('id="logs-provider-dropdown"'),
+    'admin.html 必须包含 logs-provider-dropdown 下拉组件'
+  );
+  assert.ok(
+    adminHtml.includes('function changeLogsProviderFilter'),
+    'admin.html 必须实现 changeLogsProviderFilter 函数'
+  );
+  assert.ok(
+    adminHtml.includes('function filterBySpecificProvider'),
+    'admin.html 必须实现 filterBySpecificProvider 快捷胶囊筛选函数'
+  );
+  assert.ok(
+    adminHtml.includes('function updateLogsProviderSelect'),
+    'admin.html 必须实现 updateLogsProviderSelect 动态选项更新函数'
+  );
+  assert.ok(
+    adminHtml.includes("params.set('provider', logsProviderFilter)"),
+    'admin.html fetchEventsData 中必须携带 provider 参数'
+  );
+  console.log('  ✓ 前端 DOM 组件、状态管理与胶囊筛选交互契约验证通过');
+  console.log('');
+}
+
 console.log('=== 全部集成测试用例执行完毕，全部通过！===');
