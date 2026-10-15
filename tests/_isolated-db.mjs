@@ -41,7 +41,9 @@ export function isolateTestDb(testUrl, label = 'gate-test') {
         GATE_DIR: dir,
         GATE_DB: join(dir, 'gate.db'),
         // Keeper 库指向不存在的文件：测试不该去读开发机/生产机上的 keeper.db。
-        GATE_KEEPER_DB: join(dir, 'missing-keeper.db')
+        GATE_KEEPER_DB: join(dir, 'missing-keeper.db'),
+        GATE_MGMT_SECRET: process.env.GATE_MGMT_SECRET || 'test-secret-12345678901234567890',
+        GATE_ADMIN_SECRET: process.env.GATE_ADMIN_SECRET || 'test-admin-secret-12345678901234567890'
       },
       stdio: 'inherit'
     });

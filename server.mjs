@@ -40,6 +40,7 @@ import {
   executeTransportGuard,
   sanitizeResponseHeaders
 } from './lib/proxy/transport.mjs';
+import { handleWebSocketUpgrade } from './lib/proxy/websocket-proxy.mjs';
 import { handleSystemRoutes } from './lib/routes/system-routes.mjs';
 import { handleStaticRoutes } from './lib/routes/static-routes.mjs';
 import { handleMemberRoutes } from './lib/routes/member-routes.mjs';
@@ -416,6 +417,11 @@ for (const target of BIND_TARGETS) {
   srv.requestTimeout = 0;
   srv.headersTimeout = 0;
   srv.keepAliveTimeout = 120000;
+
+  // 监听 WebSocket Upgrade 事件，支持标准与增量 WebSocket 穿透代理
+  srv.on('upgrade', (req, socket, head) => {
+    handleWebSocketUpgrade(req, socket, head);
+  });
 
   srv.on('error', (err) => {
     console.error(`[Gate] Failed to bind ${target.name} on ${target.host}:${target.port}:`, err.message);

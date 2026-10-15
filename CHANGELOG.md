@@ -1,5 +1,30 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.9.30] - 2026-10-15
+
+全面补齐上下行 HTTP 压缩（Gzip/Deflate/Brotli）解压感知与 WebSocket 全双工穿透代理（HTTP Compression Decompression & WebSocket Full-Duplex Proxying）：
+
+- **背景与痛点治理（Background & Industry Alignment）**：
+  - 针对社区反馈“网关与客户端上下行不采用 HTTP 压缩导致跨海跨区流量浪费严重”、“缺少 WebSocket 升级支持导致增量 WS 协议与 Realtime 模式失效”等关键架构缺陷进行全面自查与治理；
+  - 彻底拔除 Gate 架构中“上行请求体不支持压缩”、“下行压缩响应破坏 Token 审计”以及“完全不支持 WebSocket 升级”三大硬伤。
+- **架构重构与核心能力落地（Architecture & Implementation）**：
+  - **上行请求体自适应解压（Request Body Decompression）**：
+    - 在 [lib/config.mjs](lib/config.mjs) 中封装 `decompressBody`，支持 `gzip`、`deflate` 与 `br` (Brotli) 算法；
+    - 在 `readBody` 中感知客户端 `Content-Encoding` 请求头并完成透明解压，支持现代客户端/SDK 发送压缩 Payload 节省上行网络带宽；
+    - 转发给上游时安全剔除 `content-encoding` 并重新计算 `content-length`，彻底消除上游 CPA 不支持上行解压导致的兼容性隐患。
+  - **下行响应压缩保留与内存感知审计（Downstream Decompression for Audit）**：
+    - 在 [lib/proxy/transport.mjs](lib/proxy/transport.mjs) 中优化非流式与错误响应处理流程；
+    - 当上游返回经过压缩的响应时，向客户端原样保留并透传 `Content-Encoding: gzip/deflate/br`，极致节约出站下行带宽；
+    - 网关在后台通过 `decompressBody` 解压内存副本进行 `JSON.parse`，精准提取 `usage` 与 `finish_reason`，彻底解决因压缩二进制流导致的 Token 审计失真问题。
+  - **WebSocket (WS/WSS) 升级代理与全双工穿透（`lib/proxy/websocket-proxy.mjs`）**：
+    - 在 [server.mjs](server.mjs) 中挂载原生 `upgrade` 协议升级事件监听器；
+    - **前置安全防御与配额守卫**：全方位支持 Header Bearer、URL Query（`token`/`api_key`/`key`）、`Sec-WebSocket-Protocol` 及 Cookie 多源凭据提取，在升级握手前严格执行 Key 鉴权、RPM 限速、日配额与熔断器可用性检查，非法/未认证长连接请求一律在握手层安全拦截；
+    - **双向全双工管道**：上游响应 `101 Switching Protocols` 后，建立零缓冲 Socket 直通管道，无缝穿透标准 WebSocket、增量 WebSocket（如 Codex 增量代码流、ZCode 增量协议）以及 OpenAI Realtime 双向会话；
+    - **审计闭环**：成功升级的 WebSocket 会话纳入 Gate 审计流水（`status: 101`，`stream: true`）。
+- **测试验证（Verification & Benchmark）**：
+  - 新增全链路集成测试 [tests/test_compression_websocket.mjs](tests/test_compression_websocket.mjs)，端到端覆盖 Gzip/Deflate/Brotli 解压、客户端上行压缩传输、WebSocket 401 拦截与 101 双向回声测试、下行 Gzip 压缩透传与审计；
+  - 运行 `npm test`，全套 26 项集成测试 100% 通过（`PASS`）。
+
 ## [v2.9.29] - 2026-10-15
 
 移动端加载极限性能优化：静态资产 WebP 适配、服务端 Gzip 动态压缩与 ETag 304 协商缓存落地（Mobile Performance & Static Caching Architecture）：
