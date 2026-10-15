@@ -36,7 +36,41 @@ console.log('测试 1: parseWorkBuddyGroups 提取解析腾讯资源包');
   assert.equal(b.remaining_percent, 100);
   assert.equal(b.used_percent, 0);
   assert.equal(b.reset_countdown, '剩余 799.88 积分');
-  console.log('  ✓ parseWorkBuddyGroups 正确解析并计算资源包数据');
+  console.log('  ✓ parseWorkBuddyGroups 正确解析并计算资源包数据 (顶层 Packages)');
+
+  // 1.2: 验证嵌套在 data.Packages 中的真实生产响应载荷
+  const mockRealProduction = {
+    code: 0,
+    msg: 'OK',
+    requestId: 'req-wb-12345',
+    data: {
+      Packages: [
+        {
+          PackageCode: 'TCACA_code_006_DbXS0lrypC',
+          CycleTotalCapacity: '250',
+          CycleRemainCapacity: '250',
+          CycleUsedCapacity: '0',
+          CapacityUnit: 'credit'
+        },
+        {
+          PackageCode: 'TCACA_code_035_ArVxJcGDsm',
+          CycleTotalCapacity: '100',
+          CycleRemainCapacity: '100',
+          CycleUsedCapacity: '0',
+          CapacityUnit: 'credits'
+        }
+      ],
+      SubscriptionPackageName: 'Free'
+    }
+  };
+
+  const realGroups = parseWorkBuddyGroups(mockRealProduction);
+  assert.equal(realGroups.length, 1, '应返回 1 个模型组');
+  assert.equal(realGroups[0].buckets.length, 2, '包含 2 个周期包');
+  assert.equal(realGroups[0].buckets[0].name, 'TCACA_code_006_DbXS0lrypC', '无 PackageName 时应平滑回退到 PackageCode');
+  assert.equal(realGroups[0].buckets[0].remain_capacity, 250);
+  assert.equal(realGroups[0].buckets[1].remain_capacity, 100);
+  console.log('  ✓ parseWorkBuddyGroups 正确解析真实生产环境 data.Packages 嵌套响应');
 }
 
 // 测试 2: admin.html 内联语法与 WorkBuddy 积分渲染契约
