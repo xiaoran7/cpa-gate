@@ -1,5 +1,15 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.9.34] - 2026-10-15
+
+优化 OpenRouter 上游配额展示形态：精简为纯调用计数直出（OpenRouter Quota UI Refinement: Pure Request Count Display）：
+
+- **展示策略优化（Display Simplification）**：
+  - 去除之前假定的 800 次每日上限与剩余可用次数计算，避免因实际额度变动产生认知误导；
+  - 列表紧凑视图与卡片视图统一精简为**纯数字直出今日已调用次数**，并展示统计周期为 UTC 00:00 - 24:00 及重置倒计时；
+  - 凭据计划名称自适应调整为清爽的 `Free`，去除多余的固定限额后缀。
+- **全量测试（Verification）**：自动化测试套件通过。
+
 ## [v2.9.33] - 2026-10-15
 
 明确 CPA 与 Gate 架构职责边界，彻底剥离 Gate 控制台中的“账号接入”与“提供商”模块（Architectural Boundary Clarification: Pruned Account Access & AI Providers Modules）：
