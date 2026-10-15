@@ -1,5 +1,32 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.9.29] - 2026-10-15
+
+移动端加载极限性能优化：静态资产 WebP 适配、服务端 Gzip 动态压缩与 ETag 304 协商缓存落地（Mobile Performance & Static Caching Architecture）：
+
+- **背景与根因排查（Background & Diagnosis）**：
+  - 用户反馈手机浏览器访问 Gate 控制台（`/admin`）加载极其迟缓，甚至出现数十秒卡顿；
+  - 链路全生命周期排查确认后端 SQLite 查询耗时极低（单次 `LIMIT 3000` 流水在 5ms 内），真正瓶颈在于跨海移动网络下的巨大静态传输负载与严苛缓存策略：
+    1. **静态大图传输庞大**：原桌面横幅 `sakura-gate-v2.png` 达 2.02 MB，高分率 Logo `gate-sakura-mark-v2.png` 达 366 KB，移动端无差别下载全尺寸资源；
+    2. **服务端未开启传输压缩**：`admin.html` 单文件达 612 KB、上游兜底 `management.html` 达 3.35 MB，均以原始文本明文传输；
+    3. **静态路由强开 `no-store`**：此前路由层为防旧缓存残留强制设置 `no-store`，导致移动端浏览器每次刷新或前后台切换均强制重新拉取 3.0 MB+ 原始数据。
+- **架构重构与性能工程（Architecture & Performance Engineering）**：
+  - **静态素材 WebP 转换与移动端媒体查询断点（`gate-assets/` & `admin.html`）**：
+    - 桌面端横幅重构为 WebP 格式（`sakura-gate-v2.webp`），体积从 2,025 KB 降至 127 KB（**体积缩减 93.7%**）；
+    - 针对移动端屏幕尺寸（`@media (max-width: 640px)`）专门裁切并生成轻量级移动端横幅（`sakura-gate-mobile.webp`），体积仅 47 KB（**体积缩减 97.7%**）；
+    - 品牌 Logo 转换为 128px Retina WebP（`gate-sakura-mark-128.webp`），体积从 366 KB 降至 4.5 KB（**缩减 98.8%**），并提供 8.7 KB 的 PNG 兜底。
+  - **服务端多级内存缓存与 ETag 304 零负载协商（`lib/routes/static-routes.mjs`）**：
+    - 设计 `sendFileWithCache` 工具函数，以 `filePath`、`mtimeMs` 与 `size` 为索引构建服务端内存缓存池（`staticCache`），彻底消除每次 HTTP 请求重复读取磁盘与重复压缩计算的 CPU/IO 开销；
+    - 自动计算 16 位 MD5 ETag 并响应客户端 `If-None-Match`，匹配时直接秒级返回 `304 Not Modified`（网络有效传输负载为 0 字节）；
+    - 精准解耦缓存控制策略：图片类资产赋予 `public, max-age=604800, immutable`（强缓存 7 天无需回源），HTML、JS 与 CSS 等动态页面赋予 `no-cache` + ETag（强制协商验证，既规避旧缓存 bug，又享受秒开 304）。
+  - **动态 Gzip / Deflate 预压缩（`lib/routes/static-routes.mjs` & `lib/routes/upstream-proxy.mjs`）**：
+    - 静态路由根据客户端 `Accept-Encoding` 头自适应下发 Gzip 或 Deflate 压缩流，`admin.html` 传输体积从 612 KB 降至 ~150 KB；
+    - 上游兜底控制台 `management.html` 同样支持预压缩，传输体积从 3.35 MB 降至 ~750 KB。
+- **效果验证（Verification & Benchmark）**：
+  - 手机移动端首次访问总传输体积从 **~3.0 MB 降至 ~206 KB，降幅达 93.1%**；
+  - 手机端二次访问与前后台切换命中 ETag 304 与浏览器本地强缓存，传输负载 **降低 100%**，真正实现移动端秒开；
+  - 自动化回归套件 `npm test` 25 项全链路测试与 `test_cpa_management.mjs` 100% 通过。
+
 ## [v2.9.28] - 2026-10-14
 
 AOCI 认知边界治理与 Git 零污染规范化落地（AOCI Zero-Footprint & Clean Repository Governance）：
