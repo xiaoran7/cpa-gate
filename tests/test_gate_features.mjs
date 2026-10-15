@@ -1798,6 +1798,11 @@ console.log('测试 25: 腾讯 WorkBuddy / CodeBuddy 上游提供商接入与全
     'admin.html 中的 resolveEventProvider 必须包含 workbuddy 推断分支'
   );
 
+  assert.ok(
+    adminHtml.includes("m.includes('copilot.tencent')"),
+    'admin.html 中的 resolveEventProvider 必须覆盖 copilot.tencent 推断分支'
+  );
+
   console.log('  ✓ 前端 admin.html 凭证过滤、品牌图标与流水推断契约验证通过');
 
   // 4) 验证 lib/routes/admin-routes.mjs 中的 WebUI OAuth 集合
@@ -1806,7 +1811,24 @@ console.log('测试 25: 腾讯 WorkBuddy / CodeBuddy 上游提供商接入与全
     'CPA_WEBUI_OAUTH 必须包含 workbuddy 与 workbuddy-cn 以便透传 ?is_webui=true'
   );
 
-  console.log('  ✓ CPA 管理接口 WebUI OAuth 鉴权标记配置验证通过');
+  // 5) 验证老数据库存在 CPA 空壳骨架时支持增量升级为官方 builtin 规则
+  const { quotaDb, stmtProviderRegistryUpsert } = await import('../lib/db/sqlite.mjs');
+  stmtProviderRegistryUpsert.run({
+    provider_key: 'workbuddy',
+    label: 'workbuddy',
+    model_patterns: JSON.stringify([]),
+    auth_patterns: JSON.stringify([]),
+    source: 'cpa',
+    enabled: 1,
+    sort_order: 500
+  });
+  reg.initProviderRegistry();
+  const upgradedWb = reg.listProviderRegistry().find(p => p.provider_key === 'workbuddy');
+  assert.equal(upgradedWb.source, 'builtin', 'CPA 空壳应当平滑升级为 builtin');
+  assert.equal(upgradedWb.label, '腾讯 WorkBuddy', '升级后 label 恢复官方权威文案');
+  assert.ok(upgradedWb.model_patterns.length > 0, '升级后 patterns 补齐');
+
+  console.log('  ✓ 既有 CPA 空壳平滑升级为官方 builtin 规则验证通过');
   console.log('');
 }
 

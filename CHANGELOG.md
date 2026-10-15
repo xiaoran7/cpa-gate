@@ -1,5 +1,18 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.9.36] - 2026-10-15
+
+优化提供商注册表空壳平滑升级机制并补齐前端推断覆盖（Optimize Provider Registry CPA Skeleton Upgrade & Frontend Fallback Matching）：
+
+- **注册表增量平滑升级（Provider Registry Incremental Upgrade）**：
+  - **核心痛点解决**：在早期从 CPA 同步过占位记录的数据库中，`provider_registry` 表内部分内置提供商可能仅以 `source: 'cpa'` 且 `model_patterns` / `auth_patterns` 均为空数组的形式作为空壳占位存在；
+  - **智能识别与升级**：重构 [lib/core/provider-registry.mjs](lib/core/provider-registry.mjs) 中的 `initProviderRegistry()`，在启动增量补种阶段不仅比对缺失键，还自动检测并识别仅包含空 pattern 的 CPA 空壳记录，安全且幂等地将其平滑升级为官方权威内置规则（恢复权威 label、完整 patterns 及内置优先级），同时严格保留用户手动录入的 `manual` 规则或已有自定义 pattern 的配置。
+- **前端回落推断口径严格对齐（Frontend Offline Inference Alignment）**：
+  - 同步更新 [admin.html](admin.html) 中的 `resolveEventProvider(ev)` 离线兜底推断逻辑，补齐 `copilot.tencent` 匹配特征，确保在离线回落状态下 WorkBuddy 模型的流量归属与后端注册表完全对齐。
+- **测试与回归验证（Test & Verification）**：
+  - 在 [tests/test_gate_features.mjs](tests/test_gate_features.mjs) 测试 25 中扩展断言：覆盖前端 `copilot.tencent` 规则校验，以及模拟历史数据库 CPA 空壳记录在系统启动时的增量自动升级与权威字段恢复校验；
+  - 全量 `npm test`（25 项功能测试、AST 语法验证、缓存水合测试等）全绿通过。
+
 ## [v2.9.35] - 2026-10-15
 
 重构凭证统计主视图：剥离已删除留痕账号至底部折叠归档面板，彻底释放主监控工作区（Prune Deleted Historical Accounts to Bottom Collapsible Archive & Free Up Upstream Stats Workspace）：
