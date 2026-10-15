@@ -1,5 +1,14 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.9.32] - 2026-10-15
+
+补齐 OpenRouter 独立提供商配额集成测试套件并纳入 CI/npm test 闭环（OpenRouter Quota Integration Test Suite）：
+
+- **测试自动化（Automated Testing）**：
+  - 新增全链路集成测试 [tests/test_openrouter_quota.mjs](tests/test_openrouter_quota.mjs)；
+  - 覆盖 OpenRouter 免费层 800 次每日限额计算、UTC 00:00 重置倒计时、凭据归一化与调用次数解析、独立凭证探针查询与 `activateUpstreamQuotaWindow` 原地激活兼容性；
+  - 在 [package.json](package.json) 中将该测试纳入 `npm test` 必过流水线。
+
 ## [v2.9.31] - 2026-10-15
 
 集成 OpenRouter 独立提供商配额管理与今日用量实时探测（OpenRouter Free Tier Daily Quota & In-Place Probe）：
