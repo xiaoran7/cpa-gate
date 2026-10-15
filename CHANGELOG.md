@@ -1,5 +1,22 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.9.38] - 2026-10-15
+
+重构美化 API 密钥管理表格排版并实现 WorkBuddy 剩余积分与官方资源包实时高亮呈现（Refactor API Keys Table Alignment & Add WorkBuddy Credits Display to Upstream Cards）：
+
+- **API 密钥表格排版整洁化与视觉对齐（API Keys Table Aozora UI 60 FPS Refactoring）**：
+  - **核心痛点解决**：此前“模型权限”列中纯文本 `全部 (*)` 与带边框的 `允许 N 个模型` 胶囊混排，导致表格横向扫描重心不一；同时有硬顶限制的行塞有进度条，无限制的行则没有，导致表格行高忽高忽矮（48px~72px 错落跳动），严重影响整洁度与阅读体验；
+  - **规整胶囊设计**：统一采用带微圆点的圆角微胶囊 `.model-perm-badge`：无限制时渲染青空蓝微胶囊 `<span class="model-perm-badge all"><span class="perm-dot all"></span>全部模型 (*)</span>`，限制模型时渲染紫罗兰微胶囊 `<span class="model-perm-badge limited"><span class="perm-dot limited"></span>允许 N 个模型</span>`，具备统一步长与基线对齐；
+  - **用量单元格高度锁死与结构化布局**：引入 `.key-usage-cell` 复合微容器，第一行固定展示高亮今日 Tokens 与请求次数，第二行展示累计用量与限额百分比标签，底部统一预留 4px 进度条槽位（未设置限额时渲染极其清透的 `.usage-progress-bar.unlimited` 占位槽），确保所有表格行高严格水平对齐，彻底消除纵向高低跳动；
+  - **缓存命中与空值统一**：0% 缓存命中率统一采用微胶囊 `.chip-cache.zero`，未设每日额度与 RPM 时统一采用 `<span class="cell-unlimited">不限</span>`，表格整体规整、通透、层次分明。
+- **腾讯 WorkBuddy / CodeBuddy 剩余积分与额度呈现（WorkBuddy Credits & Packages Quota Rendering）**：
+  - **紧凑视图（Compact Mode）**：在紧凑账号列表中，对 `workbuddy` 与 `workbuddy-cn` 账号直接渲染专属进度条与积分指标：第一行以大号 mono 高亮展示 `剩余 ${remainCredits} 积分`，第二行展示彩色比例进度条，底部附带总额（如 `总额: 800 积分`）与已消耗数，一眼即知剩余可用额度；
+  - **网格大卡片视图（Grid Cards Mode）**：在卡片模式中，增加专属“WorkBuddy 资源包与积分额度”区块，呈现当前可用积分、总容量、已用积分与周期资源包进度条；
+  - **数据层与就地刷新闭环**：结合 [lib/upstream/sync.mjs](lib/upstream/sync.mjs) 中的腾讯官方计费端点，用户点击卡片上的“刷新额度”即可直接调用官方计量 API 就地拉取最新积分并实时刷新视图。
+- **自动化测试闭环（Integration Test & Verification）**：
+  - 新增独立测试文件 [tests/test_workbuddy_quota_and_table.mjs](tests/test_workbuddy_quota_and_table.mjs)，端到端覆盖 `parseWorkBuddyGroups` 资源包解析计算、`admin.html` 内联语法与 WorkBuddy 渲染契约、API 密钥表格胶囊与高度一致性占位契约；
+  - 挂载至 `package.json` 测试流水线，全量 `npm test` 26 大项与子测试全部 100% 绿灯通过。
+
 ## [v2.9.37] - 2026-10-15
 
 实时请求流水新增上游服务商维度筛选与全链路打通（Add Upstream Provider Filter to Activity Logs & End-to-End Pipeline Alignment）：

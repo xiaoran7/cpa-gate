@@ -1406,15 +1406,87 @@
       vertical-align: middle;
     }
 
+    /* 统一规整的模型权限胶囊 */
+    .model-perm-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-family: var(--mono);
+      padding: 2.5px 8px;
+      border-radius: 12px;
+      line-height: 1.35;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+      cursor: default;
+    }
+    .model-perm-badge.all {
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      color: #0284c7;
+    }
+    .model-perm-badge.limited {
+      background: rgba(139, 92, 246, 0.08);
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      color: #7c3aed;
+    }
+    .perm-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .perm-dot.all { background: #38bdf8; }
+    .perm-dot.limited { background: #8b5cf6; }
+
+    /* 统一规整的用量单元格 */
+    .key-usage-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 140px;
+    }
+    .key-usage-primary {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .key-usage-tokens {
+      font-family: var(--mono);
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text-main);
+    }
+    .key-usage-requests {
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .key-usage-sub {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .key-usage-alltime {
+      font-family: var(--mono);
+      color: var(--text-muted);
+    }
     .usage-progress-wrap {
-      width: 130px;
-      margin-top: 6px;
+      width: 100%;
+      margin-top: 3px;
     }
     .usage-progress-bar {
       height: 4px;
-      background: rgba(186, 215, 242, 0.5);
+      background: rgba(186, 215, 242, 0.45);
       border-radius: 2px;
       overflow: hidden;
+    }
+    .usage-progress-bar.unlimited {
+      background: rgba(186, 215, 242, 0.15);
+      height: 4px;
     }
     .usage-progress-fill {
       height: 100%;
@@ -1424,6 +1496,12 @@
     }
     .usage-progress-fill.warn { background: #fbbf24; }
     .usage-progress-fill.danger { background: #f43f5e; }
+
+    .cell-unlimited {
+      color: var(--text-dim);
+      font-size: 11px;
+      letter-spacing: 0.02em;
+    }
 
     /* Status Badges in table */
     .chip {
@@ -1445,8 +1523,16 @@
       color: #38bdf8;
       border: 1px solid rgba(56, 189, 248, 0.25);
       font-family: var(--mono);
-      font-size: 10.5px;
-      padding: 1px 6px;
+      font-size: 11px;
+      padding: 1.5px 7px;
+      border-radius: 4px;
+      display: inline-block;
+      line-height: 1.3;
+    }
+    .chip-cache.zero {
+      background: rgba(186, 215, 242, 0.2);
+      color: var(--text-dim);
+      border-color: transparent;
     }
 
     .flag-pill {
@@ -6606,6 +6692,32 @@
                   </div>
                 </div>
               `;
+            } else if (acc.provider === 'workbuddy' || acc.provider === 'workbuddy-cn') {
+              const remainCredits = Number(acc.remaining_credits) || 0;
+              const totalCredits = Number(acc.total_credits) || 0;
+              const usedCredits = Number(acc.used_credits) || 0;
+              const pct = totalCredits > 0 ? Math.max(0, Math.min(100, Math.round((remainCredits / totalCredits) * 1000) / 10)) : (remainCredits > 0 ? 100 : 0);
+              let cls = 'meter-high'; let col = '#10b981';
+              if (pct <= 20) { cls = 'meter-low'; col = '#ef4444'; }
+              else if (pct <= 50) { cls = 'meter-medium'; col = '#f59e0b'; }
+
+              metersHtml = `
+                <div class="compact-meter-wrap" style="display:flex; flex-direction:column; justify-content:center; gap:3px;" title="腾讯 WorkBuddy 官方资源包积分 (剩余: ${remainCredits} / 总额: ${totalCredits})">
+                  <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
+                    <span style="color:var(--text-muted); font-size:10.5px;">资源包积分</span>
+                    <span style="font-family:var(--mono); font-weight:700; color:${col};">
+                      剩余 ${remainCredits.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2})} 积分
+                    </span>
+                  </div>
+                  <div class="quota-meter-bar" style="height:4px;">
+                    <div class="quota-meter-fill ${cls}" style="width: ${pct}%"></div>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:var(--text-dim); font-family:var(--mono);">
+                    <span>总额: ${totalCredits.toLocaleString()} 积分</span>
+                    <span>已用: ${usedCredits.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2})}</span>
+                  </div>
+                </div>
+              `;
             } else if (!Number.isFinite(fallbackBucket?.remaining_percent)) {
               metersHtml = '<div class="account-quota-unknown">额度未知，等待 CPA 返回有效数据</div>';
             } else if (acc.provider === 'antigravity') {
@@ -6868,6 +6980,48 @@
                     <div style="text-align:right;">
                       <div style="font-size:11px; color:var(--text-dim);">统计区间</div>
                       <div style="font-size:11.5px; font-family:var(--mono); color:var(--text-muted); margin-top:2px;">UTC 00:00 - 24:00</div>
+                    </div>
+                  </div>
+                  ${acc.raw_error ? `<div class="account-health-warning" style="color:var(--danger); margin-top:6px; font-size:11px;">${escapeHtml(acc.raw_error)}</div>` : ''}
+                </div>
+              `;
+            } else if (acc.provider === 'workbuddy' || acc.provider === 'workbuddy-cn') {
+              const remainCredits = Number(acc.remaining_credits) || 0;
+              const totalCredits = Number(acc.total_credits) || 0;
+              const usedCredits = Number(acc.used_credits) || 0;
+              const pct = totalCredits > 0 ? Math.max(0, Math.min(100, Math.round((remainCredits / totalCredits) * 1000) / 10)) : (remainCredits > 0 ? 100 : 0);
+              let meterClass = 'meter-high'; let remColor = '#10b981';
+              if (pct <= 20) { meterClass = 'meter-low'; remColor = '#ef4444'; }
+              else if (pct <= 50) { meterClass = 'meter-medium'; remColor = '#f59e0b'; }
+
+              quotaSectionHtml = `
+                <div class="model-group-section" style="margin-top:8px;">
+                  <div class="model-group-title" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>WorkBuddy 资源包与积分额度</span>
+                    <span style="font-size:11px; font-weight:normal; color:var(--text-dim);">腾讯官方计量</span>
+                  </div>
+                  <div style="background:var(--bg-subtle, rgba(0,0,0,0.02)); border:1px solid var(--border-subtle, rgba(0,0,0,0.06)); border-radius:8px; padding:12px 14px; margin-top:6px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                      <div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-bottom:2px;">当前可用积分</div>
+                        <div style="font-family:var(--mono); line-height:1.2;">
+                          <span style="font-size:24px; font-weight:700; color:${remColor};">${remainCredits.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2})}</span>
+                          <span style="font-size:13px; color:var(--text-dim); font-weight:normal;"> 积分</span>
+                        </div>
+                      </div>
+                      <div style="text-align:right;">
+                        <div style="font-size:11px; color:var(--text-dim);">总容量 / 剩余率</div>
+                        <div style="font-size:13px; font-family:var(--mono); color:var(--text-main); font-weight:600; margin-top:2px;">
+                          ${totalCredits.toLocaleString()} 积分 · <span style="color:${remColor};">${pct}%</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="quota-meter-bar" style="margin-top:10px; height:6px;">
+                      <div class="quota-meter-fill ${meterClass}" style="width: ${pct}%"></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:10.5px; color:var(--text-dim); font-family:var(--mono);">
+                      <span>已消耗: ${usedCredits.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2})} 积分</span>
+                      <span>周期资源包</span>
                     </div>
                   </div>
                   ${acc.raw_error ? `<div class="account-health-warning" style="color:var(--danger); margin-top:6px; font-size:11px;">${escapeHtml(acc.raw_error)}</div>` : ''}
@@ -7471,28 +7625,33 @@
           else statusChip = '<span class="chip chip-green">运行正常</span>';
         }
 
-        let modelHtml = '<span style="color:var(--text-dim); font-size:11.5px;">全部 (*)</span>';
+        let modelHtml = '<span class="model-perm-badge all" title="允许访问所有已接入模型"><span class="perm-dot all"></span>全部模型 (*)</span>';
         if (k.model_whitelist) {
           try {
             const list = JSON.parse(k.model_whitelist);
             if (Array.isArray(list) && list.length > 0) {
-              modelHtml = `<span class="tag-pill" title="${escapeHtml(list.join(', '))}">允许 ${list.length} 个模型</span>`;
+              modelHtml = `<span class="model-perm-badge limited" title="${escapeHtml(list.join(', '))}"><span class="perm-dot limited"></span>允许 ${list.length} 个模型</span>`;
             }
           } catch(e) {
-            modelHtml = `<span class="tag-pill">${escapeHtml(k.model_whitelist)}</span>`;
+            modelHtml = `<span class="model-perm-badge limited" title="${escapeHtml(k.model_whitelist)}"><span class="perm-dot limited"></span>${escapeHtml(k.model_whitelist)}</span>`;
           }
         }
 
-        const cacheRate = k.cache_hit_rate > 0 ? `<span class="chip chip-cache">${k.cache_hit_rate}%</span>` : '<span style="color:var(--text-dim);">0%</span>';
+        const cacheRate = k.cache_hit_rate > 0 ? `<span class="chip-cache">${k.cache_hit_rate}%</span>` : '<span class="chip-cache zero">0%</span>';
 
         let progressHtml = '';
         if (hardLimit > 0) {
           const pct = Math.max(0, Math.min(100, Math.round(ratio * 100)));
           progressHtml = `
-            <div class="usage-progress-wrap" title="今日消耗进度: ${pct}% (软限额: ${formatTokens(k.daily_limit || 0)})">
+            <div class="usage-progress-wrap" title="今日消耗进度: ${pct}% (软限额: ${formatTokens(k.daily_limit || 0)}, 硬限: ${formatTokens(hardLimit)})">
               <div class="usage-progress-bar">
                 <div class="usage-progress-fill ${barColorClass}" style="width:${pct}%;"></div>
               </div>
+            </div>`;
+        } else {
+          progressHtml = `
+            <div class="usage-progress-wrap" title="未设置每日额度限制">
+              <div class="usage-progress-bar unlimited"></div>
             </div>`;
         }
 
@@ -7500,6 +7659,9 @@
           <button class="key-action-icon-btn" onclick="copyFullKey(${k.key_id})" title="复制完整 API Key">
             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
           </button>`;
+
+        const pctNum = hardLimit > 0 ? Math.max(0, Math.min(100, Math.round(ratio * 100))) : 0;
+        const limitTag = hardLimit > 0 ? `<span style="color:${pctNum >= 85 ? 'var(--warning)' : 'var(--text-dim)'};">${pctNum}%</span>` : '<span style="color:var(--text-dim); opacity:0.8;">不限</span>';
 
         html += `<tr>
           <td>
@@ -7516,14 +7678,22 @@
           </td>
           <td>${modelHtml}</td>
           <td>
-            <div class="num" style="font-weight:500; color:var(--text-main);">${formatTokens(k.today_usage)}</div>
-            <div style="font-size:11px; color:var(--text-dim);">${(k.today_requests || 0).toLocaleString()} 次 · 累计 ${formatTokens(k.all_time_usage || 0)}</div>
-            ${progressHtml}
+            <div class="key-usage-cell">
+              <div class="key-usage-primary">
+                <span class="key-usage-tokens">${formatTokens(k.today_usage)}</span>
+                <span class="key-usage-requests">${(k.today_requests || 0).toLocaleString()} 次</span>
+              </div>
+              <div class="key-usage-sub">
+                <span class="key-usage-alltime">累计 ${formatTokens(k.all_time_usage || 0)}</span>
+                ${limitTag}
+              </div>
+              ${progressHtml}
+            </div>
           </td>
           <td class="num">${cacheRate}</td>
           <td class="num" style="color:#34d399; font-weight:500;">${formatCost(k.cost_usd)}</td>
-          <td class="num">${k.enabled && k.daily_limit > 0 ? formatTokens(k.daily_limit) : '—'}</td>
-          <td class="num">${k.enabled && k.rpm_limit > 0 ? k.rpm_limit : '—'}</td>
+          <td class="num">${k.enabled && k.daily_limit > 0 ? formatTokens(k.daily_limit) : '<span class="cell-unlimited">不限</span>'}</td>
+          <td class="num">${k.enabled && k.rpm_limit > 0 ? k.rpm_limit : '<span class="cell-unlimited">不限</span>'}</td>
           <td>${statusChip}</td>
           <td style="text-align: right;">
             <div class="btn-action-group">
