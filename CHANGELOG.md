@@ -2,13 +2,32 @@
 
 ## [v2.9.34] - 2026-10-15
 
-优化 OpenRouter 上游配额展示形态：精简为纯调用计数直出（OpenRouter Quota UI Refinement: Pure Request Count Display）：
+彻底剥离内嵌 CPA 日志与配置，并重构「凭证统计」为 Aozora UI 账号卡片看板（Prune Embedded CPA Pages & Overhaul Upstream Stats with Account Cards Grid）：
 
-- **展示策略优化（Display Simplification）**：
-  - 去除之前假定的 800 次每日上限与剩余可用次数计算，避免因实际额度变动产生认知误导；
-  - 列表紧凑视图与卡片视图统一精简为**纯数字直出今日已调用次数**，并展示统计周期为 UTC 00:00 - 24:00 及重置倒计时；
-  - 凭据计划名称自适应调整为清爽的 `Free`，去除多余的固定限额后缀。
-- **全量测试（Verification）**：自动化测试套件通过。
+- **彻底剥离所有内嵌 CPA 页面（Complete Separation of CPA Pages）**：
+  - **核心边界锁定**：继上一轮剥离「账号接入」和「提供商」后，本版本彻底移除侧边栏与工作台中遗留的 `>_ CPA 日志` (`tab-btn-cpa-logs`) 和 `!! CPA 配置` (`tab-btn-cpa-config`)；
+  - Gate 工作台全面聚焦于流量统计、智能调度、状态监控、流水审计与故障中心，CPA 原生设置与底层日志统一通过左下角「原生面板 ↗」安全直达；
+  - 侧边栏按钮精简为 9 个核心原生工作区，并在「故障中心」与「API 密钥」之间增设视觉分割线，形成清晰的 3 段式功能层级。
+- **凭证统计重构为账号卡片网格（Upstream Stats Overhaul: Account Cards Grid）**：
+  - 彻底淘汰原有的宽表格 (`<table>`) 展现形式，解决横向滚动不便与信息扁平的问题；
+  - 采用现代 CSS Grid 响应式卡片流（`upstream-stats-cards-grid`），在桌面端与移动端自适应展现；
+  - **高信息密度卡片设计**：
+    - **卡片头部**：提供商图标 Badge + 提供商 Pill（Antigravity、Codex、WorkBuddy 等）+ 账号名称（加粗、溢出保护、全名悬停）+ 停用/历史留痕标签 + 凭据短 ID + 优先级徽章（P10/P20）；
+    - **成功率大徽章**：红/橙/绿优雅半透明微边框徽章，清晰展示 CPA 运行时成功率；
+    - **周期配额模块**：展示 5h 剩余水位百分比进度条与满额/重置倒计时，以及周限额进度；
+    - **核心指标 3 格**：总请求数（成功/失败分布及 CPA 来源标识）、本地 Token 消耗（入/出细分）、缓存命中率（缓存 Token 细分）；
+    - **分时段 Token 水位带**：以蓝/紫/灰三色点清晰标示 5h、24h 及全部历史累计 Token；
+    - **底栏最近活跃模型**：Mono 字体浅灰胶囊展示该凭据最近处理的模型名称。
+  - **即时搜索过滤**：顶部新增轻量搜索输入框，支持按账号名、提供商、模型名及凭据 ID 毫秒级即时过滤卡片。
+- **OpenRouter 凭证数据完全独立自治与管理面板（OpenRouter Full Autonomy & Local Management）**：
+  - **解耦外部依赖与本地持久化**：数据存储路径全面切换为 Gate 本地权威文件 `./data/openrouter-accounts.json`（已加入 `.gitignore` 严密防护）；
+  - **平滑自动迁移**：启动或读取时若检测到本地缺失，自动从旧 `openrouter-monitor` 账号库安全拷贝迁移，迁移后 Gate 100% 独立运行，可随时彻底下线或删除外部监控项目；
+  - **原生 CRUD 增删改查 API**：在 [lib/routes/admin-routes.mjs](lib/routes/admin-routes.mjs) 中挂载 `/admin/api/openrouter/accounts` 系列端点，支持安全脱敏列出、录入、修改与删除 OpenRouter 账号；
+  - **原生 WebUI 管理弹窗**：在 [admin.html](admin.html) 中增加“⚙️ 管理账号”弹窗，直接配置账号名称、备注、API Key 与用于统计今日调用次数的 Management Key；
+  - **配额纯计数直出**：列表与卡片视图统一采用大字体直接呈现今日模型调用次数，去除之前假设的 800 次每日上限与剩余计算，更契合实际。
+- **全量测试与回归验证（Verification & Regression Suite）**：
+  - [tests/test_cpa_ui.py](tests/test_cpa_ui.py)：更新 Playwright 端到端测试，验证侧边栏 9 个核心 Tab、卡片网格渲染及搜索过滤；
+  - 全量 `npm test` 与 `npm run test:management:ui` 自动化测试套件通过。
 
 ## [v2.9.33] - 2026-10-15
 

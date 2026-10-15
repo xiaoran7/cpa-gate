@@ -2547,6 +2547,279 @@
       max-width: 440px;
       line-height: 1.5;
     }
+    /* ==========================================================================
+       上游凭证用量与成功率统计 (Upstream Stats) - Aozora UI 账号卡片网格体系
+       ========================================================================== */
+    .upstream-stats-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 16px;
+      padding: 18px 20px 24px;
+    }
+    @media (max-width: 640px) {
+      .upstream-stats-cards-grid {
+        grid-template-columns: 1fr;
+        padding: 12px;
+        gap: 12px;
+      }
+    }
+    .upstream-stat-card {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid #cedff1;
+      border-radius: 12px;
+      padding: 16px 16px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+      box-shadow: 0 3px 12px rgba(100, 143, 188, 0.08);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+    }
+    .upstream-stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(100, 143, 188, 0.16);
+      border-color: #bad3ed;
+    }
+    .upstream-stat-card.is-disabled {
+      opacity: 0.68;
+      background: #fafcfe;
+      border-style: dashed;
+    }
+    .upstream-stat-card.is-deleted {
+      opacity: 0.82;
+      background: #fdfdfe;
+    }
+    .stat-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .stat-card-identity {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
+    }
+    .stat-card-identity .provider-icon-badge {
+      width: 32px;
+      height: 32px;
+      flex-shrink: 0;
+      border-radius: 8px;
+    }
+    .stat-card-identity .provider-icon-badge svg {
+      width: 18px;
+      height: 18px;
+    }
+    .stat-card-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+      flex: 1;
+    }
+    .stat-card-title-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .stat-card-name {
+      font-weight: 700;
+      font-size: 13.5px;
+      color: var(--text-main);
+      max-width: 190px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .stat-card-sub-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .stat-card-id {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .status-tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 4px;
+      line-height: 1.2;
+    }
+    .status-tag.tag-disabled {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+    }
+    .status-tag.tag-deleted {
+      background: rgba(148, 163, 184, 0.15);
+      color: #64748b;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+    .stat-card-rate-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 62px;
+      padding: 4px 8px;
+      border-radius: 8px;
+      border: 1px solid;
+      flex-shrink: 0;
+    }
+    .stat-card-rate-val {
+      font-family: var(--mono);
+      font-weight: 800;
+      font-size: 13.5px;
+      line-height: 1.1;
+    }
+    .stat-card-rate-lbl {
+      font-size: 9.5px;
+      opacity: 0.85;
+      margin-top: 1px;
+    }
+    .stat-card-quota-box {
+      background: rgba(240, 246, 252, 0.7);
+      border: 1px solid #e1ecf6;
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .quota-box-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11.5px;
+    }
+    .quota-box-title {
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .quota-box-countdown {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+    .quota-progress-track {
+      width: 100%;
+      height: 5px;
+      background: rgba(0, 0, 0, 0.06);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .quota-progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+    .quota-weekly-row {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 1px;
+    }
+    .stat-card-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      background: rgba(248, 250, 252, 0.65);
+      border: 1px solid #e6eff7;
+      border-radius: 8px;
+      padding: 8px 6px;
+    }
+    .stat-metric-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      text-align: center;
+    }
+    .stat-metric-cell:not(:last-child) {
+      border-right: 1px solid #e7eff6;
+    }
+    .metric-cell-label {
+      font-size: 10.5px;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .metric-cell-value {
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--text-main);
+      font-family: var(--mono);
+      line-height: 1.2;
+    }
+    .metric-cell-sub {
+      font-size: 10px;
+      font-family: var(--mono);
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .stat-card-period-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 10px;
+      background: #ffffff;
+      border: 1px dashed #d5e4f2;
+      border-radius: 6px;
+      font-size: 10.5px;
+      color: var(--text-dim);
+    }
+    .period-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .period-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+    }
+    .dot-5h { background: #0284c7; }
+    .dot-24h { background: #6366f1; }
+    .dot-all { background: #64748b; }
+    .period-item b {
+      color: var(--text-main);
+      font-family: var(--mono);
+    }
+    .stat-card-footer {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-dim);
+      padding-top: 6px;
+      border-top: 1px solid #edf4fa;
+    }
+    .footer-model-label {
+      flex-shrink: 0;
+      font-size: 10.5px;
+      color: var(--text-dim);
+    }
+    .footer-model-value {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--text-main);
+      background: #f1f5f9;
+      padding: 1px 6px;
+      border-radius: 4px;
+      max-width: 240px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   </style>
 <link rel="stylesheet" href="/admin/cpa-management.css"/>
 <link rel="stylesheet" href="/admin/overview.css"/>
@@ -2592,6 +2865,7 @@
 <button class="nav-tab-btn" id="tab-btn-errors" onclick="switchNavTab('errors')">
 <svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>故障中心</span><span class="tab-badge" id="nav-badge-errors" style="color:var(--danger);">0</span>
 </button>
+<div class="sidebar-section-divider"></div>
 <button class="nav-tab-btn" id="tab-btn-keys" onclick="switchNavTab('keys')">
 <svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>API 密钥</span><span class="tab-badge" id="nav-badge-keys">0</span>
 </button>
@@ -2787,6 +3061,10 @@
 <button class="btn btn-activate-5h" id="btn-activate-provider" onclick="triggerActivateFilteredAccounts()" style="padding:4px 12px;" title="向当前筛选的凭据批量查询最新上游额度">
             刷新全部额度
           </button>
+<button class="btn btn-secondary" id="btn-manage-openrouter" onclick="openOpenRouterModal()" style="display:none; padding:4px 10px; font-size:11.5px;" title="在 Gate 原生管理 OpenRouter 账号与 Management Key">
+<svg fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;" viewbox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-linecap="round" stroke-linejoin="round"></path><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            管理账号
+          </button>
 <button class="btn btn-secondary" onclick="refreshUpstreamQuotas(true)" style="padding:4px 10px; font-size:11.5px;" title="强制重新拉取上游配额">
 <svg fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;" viewbox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"></path></svg>
             刷新配额
@@ -2845,31 +3123,19 @@
 <button onclick="switchUpstreamStatsRange('7d')">7 天</button>
 <button class="active" onclick="switchUpstreamStatsRange('all')">全部历史</button>
 </div>
+<input type="search" id="upstream-stats-filter" placeholder="筛选账号/模型/ID..." oninput="renderUpstreamStatsTable()" style="padding:4px 10px; font-size:11.5px; height:28px; width:150px; border-radius:6px; border:1px solid #cedff1; background:#ffffff; color:var(--text-main); outline:none;" title="按账号名称、模型或凭证 ID 实时筛选卡片">
 <button class="btn btn-secondary" onclick="fetchUpstreamAuthStats()" style="padding:4px 10px; font-size:11.5px;" title="刷新凭证用量与成功率统计">
 <svg fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;" viewbox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"></path></svg>
             刷新统计
           </button>
 </div>
 </div>
-<div class="table-scroll-container">
-<table>
-<thead>
-<tr>
-<th style="min-width: 200px;">名称</th>
-<th style="min-width: 170px;">最近模型</th>
-<th style="min-width: 170px;">周期额度 (5h / 周) <span class="ovw-source-tag">上游实时</span></th>
-<th style="min-width: 120px;">请求总数 <span class="ovw-source-tag">CPA 运行时</span></th>
-<th style="min-width: 90px;">成功率 <span class="ovw-source-tag">CPA 运行时</span></th>
-<th style="min-width: 170px;">Token 总数 (分时段) <span class="ovw-source-tag is-local">网关本地</span></th>
-<th style="min-width: 90px;">缓存率 <span class="ovw-source-tag is-local">网关本地</span></th>
-<th style="width: 80px; text-align: right;">优先级</th>
-</tr>
-</thead>
-<tbody id="upstream-stats-table-body">
-<tr><td colspan="8" style="text-align:center; padding:24px; color:var(--text-dim);">正在加载上游凭证用量统计...</td></tr>
-</tbody>
-</table>
+<!-- 账号凭证卡片流网格容器 (Aozora UI) -->
+<div class="upstream-stats-cards-grid" id="upstream-stats-cards-container">
+  <div style="grid-column: 1 / -1; text-align:center; padding:36px 16px; color:var(--text-dim);">正在加载上游凭证用量统计...</div>
 </div>
+<!-- 保留一个隐式元素以兼容旧代码引用 -->
+<table style="display:none;"><tbody id="upstream-stats-table-body"></tbody></table>
 </div></div><div class="tab-page" id="tab-page-overview">
 <!-- 5 联核心指标卡片 -->
 <div class="summary-grid">
@@ -3655,6 +3921,77 @@
 </div>
 </div>
 </div>
+<!-- OpenRouter 独立账号管理 Modal (Gate 自治) -->
+<div class="modal-backdrop" id="modal-openrouter-accounts">
+<div class="modal modal-wide" style="max-width:880px;">
+<div class="modal-header">
+<div class="modal-title" style="display:flex; align-items:center; gap:8px;">
+<svg fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;color:#3b82f6;" viewbox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-linecap="round" stroke-linejoin="round"></path><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+  OpenRouter 原生账号管理 (Gate 自治)
+</div>
+<button class="close-btn" onclick="closeModal('modal-openrouter-accounts')">
+<svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+</button>
+</div>
+<div style="margin-bottom:14px; font-size:12px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
+  <span>在此直接管理 OpenRouter 账号及用于统计调用次数的 Management Key，数据完全由 Gate 本地私有管理，不依赖外部监控程序。</span>
+  <button class="btn btn-sm btn-primary" onclick="showAddOpenRouterForm()" style="white-space:nowrap; padding:4px 10px;">➕ 添加账号</button>
+</div>
+
+<!-- 录入 / 编辑表单区域 -->
+<div id="openrouter-form-card" style="display:none; background:var(--bg-subtle, rgba(0,0,0,0.02)); border:1px solid var(--border-subtle, rgba(0,0,0,0.08)); border-radius:8px; padding:14px; margin-bottom:16px;">
+  <div style="font-size:13px; font-weight:600; margin-bottom:10px; color:var(--text-main);" id="openrouter-form-title">添加 OpenRouter 账号</div>
+  <input type="hidden" id="openrouter-form-id"/>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+    <div class="form-group" style="margin:0;">
+      <label style="font-size:11.5px; color:var(--text-muted); margin-bottom:3px; display:block;">账号名称 / 标识 *</label>
+      <input class="form-control" id="openrouter-form-name" placeholder="如：我的主号 / or-account-1" style="font-size:12px;" type="text"/>
+    </div>
+    <div class="form-group" style="margin:0;">
+      <label style="font-size:11.5px; color:var(--text-muted); margin-bottom:3px; display:block;">备注说明 (可选)</label>
+      <input class="form-control" id="openrouter-form-note" placeholder="可选备注说明" style="font-size:12px;" type="text"/>
+    </div>
+  </div>
+  <div class="form-group" style="margin-bottom:10px;">
+    <label style="font-size:11.5px; color:var(--text-muted); margin-bottom:3px; display:block;">OpenRouter API Key (用于模型请求，sk-or-v1-...)</label>
+    <input class="form-control" id="openrouter-form-apikey" autocomplete="off" placeholder="sk-or-v1-..." style="font-family:var(--mono); font-size:12px;" type="password"/>
+    <div style="font-size:10.5px; color:var(--text-dim); margin-top:2px;">若仅修改信息且不更换 Key，可留空保留原 API Key。</div>
+  </div>
+  <div class="form-group" style="margin-bottom:12px;">
+    <label style="font-size:11.5px; color:var(--text-muted); margin-bottom:3px; display:block;">Management Key (用于拉取今日调用次数，sk-or-v1-...)</label>
+    <input class="form-control" id="openrouter-form-mgmtkey" autocomplete="off" placeholder="sk-or-v1-..." style="font-family:var(--mono); font-size:12px;" type="password"/>
+    <div style="font-size:10.5px; color:var(--text-dim); margin-top:2px;">OpenRouter 官方仅允许带有管理权限的 Provisioning / Management Key 请求统计接口。留空则保留原 Key。</div>
+  </div>
+  <div style="display:flex; justify-content:flex-end; gap:8px;">
+    <button class="btn btn-secondary btn-sm" onclick="hideOpenRouterForm()" type="button">取消</button>
+    <button class="btn btn-primary btn-sm" onclick="submitOpenRouterAccount()" id="openrouter-form-submit-btn" type="button">保存账号</button>
+  </div>
+</div>
+
+<!-- 账号列表表格 -->
+<div style="overflow-x:auto; max-height:420px;">
+  <table class="table" style="width:100%; font-size:12px; margin:0;">
+    <thead>
+      <tr style="text-align:left; border-bottom:1px solid var(--border-subtle, rgba(0,0,0,0.06)); color:var(--text-muted);">
+        <th style="padding:8px 6px;">账号名称</th>
+        <th style="padding:8px 6px;">备注</th>
+        <th style="padding:8px 6px;">API Key</th>
+        <th style="padding:8px 6px;">Management Key (次数统计)</th>
+        <th style="padding:8px 6px;">今日已调</th>
+        <th style="padding:8px 6px; text-align:right;">操作</th>
+      </tr>
+    </thead>
+    <tbody id="openrouter-accounts-tbody">
+      <tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:24px;">正在加载 OpenRouter 账号列表...</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="modal-actions" style="margin-top:14px;">
+  <button class="btn btn-secondary" onclick="closeModal('modal-openrouter-accounts')">关闭</button>
+</div>
+</div>
+</div>
+
 <div id="toast-box"></div>
 <script>
     // ---- 状态与持久化配置 ----
@@ -4317,10 +4654,12 @@
           upstreamStatsPanel.style.display = 'none';
           const sTbody = document.getElementById('upstream-stats-table-body');
           if (sTbody) sTbody.innerHTML = '';
+          const sCards = document.getElementById('upstream-stats-cards-container');
+          if (sCards) sCards.innerHTML = '';
         }
         if (keyFilterContainer) keyFilterContainer.style.display = 'none';
         // 如果当前处在不可见的 tab，切回 quotas
-        if (['overview', 'keys', 'errors', 'validations', 'status', 'upstream-stats', 'cpa-config', 'cpa-logs'].includes(activeNavTab)) {
+        if (['overview', 'keys', 'errors', 'validations', 'status', 'upstream-stats'].includes(activeNavTab)) {
           switchNavTab('quotas');
         }
       } else {
@@ -4718,6 +5057,181 @@
       } finally {
         btn.disabled = false;
         btn.innerText = '保存并生效';
+      }
+    }
+
+    // ---- OpenRouter 原生账号管理交互 (Gate 自治) ----
+    let cachedOpenRouterAccountList = [];
+
+    async function openOpenRouterModal() {
+      openModal('modal-openrouter-accounts');
+      hideOpenRouterForm();
+      await loadOpenRouterAccountList();
+    }
+
+    async function loadOpenRouterAccountList() {
+      const tbody = document.getElementById('openrouter-accounts-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:20px;">正在加载账号清单...</td></tr>';
+      try {
+        const res = await fetch('/admin/api/openrouter/accounts', {
+          headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error('拉取 OpenRouter 账号列表失败');
+        const data = await res.json();
+        cachedOpenRouterAccountList = data.accounts || [];
+        renderOpenRouterAccountsTable();
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--danger); padding:20px;">${escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+
+    function renderOpenRouterAccountsTable() {
+      const tbody = document.getElementById('openrouter-accounts-tbody');
+      if (!tbody) return;
+      if (cachedOpenRouterAccountList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:24px;">暂无 OpenRouter 账号，点击上方“➕ 添加账号”快速接入。</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = cachedOpenRouterAccountList.map(acc => {
+        const hasMgmt = acc.hasMgmtKey;
+        const mgmtBadge = hasMgmt
+          ? `<span style="display:inline-flex; align-items:center; gap:3px; color:#10b981; background:rgba(16,185,129,0.1); padding:2px 6px; border-radius:4px; font-size:11px;" title="${escapeHtml(acc.mgmtKeyMasked || '已配置')}"><svg fill="none" stroke="currentColor" stroke-width="2.5" style="width:11px;height:11px;" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>已配置</span>`
+          : `<span style="color:var(--text-dim); background:rgba(0,0,0,0.04); padding:2px 6px; border-radius:4px; font-size:11px;" title="未配置 Management Key，无法拉取调用次数">未配置</span>`;
+
+        const apiMasked = acc.apiKeyMasked ? `<span style="font-family:var(--mono); color:var(--text-muted); font-size:11px;">${escapeHtml(acc.apiKeyMasked)}</span>` : '<span style="color:var(--text-dim); font-size:11px;">未填</span>';
+        const todayCountTxt = Number.isFinite(acc.today_requests) ? `<strong style="color:#3b82f6; font-family:var(--mono); font-size:13px;">${acc.today_requests}</strong> 次` : '<span style="color:var(--text-dim); font-size:11px;">待拉取</span>';
+
+        return `
+          <tr style="border-bottom:1px solid var(--border-subtle, rgba(0,0,0,0.04));">
+            <td style="padding:8px 6px; font-weight:600; color:var(--text-main);">${escapeHtml(acc.name)}</td>
+            <td style="padding:8px 6px; color:var(--text-muted); font-size:11px;">${escapeHtml(acc.note || '-')}</td>
+            <td style="padding:8px 6px;">${apiMasked}</td>
+            <td style="padding:8px 6px;">${mgmtBadge}</td>
+            <td style="padding:8px 6px;">${todayCountTxt}</td>
+            <td style="padding:8px 6px; text-align:right; white-space:nowrap;">
+              <button class="btn btn-secondary btn-sm" onclick="editOpenRouterAccount('${escapeHtml(acc.id)}')" style="padding:2px 8px; font-size:11px; margin-right:4px;">编辑</button>
+              <button class="btn btn-secondary btn-sm" onclick="deleteOpenRouterAccountById('${escapeHtml(acc.id)}', '${escapeHtml(acc.name)}')" style="padding:2px 8px; font-size:11px; color:var(--danger);">删除</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function showAddOpenRouterForm(editData = null) {
+      const card = document.getElementById('openrouter-form-card');
+      const title = document.getElementById('openrouter-form-title');
+      const idInput = document.getElementById('openrouter-form-id');
+      const nameInput = document.getElementById('openrouter-form-name');
+      const noteInput = document.getElementById('openrouter-form-note');
+      const apiInput = document.getElementById('openrouter-form-apikey');
+      const mgmtInput = document.getElementById('openrouter-form-mgmtkey');
+
+      if (!card) return;
+      card.style.display = 'block';
+
+      if (editData) {
+        title.textContent = `编辑账号 [${editData.name}]`;
+        idInput.value = editData.id;
+        nameInput.value = editData.name || '';
+        noteInput.value = editData.note || '';
+        apiInput.value = '';
+        apiInput.placeholder = editData.hasApiKey ? '保留原 API Key (如需更新请输入新 Key)' : 'sk-or-v1-...';
+        mgmtInput.value = '';
+        mgmtInput.placeholder = editData.hasMgmtKey ? '保留原 Management Key (如需更新请输入新 Key)' : 'sk-or-v1-...';
+      } else {
+        title.textContent = '添加 OpenRouter 账号';
+        idInput.value = '';
+        nameInput.value = '';
+        noteInput.value = '';
+        apiInput.value = '';
+        apiInput.placeholder = 'sk-or-v1-...';
+        mgmtInput.value = '';
+        mgmtInput.placeholder = 'sk-or-v1-... (用于获取今日模型调用次数)';
+      }
+      nameInput.focus();
+    }
+
+    function hideOpenRouterForm() {
+      const card = document.getElementById('openrouter-form-card');
+      if (card) card.style.display = 'none';
+    }
+
+    function editOpenRouterAccount(id) {
+      const acc = cachedOpenRouterAccountList.find(a => String(a.id) === String(id));
+      if (!acc) return;
+      showAddOpenRouterForm(acc);
+    }
+
+    async function submitOpenRouterAccount() {
+      const id = document.getElementById('openrouter-form-id').value.trim();
+      const name = document.getElementById('openrouter-form-name').value.trim();
+      const note = document.getElementById('openrouter-form-note').value.trim();
+      const apiKey = document.getElementById('openrouter-form-apikey').value.trim();
+      const mgmtKey = document.getElementById('openrouter-form-mgmtkey').value.trim();
+      const btn = document.getElementById('openrouter-form-submit-btn');
+
+      if (!name) {
+        showToast('请输入账号名称', 'error');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '保存中...';
+
+      try {
+        const isEdit = Boolean(id);
+        const url = isEdit ? `/admin/api/openrouter/accounts/${encodeURIComponent(id)}` : '/admin/api/openrouter/accounts';
+        const method = isEdit ? 'PATCH' : 'POST';
+
+        const payload = { name, note };
+        if (apiKey) payload.apiKey = apiKey;
+        if (mgmtKey) payload.mgmtKey = mgmtKey;
+
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || '保存账号失败');
+        }
+
+        showToast(isEdit ? `账号 ${name} 已更新` : `账号 ${name} 添加成功`, 'success');
+        hideOpenRouterForm();
+        await loadOpenRouterAccountList();
+        // 静默刷新外层大盘
+        fetchUpstreamQuotas(true).catch(() => {});
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '保存账号';
+      }
+    }
+
+    async function deleteOpenRouterAccountById(id, name) {
+      if (!confirm(`确定要删除 OpenRouter 账号 [${name || id}] 吗？此操作无法撤销。`)) return;
+      try {
+        const res = await fetch(`/admin/api/openrouter/accounts/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || '删除账号失败');
+        }
+        showToast(`已成功删除账号 ${name || id}`, 'success');
+        await loadOpenRouterAccountList();
+        fetchUpstreamQuotas(true).catch(() => {});
+      } catch (err) {
+        showToast(err.message, 'error');
       }
     }
 
@@ -5796,6 +6310,10 @@
         btn.textContent = `刷新全部 ${brandName} 额度`;
         btn.title = `对所有有效 ${brandName} 凭据批量查询最新额度`;
       }
+      const openrouterBtn = document.getElementById('btn-manage-openrouter');
+      if (openrouterBtn) {
+        openrouterBtn.style.display = f === 'openrouter' ? 'inline-flex' : 'none';
+      }
     }
 
     function switchUpstreamFilter(filter) {
@@ -6287,7 +6805,14 @@
         cachedUpstreamStats = await res.json();
         renderUpstreamStatsTable();
       } catch (err) {
-        document.getElementById('upstream-stats-table-body').innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px;">统计暂不可用。请检查密钥或稍后刷新。</td></tr>';
+        const container = document.getElementById('upstream-stats-cards-container');
+        if (container) {
+          container.innerHTML = '<div style="grid-column: 1 / -1; text-align:center; padding:36px 16px; color:var(--text-dim);">统计暂不可用。请检查密钥或稍后刷新。</div>';
+        }
+        const tbody = document.getElementById('upstream-stats-table-body');
+        if (tbody) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:24px;">统计暂不可用。请检查密钥或稍后刷新。</td></tr>';
+        }
         console.warn('Upstream auth stats fetch error:', err.message);
       }
     }
@@ -6320,44 +6845,78 @@
         }
       }
 
+      const container = document.getElementById('upstream-stats-cards-container');
+      if (container) {
+        container.innerHTML = '<div style="grid-column: 1 / -1; text-align:center; padding:36px 16px; color:var(--text-dim);">正在加载该时间段上游用量统计...</div>';
+      }
       const tbody = document.getElementById('upstream-stats-table-body');
       if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-dim);">正在加载该时间段上游用量统计...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:24px; color:var(--text-dim);">正在加载该时间段上游用量统计...</td></tr>';
       }
 
       fetchUpstreamAuthStats();
     }
 
     function renderUpstreamStatsTable() {
+      const container = document.getElementById('upstream-stats-cards-container');
       const tbody = document.getElementById('upstream-stats-table-body');
-      if (!tbody) return;
       const data = cachedUpstreamStats;
+
       if (!data || !Array.isArray(data.items) || data.items.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:24px; color:var(--text-dim);">暂无上游凭证用量统计数据</td></tr>';
+        if (container) {
+          container.innerHTML = '<div style="grid-column: 1 / -1; text-align:center; padding:36px 16px; color:var(--text-dim);">暂无上游凭证用量统计数据</div>';
+        }
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:24px; color:var(--text-dim);">暂无上游凭证用量统计数据</td></tr>';
         return;
       }
 
-      const rows = data.items.map(it => {
+      const filterVal = (document.getElementById('upstream-stats-filter')?.value || '').trim().toLowerCase();
+      const filteredItems = filterVal
+        ? data.items.filter(it => {
+            const name = String(it.name || '').toLowerCase();
+            const provider = String(it.provider || '').toLowerCase();
+            const model = String(it.last_model || '').toLowerCase();
+            const id = String(it.auth_index || '').toLowerCase();
+            return name.includes(filterVal) || provider.includes(filterVal) || model.includes(filterVal) || id.includes(filterVal);
+          })
+        : data.items;
+
+      if (filteredItems.length === 0) {
+        if (container) {
+          container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:36px 16px; color:var(--text-dim);">未找到匹配 "${escapeHtml(filterVal)}" 的凭证卡片</div>`;
+        }
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:24px; color:var(--text-dim);">未找到匹配的凭证</td></tr>';
+        return;
+      }
+
+      const cardsHtml = filteredItems.map(it => {
         const brand = getProviderBrand(it.provider);
         const prio = normalizeAuthPriority(it.priority);
         const prioCls = prio >= 20 ? 'p-high' : (prio >= 10 ? 'p-normal' : 'p-low');
         const isDisabled = Boolean(it.disabled || it.status === 'disabled');
         // 「已删除账号」是后端在四层身份元数据全空时给的兜底名——意思是这个
         // auth_index 在 CPA 里已经没有对应凭证，只剩 request_events 历史流水。
-        // 这类行弱化显示，避免运维把它当成在用的活跃账号去排查。
         const isDeleted = /^已删除账号 /.test(it.name || '');
         const successRate = it.success_rate != null ? it.success_rate.toFixed(1) + '%' : '100.0%';
-        // 该行请求数的来源：CPA 运行时事实 还是 网关本地基线推算
         const reqSourceTag = it.runtime_source === 'cpa_runtime'
           ? '<span class="ovw-source-tag">CPA</span>'
           : '';
 
-        let rateColor = '#34d399';
-        if (it.success_rate < 80) rateColor = '#ef4444';
-        else if (it.success_rate < 95) rateColor = '#f59e0b';
+        let rateColor = '#059669'; // 绿
+        let rateBorder = '#a7f3d0';
+        let rateBg = '#ecfdf5';
+        if (it.success_rate < 80) {
+          rateColor = '#dc2626'; // 红
+          rateBorder = '#fecaca';
+          rateBg = '#fef2f2';
+        } else if (it.success_rate < 95) {
+          rateColor = '#d97706'; // 橙
+          rateBorder = '#fde68a';
+          rateBg = '#fffbeb';
+        }
 
         // 周期额度渲染 (5h 窗口与周限额)
-        let quotaHtml = '<span style="color:var(--text-dim); font-size:11.5px;">—</span>';
+        let quotaHtml = '<div style="color:var(--text-dim); font-size:11px; text-align:center; padding:3px 0;">— 暂无实时配额水位 —</div>';
         if (it.quota_5h) {
           const rem5h = it.quota_5h.remaining_percent;
           let barColor = '#10b981'; // 充裕 (绿)
@@ -6366,16 +6925,14 @@
 
           const countdownText = it.quota_5h.reset_countdown || (rem5h >= 100 ? '满额就绪' : '');
           quotaHtml = `
-            <div style="display:flex; flex-direction:column; gap:3px; min-width:140px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px;">
-                <span style="font-weight:600; color:var(--text-main);">5h 剩余: <b style="color:${barColor};">${rem5h.toFixed(1)}%</b></span>
-                <span style="font-size:10px; color:var(--text-dim);">${escapeHtml(countdownText)}</span>
-              </div>
-              <div style="width:100%; height:5px; background:rgba(0,0,0,0.06); border-radius:3px; overflow:hidden;">
-                <div style="width:${Math.max(0, Math.min(100, rem5h))}%; height:100%; background:${barColor}; border-radius:3px; transition:width 0.3s;"></div>
-              </div>
-              ${it.quota_weekly ? `<div style="font-size:10px; color:var(--text-dim); margin-top:1px;">周剩余: ${it.quota_weekly.remaining_percent.toFixed(1)}% ${it.quota_weekly.reset_countdown ? `· ${escapeHtml(it.quota_weekly.reset_countdown)}` : ''}</div>` : ''}
+            <div class="quota-box-row">
+              <span class="quota-box-title">5h 周期剩余: <b style="color:${barColor};">${rem5h.toFixed(1)}%</b></span>
+              <span class="quota-box-countdown">${escapeHtml(countdownText)}</span>
             </div>
+            <div class="quota-progress-track">
+              <div class="quota-progress-fill" style="width:${Math.max(0, Math.min(100, rem5h))}%; background:${barColor};"></div>
+            </div>
+            ${it.quota_weekly ? `<div class="quota-weekly-row">周剩余: <b>${it.quota_weekly.remaining_percent.toFixed(1)}%</b> ${it.quota_weekly.reset_countdown ? `· ${escapeHtml(it.quota_weekly.reset_countdown)}` : ''}</div>` : ''}
           `;
         }
 
@@ -6384,74 +6941,89 @@
         const tok5hStr = formatTokens(pStats.tokens_5h || 0);
         const tok24hStr = formatTokens(pStats.tokens_24h || 0);
         const tokAllStr = formatTokens(pStats.tokens_all || it.total_tokens || 0);
+        const shortId = it.auth_index ? String(it.auth_index).slice(0, 16) : '—';
 
         return `
-          <tr class="${isDisabled ? 'is-disabled' : ''}">
-            <td>
-              <div style="display:flex; align-items:center; gap:10px;">
-                <div class="provider-icon-badge ${brand.iconClass}" style="width:26px; height:26px; flex-shrink:0;" title="${escapeHtml(brand.name)}">
+          <div class="upstream-stat-card ${isDisabled ? 'is-disabled' : ''} ${isDeleted ? 'is-deleted' : ''}">
+            <!-- 卡片顶栏：图标 + 名称 + 状态 + 优先级 + 成功率大徽章 -->
+            <div class="stat-card-header">
+              <div class="stat-card-identity">
+                <div class="provider-icon-badge ${brand.iconClass}" title="${escapeHtml(brand.name)}">
                   ${brand.iconSvg}
                 </div>
-                <div style="display:flex; flex-direction:column; min-width:0; gap:2px;">
-                  <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                    <span class="provider-pill ${brand.pillClass}" style="font-size:10.5px; padding:1px 6px;">${escapeHtml(brand.name)}</span>
-                    <span style="font-weight:600; color:${isDeleted ? 'var(--text-dim)' : 'var(--text-main)'}; font-size:13px; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(it.name)}${isDeleted ? '（该凭证已从 CPA 删除，此处仅保留历史流水）' : ''}">
+                <div class="stat-card-title-wrap">
+                  <div class="stat-card-title-row">
+                    <span class="provider-pill ${brand.pillClass}">${escapeHtml(brand.name)}</span>
+                    <span class="stat-card-name" title="${escapeHtml(it.name)}${isDeleted ? '（该凭证已从 CPA 删除，仅保留历史流水）' : ''}">
                       ${escapeHtml(it.name)}
                     </span>
-                    ${isDisabled ? '<span style="font-size:10px; color:var(--danger); font-weight:700;">[已停用]</span>' : ''}
+                    ${isDisabled ? '<span class="status-tag tag-disabled">已停用</span>' : ''}
+                    ${isDeleted ? '<span class="status-tag tag-deleted">历史留痕</span>' : ''}
                   </div>
-                  <div style="font-size:11px; font-family:var(--mono); color:var(--text-dim);">
-                    ID: ${escapeHtml(it.auth_index ? String(it.auth_index).slice(0, 16) : '—')}
+                  <div class="stat-card-sub-row">
+                    <span class="stat-card-id" title="${escapeHtml(it.auth_index)}">ID: ${escapeHtml(shortId)}</span>
+                    <span class="priority-badge ${prioCls}">P${prio}</span>
                   </div>
                 </div>
               </div>
-            </td>
-            <td>
-              ${it.last_model
-                ? `<span style="font-family:var(--mono); font-size:11.5px; color:var(--text-main); word-break:break-all;" title="${escapeHtml(it.last_model)}">${escapeHtml(it.last_model)}</span>`
-                : '<span style="color:var(--text-dim); font-size:11.5px;">—</span>'}
-            </td>
-            <td>
+              <div class="stat-card-rate-badge" style="color:${rateColor}; border-color:${rateBorder}; background:${rateBg};" title="成功率 (CPA 运行时事实/估算)">
+                <div class="stat-card-rate-val">${successRate}</div>
+                <div class="stat-card-rate-lbl">成功率</div>
+              </div>
+            </div>
+
+            <!-- 周期额度条 (5h / 周限额) -->
+            <div class="stat-card-quota-box">
               ${quotaHtml}
-            </td>
-            <td>
-              <div style="display:flex; flex-direction:column; gap:2px;">
-                <span class="num" style="font-weight:600; color:var(--text-main); font-size:13px;">${formatTokens(it.total_requests)} ${reqSourceTag}</span>
-                <span style="font-size:11px; font-family:var(--mono); color:var(--text-dim);">
-                  <span style="color:#10b981;">成功 ${formatTokens(it.success_count)}</span> / <span style="color:#ef4444;">失败 ${formatTokens(it.failure_count)}</span>
-                </span>
-              </div>
-            </td>
-            <td>
-              <span class="num" style="font-weight:700; color:${rateColor}; font-size:13px;">${successRate}</span>
-            </td>
-            <td>
-              <div style="display:flex; flex-direction:column; gap:2px;">
-                <span class="num" style="font-weight:600; color:var(--text-main); font-size:13px;" title="当前视图 Token: ${it.total_tokens.toLocaleString()}">${formatTokens(it.total_tokens)}</span>
-                <span style="font-size:10.5px; font-family:var(--mono); color:var(--text-dim);">
-                  入 ${formatTokens(it.prompt_tokens)} / 出 ${formatTokens(it.completion_tokens)}
-                </span>
-                <div style="font-size:10px; color:var(--text-dim); margin-top:2px; padding-top:2px; border-top:1px dashed rgba(0,0,0,0.06);" title="5h周期用量: ${tok5hStr} | 24h用量: ${tok24hStr} | 历史总量: ${tokAllStr}">
-                  <span style="color:#0284c7; font-weight:600;">5h: ${tok5hStr}</span> · <span style="color:#475569;">24h: ${tok24hStr}</span> · <span style="color:#64748b;">总: ${tokAllStr}</span>
+            </div>
+
+            <!-- 核心指标 3 格 (总请求数 | Token 总数 | 缓存率) -->
+            <div class="stat-card-metrics-grid">
+              <div class="stat-metric-cell">
+                <div class="metric-cell-label">请求总数 ${reqSourceTag}</div>
+                <div class="metric-cell-value num">${formatTokens(it.total_requests)}</div>
+                <div class="metric-cell-sub">
+                  <span style="color:#10b981;">成 ${formatTokens(it.success_count)}</span> / <span style="color:#ef4444;">败 ${formatTokens(it.failure_count)}</span>
                 </div>
               </div>
-            </td>
-            <td>
-              <div style="display:flex; flex-direction:column; gap:2px;">
-                <span class="num" style="font-weight:600; color:#38bdf8; font-size:13px;">${it.cache_rate != null ? it.cache_rate.toFixed(1) + '%' : '0.0%'}</span>
-                <span style="font-size:10.5px; font-family:var(--mono); color:var(--text-dim);">
-                  ${formatTokens(it.cached_tokens)}
-                </span>
+              <div class="stat-metric-cell">
+                <div class="metric-cell-label">Token 消耗 <span class="ovw-source-tag is-local">本地</span></div>
+                <div class="metric-cell-value num" title="${it.total_tokens.toLocaleString()}">${formatTokens(it.total_tokens)}</div>
+                <div class="metric-cell-sub">
+                  入 ${formatTokens(it.prompt_tokens)} / 出 ${formatTokens(it.completion_tokens)}
+                </div>
               </div>
-            </td>
-            <td style="text-align: right;">
-              <span class="priority-badge ${prioCls}">P${prio}</span>
-            </td>
-          </tr>
+              <div class="stat-metric-cell">
+                <div class="metric-cell-label">缓存命中率 <span class="ovw-source-tag is-local">本地</span></div>
+                <div class="metric-cell-value num" style="color:#0284c7;">${it.cache_rate != null ? it.cache_rate.toFixed(1) + '%' : '0.0%'}</div>
+                <div class="metric-cell-sub" title="缓存 Tokens: ${Number(it.cached_tokens || 0).toLocaleString()}">
+                  命中 ${formatTokens(it.cached_tokens)}
+                </div>
+              </div>
+            </div>
+
+            <!-- 分时段 Token 水位带 (5h / 24h / 历史总数) -->
+            <div class="stat-card-period-bar">
+              <div class="period-item" title="5小时内Token"><span class="period-dot dot-5h"></span>5h: <b>${tok5hStr}</b></div>
+              <div class="period-item" title="24小时内Token"><span class="period-dot dot-24h"></span>24h: <b>${tok24hStr}</b></div>
+              <div class="period-item" title="全部历史总Token"><span class="period-dot dot-all"></span>累计: <b>${tokAllStr}</b></div>
+            </div>
+
+            <!-- 底部：最近活跃模型 -->
+            <div class="stat-card-footer">
+              <span class="footer-model-label">最近模型:</span>
+              <span class="footer-model-value" title="${escapeHtml(it.last_model || '—')}">${escapeHtml(it.last_model || '—')}</span>
+            </div>
+          </div>
         `;
       }).join('');
 
-      tbody.innerHTML = rows;
+      if (container) {
+        container.innerHTML = cardsHtml;
+      }
+      if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:12px; color:var(--text-dim);">已切换至卡片视图</td></tr>';
+      }
     }
 
     // 1. 获取免密配额探针状态 (Uptime Kuma 接口)

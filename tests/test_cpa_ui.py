@@ -93,11 +93,15 @@ async def main():
         await page.locator("#create-submit-btn").click()
         await page.locator("#created-key-val").get_by_text("sk-browser-test-1234567890").wait_for(timeout=10000)
         await page.get_by_role("button", name="完成").click()
-        # 账号接入与提供商 Tab 已彻底从 Gate 移除（职责边界回归监控、统计与调度，账号由 CPA 统一管理）
+        # 账号接入、提供商、CPA 日志与 CPA 配置 Tab 已彻底从 Gate 移除（职责边界回归网关监控、统计与调度，账号与配置由 CPA 统一管理）
         assert await page.locator("#tab-btn-cpa-auth").count() == 0, "账号接入 tab 已彻底移除"
         assert await page.locator("#tab-btn-cpa-providers").count() == 0, "提供商 tab 已彻底移除"
         assert await page.locator("#tab-page-cpa-auth").count() == 0, "账号接入页面容器已彻底移除"
         assert await page.locator("#tab-page-cpa-providers").count() == 0, "提供商页面容器已彻底移除"
+        assert await page.locator("#tab-btn-cpa-logs").count() == 0, "CPA 日志 tab 已彻底移除"
+        assert await page.locator("#tab-btn-cpa-config").count() == 0, "CPA 配置 tab 已彻底移除"
+        assert await page.locator("#tab-page-cpa-logs").count() == 0, "CPA 日志页面容器已彻底移除"
+        assert await page.locator("#tab-page-cpa-config").count() == 0, "CPA 配置页面容器已彻底移除"
 
         await page.locator("#tab-btn-quotas").click()
         await page.evaluate("fetchUpstreamQuotas(true)")
@@ -147,31 +151,6 @@ async def main():
         assert "剩余 100%" not in await expired_card.inner_text()
         await page.screenshot(path=str(output / "cpa-gate-expired-token-desktop.png"))
 
-        await page.locator("#tab-btn-cpa-config").click()
-        if await page.locator("#cpa-yaml-details summary").count() > 0:
-            await page.locator("#cpa-yaml-details summary").click()
-        await page.wait_for_function("document.getElementById('cpa-yaml-editor').value.includes('debug: true')", timeout=10000)
-        assert "debug: true" in await page.locator("#cpa-yaml-editor").input_value()
-        await page.locator("#cpa-yaml-editor").fill("debug: true\nrequest-retry: 3\n")
-        await page.get_by_role("button", name="查看改动").click()
-        assert await page.locator("#cpa-yaml-diff").is_visible()
-        await page.locator("#tab-btn-cpa-logs").click()
-        await page.locator("#cpa-log-view").get_by_text("mock cpa log").wait_for(timeout=10000)
-        # 测试错误日志在线检视、复制与关闭
-        error_preview_btn = page.locator("#cpa-error-logs-rows").locator("[data-cpa-action='error-preview']").first
-        if await error_preview_btn.count() > 0:
-            await error_preview_btn.click()
-            await page.locator("#cpa-error-viewer").wait_for(state="visible", timeout=10000)
-            assert "oops" in await page.locator("#cpa-error-viewer-content").inner_text()
-            await page.locator("[data-cpa-action='error-viewer-copy']").click()
-            await page.locator("[data-cpa-action='error-viewer-close']").click()
-            await page.locator("#cpa-error-viewer").wait_for(state="hidden", timeout=10000)
-
-        # 测试 CPA 配置页检查更新与常用设置
-        await page.locator("#tab-btn-cpa-config").click()
-        await page.locator("[data-cpa-action='version-check']").click()
-        await page.locator("#cpa-version-status").get_by_text("v7.3.0").wait_for(timeout=10000)
-
         # 测试 Google 验证中心与手动录入弹窗
         await page.locator("#tab-btn-validations").click()
         assert await page.locator("#tab-page-validations").is_visible()
@@ -187,12 +166,18 @@ async def main():
         await page.locator("#validations-history-tbody").get_by_text("ui-test@antigravity.internal").wait_for(timeout=10000)
         await page.locator("#tab-page-validations").get_by_role("button", name="刷新列表").click()
 
-        # 测试凭证统计工作区与时间跨度切换
+        # 测试凭证统计工作区与账号卡片网格
         await page.locator("#tab-btn-upstream-stats").click()
         assert await page.locator("#tab-page-upstream-stats").is_visible()
+        assert await page.locator("#upstream-stats-cards-container").count() == 1
         for range_btn in ("5 小时", "24 小时", "7 天", "全部历史"):
             await page.locator("#tab-page-upstream-stats").get_by_role("button", name=range_btn).click()
+        await page.locator("#upstream-stats-filter").fill("antigravity")
+        await page.wait_for_timeout(200)
+        await page.locator("#upstream-stats-filter").fill("")
         await page.locator("#tab-page-upstream-stats").get_by_role("button", name="刷新统计").click()
+        await page.wait_for_timeout(500)
+        assert await page.locator("#upstream-stats-cards-container .upstream-stat-card").count() > 0
 
         # 测试用量趋势工作区与图表指标/跨度切换
         await page.locator("#tab-btn-overview").click()
@@ -277,9 +262,7 @@ async def main():
             "tab-btn-overview",
             "tab-btn-logs",
             "tab-btn-errors",
-            "tab-btn-cpa-logs",
-            "tab-btn-keys",
-            "tab-btn-cpa-config"
+            "tab-btn-keys"
         ]
         actual_tabs = await page.locator("#main-nav-tabs .nav-tab-btn").evaluate_all("elements => elements.map(el => el.id)")
         assert actual_tabs == expected_tabs, f"Sidebar tabs order mismatch: {actual_tabs} != {expected_tabs}"
@@ -295,9 +278,9 @@ async def main():
         await mobile.add_init_script(f"localStorage.setItem('gate_admin_secret', {secret!r})")
         await mobile.goto(base + "/admin", wait_until="domcontentloaded")
         await mobile.locator("#mobile-menu-button").click()
-        await mobile.locator("#tab-btn-cpa-config").click()
+        await mobile.locator("#tab-btn-upstream-stats").click()
         await mobile.wait_for_timeout(350)
-        assert await mobile.locator("#tab-page-cpa-config").is_visible()
+        assert await mobile.locator("#tab-page-upstream-stats").is_visible()
         await mobile.screenshot(path=str(output / "cpa-gate-ui-mobile.png"))
 
         member = await browser.new_page(viewport={"width": 900, "height": 700})

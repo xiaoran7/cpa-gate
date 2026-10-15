@@ -4,8 +4,8 @@
   if (!nav || !workspace) return;
 
   const pages = [
-    ['cpa-logs', 'CPA 日志', 'CPA LOGS', '查看 CPA 服务日志与请求错误文件。', '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>', 'tab-btn-errors', true],
-    ['cpa-config', 'CPA 配置', 'CPA CONFIGURATION', '修改常用设置或审阅并保存完整 YAML。', '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>', 'tab-btn-keys', false]
+    // 明确职责边界：Gate 完全聚焦流量统计、调度与审计，CPA 页面（日志、配置、账号接入、提供商）
+    // 统一通过底部「原生面板 ↗」安全跳转至受保护的原生 CPA 控制台，不再向 Gate 侧边栏和工作区注入内嵌页面。
   ];
   for (const [id, title, eyebrow, description, iconSvg, insertAfterId, addDividerAfter] of pages) {
     pageMeta[id] = { title, eyebrow, description };
@@ -128,7 +128,8 @@
     ['quota-exceeded/switch-preview-model', '配额耗尽时切换预览模型', 'boolean'],
     ['error-logs-max-files', '错误日志保留文件数', 'number']
   ];
-  $('tab-page-cpa-config').innerHTML = `
+  const configPage = $('tab-page-cpa-config');
+  if (configPage) configPage.innerHTML = `
     <section class="cpa-panel" id="cpa-routing-panel"><h3>路由调度与会话粘性策略 (Routing & Load Balancing)</h3><p>控制上游凭据池分发算法与会话亲和性。支持轮询、加权轮询、填充优先、临期优先 (Smart) 与步调均衡 (Pace)。保存后直接热写回配置。</p>
       <div class="cpa-grid">
         <div class="cpa-field">
@@ -243,7 +244,8 @@
       </div>
     </details>`;
 
-  $('tab-page-cpa-logs').innerHTML = `
+  const logsPage = $('tab-page-cpa-logs');
+  if (logsPage) logsPage.innerHTML = `
     <section class="cpa-panel"><h3>CPA 服务日志</h3><p>按时间范围分档加载（1 小时 / 6 小时 / 24 小时），随后增量刷新。CPA 的日志接口只支持「从某个秒级时间戳开始」，不支持只取末尾若干行，所以响应大小完全由回溯时长决定，因此不提供「全部历史」入口。若某个档位的日志量超过 8MB，Gate 会保留已收到的部分并在此处提示截断，此时请改选更短的时间范围。需要更早的历史日志请登录服务器直接查看 CPA 宿主机或容器日志挂载目录。Gate 请求流水仍在原工作区。</p>
       <div class="cpa-actions">${button('logs-load-1h', '最近 1 小时')}${button('logs-load-6h', '最近 6 小时')}${button('logs-load-24h', '最近 24 小时')}${button('logs-refresh', '获取新日志')}${button('logs-clear', '清空 CPA 日志', 'btn btn-danger btn-sm')}</div>
       <div class="cpa-field"><label for="cpa-log-filter">筛选日志</label><input id="cpa-log-filter" placeholder="按文本筛选已加载的日志" type="search"/></div>

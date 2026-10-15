@@ -4,7 +4,12 @@ import {
   getNextUtcMidnight,
   formatResetCountdown,
   syncOpenRouterAccounts,
-  probeOpenRouterAccount
+  probeOpenRouterAccount,
+  getOpenRouterAccountsPath,
+  getOpenRouterAccountList,
+  addOpenRouterAccount,
+  updateOpenRouterAccount,
+  deleteOpenRouterAccount
 } from '../lib/upstream/openrouter.mjs';
 import { getProviderQuota } from '../lib/upstream/provider-quota.mjs';
 import { activateUpstreamQuotaWindow, syncUpstreamQuotas } from '../lib/upstream/sync.mjs';
@@ -48,7 +53,6 @@ console.log('测试 2: OpenRouter 凭证数据加载与归一化');
     assert.equal(acc.provider, 'openrouter', '提供商标识为 openrouter');
     assert.equal(acc.daily_limit, 800, '每日上限为 800');
     assert.equal(acc.today_requests, 42, '今日调用次数应通过 mock 解析为 42');
-    assert.equal(acc.remaining_requests, 800 - 42, '剩余可用次数应准确为 758');
     assert.ok(acc.auth_index.startsWith('openrouter-'), 'auth_index 前缀规范');
     assert.ok(acc.reset_time, '包含 reset_time');
     assert.ok(acc.reset_countdown, '包含 reset_countdown');
@@ -62,9 +66,7 @@ console.log('测试 3: 独立凭证探针查询与提供商配额接入');
   const quota = await getProviderQuota('openrouter-1');
   assert.equal(quota.provider, 'openrouter');
   assert.equal(quota.results?.quota?.status_code, 200);
-  assert.equal(quota.results?.quota?.data?.daily_limit, 800);
   assert.ok(Number.isFinite(quota.results?.quota?.data?.today_requests));
-  assert.ok(Number.isFinite(quota.results?.quota?.data?.remaining_requests));
   console.log('  ✓ getProviderQuota 成功返回规范的 OpenRouter 纯数字配额');
 }
 
@@ -77,8 +79,57 @@ console.log('测试 4: activateUpstreamQuotaWindow 探针兼容性');
   });
   assert.equal(activated.success, true);
   assert.equal(activated.probe_response?.status_code, 200);
-  assert.equal(activated.probe_response?.body?.daily_limit, 800);
   console.log('  ✓ activateUpstreamQuotaWindow 对 openrouter 凭证激活成功');
 }
 
+// 5. Gate 本地自治数据存储与 CRUD 增删改查
+console.log('测试 5: Gate 本地自治存储与 CRUD 契约');
+{
+  const currentPath = getOpenRouterAccountsPath();
+  assert.ok(currentPath.includes('data'), '存储路径指向数据目录');
+
+  const list = getOpenRouterAccountList();
+  assert.ok(Array.isArray(list), '账号列表正常读取');
+
+  // 添加测试临时账号
+  const testAccName = `test-autonomy-${Date.now()}`;
+  const addRes = addOpenRouterAccount({
+    name: testAccName,
+    note: '单元测试临时账号',
+    apiKey: 'sk-or-v1-testapikey1234567890abcdef',
+    mgmtKey: 'sk-or-v1-testmgmtkey1234567890abcdef'
+  });
+  assert.equal(addRes.success, true);
+  const newId = addRes.account.id;
+
+  // 验证在列表中可见且密钥安全脱敏
+  const afterAdd = getOpenRouterAccountList();
+  const created = afterAdd.find(a => a.id === newId);
+  assert.ok(created, '新账号成功追加至列表');
+  assert.equal(created.name, testAccName);
+  assert.equal(created.hasApiKey, true);
+  assert.equal(created.hasMgmtKey, true);
+  assert.ok(created.apiKeyMasked.includes('...'), 'API Key 安全脱敏');
+  assert.ok(created.mgmtKeyMasked.includes('...'), 'Management Key 安全脱敏');
+
+  // 更新账号信息
+  const updateRes = updateOpenRouterAccount(newId, {
+    note: '已更新的备注信息',
+    priority: 15
+  });
+  assert.equal(updateRes.success, true);
+  assert.equal(updateRes.account.priority, 15);
+  assert.equal(updateRes.account.note, '已更新的备注信息');
+
+  // 删除该临时测试账号
+  const delRes = deleteOpenRouterAccount(newId);
+  assert.equal(delRes.success, true);
+  assert.equal(delRes.removed_id, newId);
+
+  const afterDel = getOpenRouterAccountList();
+  assert.ok(!afterDel.some(a => a.id === newId), '临时测试账号已彻底删除');
+  console.log('  ✓ Gate 原生 CRUD 增删改查与敏感密钥脱敏验证通过');
+}
+
 console.log('\n=== 全部 OpenRouter 配额集成测试用例执行完毕，全部通过！===');
+
