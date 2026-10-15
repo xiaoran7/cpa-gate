@@ -93,101 +93,11 @@ async def main():
         await page.locator("#create-submit-btn").click()
         await page.locator("#created-key-val").get_by_text("sk-browser-test-1234567890").wait_for(timeout=10000)
         await page.get_by_role("button", name="完成").click()
-        assert await page.locator("#tab-btn-cpa-auth").count() == 1
-        await page.locator("#tab-btn-cpa-auth").click()
-        await page.locator("#cpa-auth-rows").get_by_text("test@example.com").wait_for(timeout=10000)
-        assert await page.locator("#tab-page-cpa-auth").is_visible()
-        assert not await page.locator("#tab-page-cpa-providers").is_visible()
-        # Screenshot the modern custom dropdown open
-        await page.locator("#cpa-oauth-provider-custom-dropdown .dropdown-trigger").click()
-        await page.wait_for_timeout(200)
-        trigger_box = await page.locator("#cpa-oauth-provider-custom-dropdown .dropdown-trigger").bounding_box()
-        menu_box = await page.locator("#cpa-oauth-provider-custom-dropdown .dropdown-menu").bounding_box()
-        print(f"TriggerBox: {trigger_box}")
-        print(f"MenuBox: {menu_box}")
-        await page.screenshot(path=str(output / "cpa-gate-dropdown-open.png"))
-        await page.locator("#cpa-oauth-provider-custom-dropdown .dropdown-item[data-value='codex']").click()
-        popups = []
-        page.on("popup", lambda popup: popups.append(popup))
-        await page.get_by_role("button", name="生成授权链接").click()
-        await page.wait_for_function("document.getElementById('cpa-oauth-link-input').value === 'https://example.com/auth'", timeout=10000)
-        assert not popups, "生成授权链接时不应自动打开浏览器窗口"
-        assert await page.locator("#cpa-oauth-link").get_attribute("href") == "https://example.com/auth"
-        await page.get_by_role("button", name="复制链接").click()
-        assert "链接" in await page.locator("#cpa-oauth-status").inner_text()
-        await page.screenshot(path=str(output / "cpa-gate-auth-link-desktop.png"))
-        await page.get_by_role("button", name="取消授权").click()
-        await page.locator("#cpa-oauth-result").wait_for(state="hidden", timeout=10000)
-        expired_row = page.locator("#cpa-auth-rows tr").filter(has_text="claude-expired@example.com")
-        await expired_row.get_by_text("Token 已过期").wait_for(timeout=10000)
-        assert await expired_row.get_by_role("button", name="查看额度").count() == 0
-        await page.locator("#cpa-auth-search").fill("missing-account")
-        assert "暂无认证文件" in await page.locator("#cpa-auth-rows").inner_text()
-        await page.locator("#cpa-auth-search").fill("test@example.com")
-        await page.locator("#cpa-auth-rows").locator(".cpa-row-menu summary").click()
-        await page.locator("#cpa-auth-rows").get_by_role("button", name="启用").click()
-        await page.locator("#cpa-auth-rows").locator(".cpa-row-menu summary").click()
-        await page.locator("#cpa-auth-rows").get_by_role("button", name="停用").wait_for(timeout=10000)
-        await page.locator("#cpa-auth-rows").locator("[data-cpa-select-auth='codex-test.json']").check()
-        assert await page.locator("#cpa-auth-rows").locator("[data-cpa-select-auth='codex-test.json']").is_checked()
-        await page.locator("#cpa-auth-rows").locator("[data-cpa-select-auth='codex-test.json']").uncheck()
-        await page.locator("#cpa-auth-search").fill("")
-        await page.locator("#cpa-auth-rows tr").filter(has_text="claude@example.com").get_by_role("button", name="查看额度").click()
-        await page.locator("#cpa-provider-quota-cards").get_by_text("剩余 86%").wait_for(timeout=10000)
-        await page.locator("#cpa-auth-rows tr").filter(has_text="meta@example.com").get_by_role("button", name="查看额度").click()
-        await page.locator("#cpa-provider-quota-cards").get_by_text("剩余 80%").wait_for(timeout=10000)
-        assert "must-never-reach-browser" not in await page.locator("#cpa-provider-quota-data").inner_text()
-        await page.locator("#cpa-auth-upload").set_input_files([
-            {"name": "batch-a.json", "mimeType": "application/json", "buffer": b'{"token":"a"}'},
-            {"name": "batch-b.json", "mimeType": "application/json", "buffer": b'{"token":"b"}'},
-            {"name": "batch-c.json", "mimeType": "application/json", "buffer": b'{"token":"c"}'},
-            {"name": "batch-d.json", "mimeType": "application/json", "buffer": b'{"token":"d"}'},
-            {"name": "batch-e.json", "mimeType": "application/json", "buffer": b'{"token":"e"}'},
-        ])
-        await page.locator("#tab-page-cpa-auth").get_by_role("button", name="上传并注册").click()
-        await page.locator("#cpa-auth-rows").locator("[data-cpa-select-auth='batch-a.json']").wait_for(timeout=10000)
-        await page.locator("#cpa-auth-rows").locator("[data-cpa-select-auth='batch-a.json']").check()
-        await page.locator("#cpa-auth-rows").locator("[data-cpa-select-auth='batch-b.json']").check()
-        page.on("dialog", lambda dialog: asyncio.create_task(dialog.accept()))
-        # P1：删除已改走服务端批量端点，与其余批量动作共用同一套汇总 UI
-        await page.locator("#tab-page-cpa-auth").get_by_role("button", name="删除选中").click()
-        await page.locator("#cpa-auth-status").get_by_text("成功 2/2").wait_for(timeout=10000)
-        report = page.locator("#cpa-auth-batch-report")
-        assert "全部成功" in await report.inner_text(), f"批量汇总应显示全成功: {await report.inner_text()}"
-        await page.screenshot(path=str(output / "cpa-gate-ui-desktop.png"))
-
-        # 批量停用：三个凭据一次性改状态，并给出汇总
-        await page.locator("#tab-btn-cpa-auth").click()
-        for name in ("batch-c.json", "batch-d.json", "batch-e.json"):
-            await page.locator("#cpa-auth-rows").locator(f"[data-cpa-select-auth='{name}']").wait_for(timeout=10000)
-            await page.locator("#cpa-auth-rows").locator(f"[data-cpa-select-auth='{name}']").check()
-        await page.locator("#tab-page-cpa-auth").get_by_role("button", name="批量停用").click()
-        await page.locator("#cpa-auth-status").get_by_text("停用：成功 3/3").wait_for(timeout=10000)
-        assert "全部成功" in await page.locator("#cpa-auth-batch-report").inner_text()
-        # 停用后应能从行状态读回，而不是只信汇总文案
-        for name in ("batch-c.json", "batch-d.json", "batch-e.json"):
-            row = page.locator("#cpa-auth-rows tr", has=page.locator(f"[data-cpa-select-auth='{name}']"))
-            txt = (await row.inner_text())
-            # 行状态列渲染的是中文「已停用」，不是 disabled 原始值
-            assert "已停用" in txt, f"{name} 行状态未变为停用，实际: {txt!r}"
-        await page.locator("#tab-page-cpa-auth .cpa-batch-report").screenshot(path=str(output / "cpa-gate-batch-report.png"))
-
-        # 部分失败：逐条执行，汇总必须区分成功与失败
-        mixed_result = await page.evaluate(
-            """async () => {
-                const s = localStorage.getItem('gate_admin_secret');
-                const r = await fetch('/admin/api/upstream-auth/batch', {
-                  method: 'PUT',
-                  headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + s},
-                  body: JSON.stringify({ names: ['batch-c.json', 'missing-batch.json', 'batch-d.json'], action: 'enable' })
-                });
-                return await r.json();
-            }"""
-        )
-        assert mixed_result["succeeded"] == 2, f"第 3 条应照常成功: {mixed_result}"
-        assert mixed_result["failed"] == 1
-        assert mixed_result["results"][1]["name"] == "missing-batch.json"
-        assert mixed_result["results"][1]["error"], "失败条目必须带原因"
+        # 账号接入与提供商 Tab 已彻底从 Gate 移除（职责边界回归监控、统计与调度，账号由 CPA 统一管理）
+        assert await page.locator("#tab-btn-cpa-auth").count() == 0, "账号接入 tab 已彻底移除"
+        assert await page.locator("#tab-btn-cpa-providers").count() == 0, "提供商 tab 已彻底移除"
+        assert await page.locator("#tab-page-cpa-auth").count() == 0, "账号接入页面容器已彻底移除"
+        assert await page.locator("#tab-page-cpa-providers").count() == 0, "提供商页面容器已彻底移除"
 
         await page.locator("#tab-btn-quotas").click()
         await page.evaluate("fetchUpstreamQuotas(true)")
@@ -237,94 +147,6 @@ async def main():
         assert "剩余 100%" not in await expired_card.inner_text()
         await page.screenshot(path=str(output / "cpa-gate-expired-token-desktop.png"))
 
-        await page.locator("#tab-btn-cpa-providers").click()
-        await page.locator("#cpa-provider-status").get_by_text("已读取").wait_for(timeout=10000)
-        await page.locator("#cpa-provider-cards [data-cpa-provider-field='name']").fill("mock-edited")
-        await page.locator("#cpa-provider-cards [data-cpa-provider-field='name']").press("Tab")
-        assert 'mock-edited' in await page.locator("#cpa-provider-json").input_value()
-        await page.locator("#cpa-provider-cards [data-cpa-provider-field='prefix']").fill("open-prefix")
-        await page.locator("#cpa-provider-cards [data-cpa-provider-field='prefix']").press("Tab")
-        await page.locator("#cpa-provider-cards [data-cpa-provider-field='disabled']").check()
-        await page.locator("#cpa-provider-cards [data-cpa-provider-field='entry-proxy-url']").fill("socks5://proxy.example.com:1080")
-        await page.locator("#cpa-provider-cards [data-cpa-provider-field='entry-proxy-url']").press("Tab")
-        openai_draft = await page.locator("#cpa-provider-json").input_value()
-        assert all(value in openai_draft for value in ("open-prefix", '"disabled": true', "socks5://proxy.example.com:1080"))
-        await page.locator("#cpa-provider-probe").get_by_role("button", name="发现模型").click()
-        await page.wait_for_function("document.getElementById('cpa-discovered-models').value.includes('mock-model-a')", timeout=10000)
-        assert "mock-model-a" in await page.locator("#cpa-discovered-models").input_value()
-        await page.locator("#cpa-provider-probe").get_by_role("button", name="加入 JSON 配置").click()
-        assert "mock-model-a" in await page.locator("#cpa-provider-json").input_value()
-        await page.locator("#cpa-provider-probe").get_by_role("button", name="测试模型连通").click()
-        await page.locator("#cpa-probe-status").get_by_text("模型请求成功").wait_for(timeout=10000)
-        await page.locator("#cpa-provider-cards").scroll_into_view_if_needed()
-        await page.screenshot(path=str(output / "cpa-gate-providers-desktop.png"))
-        await page.locator("#cpa-provider-kind").select_option("claude-api-key")
-        await page.locator("#tab-page-cpa-providers").get_by_role("button", name="读取配置").click()
-        await page.locator("#cpa-provider-cards [data-cpa-provider-field='base-url']").fill("https://claude-new.example.com")
-        await page.locator("#cpa-provider-cards [data-cpa-provider-field='base-url']").press("Tab")
-        draft = await page.locator("#cpa-provider-json").input_value()
-        assert "claude-new.example.com" in draft and '"cloak"' in draft
-        await page.locator("#cpa-provider-cards .cpa-provider-details").first.locator("summary").click()
-        await page.locator("#cpa-provider-cards [data-cpa-provider-field='model-alias']").fill("claude-new-alias")
-        await page.locator("#cpa-provider-cards [data-cpa-provider-field='model-alias']").press("Tab")
-        await page.locator("#cpa-provider-cards [data-cpa-provider-field='header-name']").fill("X-Request-Trace")
-        await page.locator("#cpa-provider-cards [data-cpa-provider-field='header-name']").press("Tab")
-        await page.locator("#cpa-provider-cards [data-cpa-provider-field='excluded-model']").fill("claude-new-*")
-        await page.locator("#cpa-provider-cards [data-cpa-provider-field='excluded-model']").press("Tab")
-        draft = await page.locator("#cpa-provider-json").input_value()
-        assert all(value in draft for value in ("claude-new-alias", "X-Request-Trace", "claude-new-*", '"extra": "preserve"'))
-        await page.screenshot(path=str(output / "cpa-gate-claude-provider-desktop.png"))
-        await page.locator("#cpa-provider-add-row").get_by_role("button", name="添加提供商 / 密钥").click()
-        assert await page.locator("#cpa-provider-cards .cpa-provider-card").count() == 2
-        await page.locator("#cpa-provider-cards [data-cpa-provider-index='1'] [data-cpa-provider-field='api-key']").fill("sk-mock-second-claude")
-        await page.locator("#cpa-provider-cards [data-cpa-provider-index='1'] [data-cpa-provider-field='api-key']").press("Tab")
-        await page.locator("#tab-page-cpa-providers").get_by_role("button", name="保存到 CPA").click()
-        await page.locator("#cpa-provider-status").get_by_text("已保存到 CPA").wait_for(timeout=10000)
-        assert await page.locator("#cpa-provider-cards .cpa-provider-card").count() == 2
-        assert '"cloak"' in await page.locator("#cpa-provider-json").input_value()
-        await page.locator("#cpa-provider-kind").select_option("oauth-excluded-models")
-        await page.locator("#tab-page-cpa-providers").get_by_role("button", name="读取配置").click()
-        assert not await page.locator("#cpa-provider-add-row").is_visible()
-        excluded = page.locator("#cpa-provider-cards [data-cpa-excluded-models='codex']")
-        await excluded.fill("gpt-old-*\ngpt-retired-*")
-        await excluded.press("Tab")
-        await page.locator("#cpa-excluded-new-channel").select_option("claude")
-        await page.locator("#cpa-provider-cards").get_by_role("button", name="添加渠道").click()
-        await page.locator("#cpa-provider-cards [data-cpa-excluded-models='claude']").fill("claude-retired-*")
-        await page.locator("#cpa-provider-cards [data-cpa-excluded-models='claude']").press("Tab")
-        await page.locator("#tab-page-cpa-providers").get_by_role("button", name="保存到 CPA").click()
-        await page.locator("#cpa-provider-status").get_by_text("已保存到 CPA").wait_for(timeout=10000)
-        assert '"antigravity"' in await page.locator("#cpa-provider-json").input_value()
-        assert "claude-retired-*" in await page.locator("#cpa-provider-json").input_value()
-        if await page.locator("[data-cpa-provider-tab='section-cpa-providers-alias']").count() > 0:
-            await page.locator("[data-cpa-provider-tab='section-cpa-providers-alias']").click()
-        await page.locator("#tab-page-cpa-providers").get_by_role("button", name="读取别名").click()
-        await page.evaluate("""async () => {
-          const response = await fetch('/admin/api/cpa/oauth-model-alias', {
-            method: 'PATCH', headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-            body: JSON.stringify({ channel: 'codex', aliases: [{ name: 'gpt-upstream', alias: 'gpt-external', fork: true, 'display-name': 'Preserve title' }] })
-          });
-          if (!response.ok) throw new Error(`external update failed: ${response.status}`);
-        }""")
-        await page.locator("#cpa-alias-cards [data-cpa-alias-field='alias']").fill("gpt-stale")
-        await page.locator("#cpa-alias-cards [data-cpa-alias-field='alias']").press("Tab")
-        await page.locator("#tab-page-cpa-providers").get_by_role("button", name="保存别名").click()
-        await page.locator("#cpa-alias-status").get_by_text("已变化").wait_for(timeout=10000)
-        await page.locator("#tab-page-cpa-providers").get_by_role("button", name="读取别名").click()
-        await page.locator("#cpa-alias-status").get_by_text("已读取 codex").wait_for(timeout=10000)
-        assert await page.locator("#cpa-alias-cards [data-cpa-alias-field='alias']").input_value() == "gpt-external"
-        await page.locator("#cpa-alias-cards [data-cpa-alias-field='alias']").fill("gpt-public-new")
-        await page.locator("#cpa-alias-cards [data-cpa-alias-field='alias']").press("Tab")
-        await page.locator("#cpa-alias-add-row").get_by_role("button", name="添加映射").click()
-        await page.locator("#cpa-alias-cards [data-cpa-alias-index='1'] [data-cpa-alias-field='name']").fill("gpt-second")
-        await page.locator("#cpa-alias-cards [data-cpa-alias-index='1'] [data-cpa-alias-field='name']").press("Tab")
-        await page.locator("#cpa-alias-cards [data-cpa-alias-index='1'] [data-cpa-alias-field='alias']").fill("gpt-second-public")
-        await page.locator("#cpa-alias-cards [data-cpa-alias-index='1'] [data-cpa-alias-field='alias']").press("Tab")
-        await page.locator("#tab-page-cpa-providers").get_by_role("button", name="保存别名").click()
-        await page.locator("#cpa-alias-status").get_by_text("模型别名已保存").wait_for(timeout=10000)
-        alias_draft = await page.locator("#cpa-alias-json").input_value()
-        assert all(value in alias_draft for value in ("gpt-public-new", "gpt-second-public", '"display-name": "Preserve title"')), alias_draft
-        await page.screenshot(path=str(output / "cpa-gate-oauth-rules-desktop.png"))
         await page.locator("#tab-btn-cpa-config").click()
         if await page.locator("#cpa-yaml-details summary").count() > 0:
             await page.locator("#cpa-yaml-details summary").click()
@@ -450,8 +272,6 @@ async def main():
             "tab-btn-runtime",
             "tab-btn-quotas",
             "tab-btn-validations",
-            "tab-btn-cpa-auth",
-            "tab-btn-cpa-providers",
             "tab-btn-status",
             "tab-btn-upstream-stats",
             "tab-btn-overview",
@@ -475,28 +295,17 @@ async def main():
         await mobile.add_init_script(f"localStorage.setItem('gate_admin_secret', {secret!r})")
         await mobile.goto(base + "/admin", wait_until="domcontentloaded")
         await mobile.locator("#mobile-menu-button").click()
-        await mobile.locator("#tab-btn-cpa-auth").click()
-        await mobile.locator("#cpa-auth-rows").get_by_text("test@example.com").wait_for(timeout=10000)
+        await mobile.locator("#tab-btn-cpa-config").click()
         await mobile.wait_for_timeout(350)
+        assert await mobile.locator("#tab-page-cpa-config").is_visible()
         await mobile.screenshot(path=str(output / "cpa-gate-ui-mobile.png"))
-        mobile_popups = []
-        mobile.on("popup", lambda popup: mobile_popups.append(popup))
-        await mobile.get_by_role("button", name="生成授权链接").click()
-        await mobile.locator("#cpa-oauth-result").wait_for(state="visible", timeout=10000)
-        assert not mobile_popups
-        link_bounds = await mobile.locator("#cpa-oauth-result").bounding_box()
-        assert link_bounds and link_bounds["x"] >= 0 and link_bounds["x"] + link_bounds["width"] <= 391, link_bounds
-        await mobile.screenshot(path=str(output / "cpa-gate-auth-link-mobile.png"))
-        await mobile.locator("#cpa-auth-rows").scroll_into_view_if_needed()
-        bounds = await mobile.locator("#tab-page-cpa-auth .cpa-table-wrap").bounding_box()
-        assert bounds and bounds["x"] >= 0 and bounds["x"] + bounds["width"] <= 391, bounds
-        assert await mobile.locator("#cpa-auth-select-all").is_visible()
-        await mobile.screenshot(path=str(output / "cpa-gate-auth-list-mobile.png"))
+
         member = await browser.new_page(viewport={"width": 900, "height": 700})
         member.on("pageerror", lambda error: errors.append(str(error)))
         await member.add_init_script("localStorage.setItem('gate_member_key', 'sk-member-test-1234567890')")
         await member.goto(base + "/member", wait_until="domcontentloaded")
-        assert not await member.locator("#tab-btn-cpa-auth").is_visible()
+        assert await member.locator("#tab-btn-cpa-auth").count() == 0
+        assert await member.locator("#tab-btn-cpa-providers").count() == 0
         assert not await member.locator("#tab-btn-status").is_visible()
         # 运行总览聚合的是全站上游调度事实：成员既看不到入口，也不得被停在首屏
         assert not await member.locator("#tab-btn-runtime").is_visible(), "成员模式不得暴露运行总览入口"

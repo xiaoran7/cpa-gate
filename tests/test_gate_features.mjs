@@ -178,6 +178,11 @@ console.log('测试 4: 前端 admin.html 内联 JavaScript 语法验证 (防语�
   assert.ok(html.includes("addEventListener('visibilitychange'"), 'admin.html 必须包含 visibilitychange 休眠唤醒自愈监听');
   assert.ok(html.includes('refreshCurrentTab'), 'admin.html 必须使用智能靶向刷新 refreshCurrentTab 杜绝并发队头阻塞与后台重绘卡顿');
   assert.ok(!html.includes('tab-btn-providers'), 'admin.html 已彻底移除 AI 提供商与号池侧边栏菜单，职责回归监控与统计');
+  assert.ok(!html.includes('tab-btn-cpa-auth'), 'admin.html 已彻底移除账号接入菜单');
+  assert.ok(!html.includes('tab-btn-cpa-providers'), 'admin.html 已彻底移除提供商菜单');
+  const cpaJs = fs.readFileSync('admin-cpa.js', 'utf8');
+  assert.ok(!cpaJs.includes("'cpa-auth'"), 'admin-cpa.js 已彻底移除 cpa-auth 页面');
+  assert.ok(!cpaJs.includes("'cpa-providers'"), 'admin-cpa.js 已彻底移除 cpa-providers 页面');
   assert.ok(html.includes('renderProvidersList'), 'admin.html 必须包含 AI 提供商 Token 分布与占比统计渲染器');
   assert.ok(html.includes('isUserBusyInteracting'), 'admin.html 必须包含用户操作忙碌防打扰检测');
   assert.ok(html.includes('live-row-highlight'), 'admin.html 必须包含请求流水热加载新行高亮动效');

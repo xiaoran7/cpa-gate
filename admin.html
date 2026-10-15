@@ -2574,6 +2574,7 @@
 <svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
 <span id="tab-text-validations">Google 验证</span><span class="tab-badge" id="nav-badge-validations">0</span>
 </button>
+<div class="sidebar-section-divider"></div>
 <button class="nav-tab-btn" id="tab-btn-status" onclick="switchNavTab('status')">
 <svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
 <span>服务状态</span>
@@ -4319,7 +4320,7 @@
         }
         if (keyFilterContainer) keyFilterContainer.style.display = 'none';
         // 如果当前处在不可见的 tab，切回 quotas
-        if (['overview', 'keys', 'errors', 'validations', 'status', 'upstream-stats', 'cpa-auth', 'cpa-providers', 'cpa-config', 'cpa-logs'].includes(activeNavTab)) {
+        if (['overview', 'keys', 'errors', 'validations', 'status', 'upstream-stats', 'cpa-config', 'cpa-logs'].includes(activeNavTab)) {
           switchNavTab('quotas');
         }
       } else {

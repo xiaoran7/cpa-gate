@@ -1,5 +1,22 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.9.33] - 2026-10-15
+
+明确 CPA 与 Gate 架构职责边界，彻底剥离 Gate 控制台中的“账号接入”与“提供商”模块（Architectural Boundary Clarification: Pruned Account Access & AI Providers Modules）：
+
+- **架构职责边界回归（Architecture Boundary Realignment）**：
+  - **核心设计意图**：Gate 的核心定位专注于可观测性、流量调度、状态监控、凭据用量与额度探针、请求流水审计以及故障追踪；账号授权（OAuth、JSON 文件上传、Vertex 导入）与 AI 提供商（模型发现、通道配置）属于 CPA 的原生管辖范围；
+  - 移除了 Gate 前台中冗余重复的“账号接入” (`cpa-auth`) 与“提供商” (`cpa-providers`) 侧边栏导航与工作区，如需配置账号授权或提供商规则，维护者可随时点击顶部“原生面板 ↗”进入 CPA 管理后台；
+  - 侧边栏导航重新梳理，在 `tab-btn-validations`（Google 验证）后补齐分段线，保持 4 大功能分区的视觉节奏。
+- **前端与样式瘦身（UI & Code Cleanup）**：
+  - [admin-cpa.js](admin-cpa.js)：移除 `cpa-auth` 与 `cpa-providers` 的导航注册、DOM 模板注入与大量过期事件绑定及请求函数，纯净保留 `cpa-config`（CPA 配置）与 `cpa-logs`（CPA 日志）；
+  - [admin-cpa.css](admin-cpa.css)：清理超过 700 行已废弃的号池与提供商 CSS 选择器；
+  - [admin.html](admin.html)：更新成员模式 (`member-mode`) 导航白名单校验。
+- **全量测试与回归加固（Verification & Regression Suite）**：
+  - [tests/test_gate_features.mjs](tests/test_gate_features.mjs)：加入回归断言，锁定 `admin.html` 与 `admin-cpa.js` 不再包含 `cpa-auth` 与 `cpa-providers`；
+  - [tests/test_cpa_ui.py](tests/test_cpa_ui.py)：更新端到端 UI 侧边栏预期列表与断言；
+  - 全量 `npm test` 测试套件运行通过。
+
 ## [v2.9.32] - 2026-10-15
 
 补齐 OpenRouter 独立提供商配额集成测试套件并纳入 CI/npm test 闭环（OpenRouter Quota Integration Test Suite）：
