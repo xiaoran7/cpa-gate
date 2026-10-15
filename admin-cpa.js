@@ -472,7 +472,7 @@
         const name = String(file.name || '');
         const onDisk = !file.runtime_only && file.source !== 'memory' && name.endsWith('.json');
         const provider = String(file.provider || file.type || '').toLowerCase();
-        const extraQuota = ['claude', 'anthropic', 'kimi', 'xai', 'grok', 'devin', 'meta'].includes(provider) && file.auth_index;
+        const extraQuota = ['claude', 'anthropic', 'kimi', 'xai', 'grok', 'devin', 'meta', 'openrouter'].includes(provider) && file.auth_index;
         const health = file.gate_health || {};
         const blocked = health.blocked === true;
         const detail = blocked ? health.detail : file.status_message;
@@ -779,6 +779,44 @@
           const reset = Number(window.resets_at);
           add(label, percent(window.used_percent, true), [quota.plan ? `套餐：${quota.plan}` : '', reset > 0 ? `恢复：${new Date(reset * 1000).toLocaleString()}` : ''].filter(Boolean).join(' · '));
         }
+      } else if (data.provider === 'openrouter') {
+        const quota = data.results?.quota?.data || {};
+        const today = quota.today_requests ?? 0;
+        const limit = quota.daily_limit || 800;
+        const remaining = quota.remaining_requests ?? Math.max(0, limit - today);
+        const resetCountdown = quota.reset_countdown || '';
+        const resetTime = quota.reset_time ? new Date(quota.reset_time).toLocaleString() : '';
+        const reqColor = today >= limit ? 'var(--danger, #ef4444)' : (today >= 600 ? 'var(--warning, #f59e0b)' : 'var(--accent, #3b82f6)');
+
+        $('cpa-provider-quota-cards').innerHTML = `
+          <div class="cpa-quota-item" style="grid-column: 1 / -1; padding: 14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <strong>OpenRouter 免费层额度 (Free Tier)</strong>
+              <small style="color:var(--text-dim);">${resetCountdown ? `距重置还有 ${escape(resetCountdown)}` : (resetTime ? `重置：${escape(resetTime)}` : '')}</small>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 6px;">
+              <div style="background:var(--bg-subtle, rgba(0,0,0,0.02)); border:1px solid var(--border-subtle, rgba(0,0,0,0.06)); border-radius:6px; padding:10px 12px;">
+                <div style="font-size:11px; color:var(--text-muted); margin-bottom:2px;">今日调用次数</div>
+                <div style="font-family:var(--mono); line-height:1.2;">
+                  <span style="font-size:24px; font-weight:700; color:${reqColor};">${today}</span>
+                  <span style="font-size:12px; color:var(--text-dim);"> / ${limit} 次</span>
+                </div>
+              </div>
+              <div style="background:var(--bg-subtle, rgba(0,0,0,0.02)); border:1px solid var(--border-subtle, rgba(0,0,0,0.06)); border-radius:6px; padding:10px 12px;">
+                <div style="font-size:11px; color:var(--text-muted); margin-bottom:2px;">今日剩余可用</div>
+                <div style="font-family:var(--mono); line-height:1.2;">
+                  <span style="font-size:24px; font-weight:700; color:var(--text-main);">${remaining}</span>
+                  <span style="font-size:12px; color:var(--text-dim);"> 次</span>
+                </div>
+              </div>
+            </div>
+            <small style="margin-top:10px; display:block; color:var(--text-dim);">每个 OpenRouter 账号每天上限 800 次免费模型请求，UTC 00:00 自动重置。</small>
+          </div>
+        `;
+        $('cpa-provider-quota-data').textContent = JSON.stringify(data, null, 2);
+        $('cpa-provider-quota').hidden = false;
+        $('cpa-provider-quota').scrollIntoView({ block: 'nearest' });
+        return;
       }
       $('cpa-provider-quota-cards').innerHTML = rows.length ? rows.map(row => `<div class="cpa-quota-item"><strong>${escape(row.label)}</strong><span>${row.remaining === null ? '额度未知' : `剩余 ${Math.round(row.remaining)}%`}</span><div class="cpa-quota-meter"><i style="width:${row.remaining ?? 0}%"></i></div><small>${escape(row.detail)}</small></div>`).join('') : '<p>上游未提供可计算的额度，详情见原始响应。</p>';
       $('cpa-provider-quota-data').textContent = JSON.stringify(data, null, 2);

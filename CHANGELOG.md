@@ -1,5 +1,15 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.9.31] - 2026-10-15
+
+集成 OpenRouter 独立提供商配额管理与今日用量实时探测（OpenRouter Free Tier Daily Quota & In-Place Probe）：
+
+- **功能落地与业务契约（Features & Implementation）**：
+  - **OpenRouter 凭证数据接入（[lib/upstream/openrouter.mjs](lib/upstream/openrouter.mjs)）**：自适应读取 `openrouter-monitor` 账号配置，对接 OpenRouter 官方 Analytics Query API 自动汇总每日模型请求数（800次/日免费额度），并自动计算距离 UTC 00:00 的精准重置倒计时；
+  - **凭据同步与配额热感知（[lib/upstream/sync.mjs](lib/upstream/sync.mjs) & [lib/upstream/provider-quota.mjs](lib/upstream/provider-quota.mjs)）**：统一融入 Gate 上游凭证大盘与独立额度查询，支持凭据卡片一键唤醒与就地原地刷新；
+  - **前台 UI 与筛选交互（[admin.html](admin.html) & [admin-cpa.js](admin-cpa.js)）**：新增 OpenRouter 专属过滤标签与批量查询能力，采用双指标胶囊清晰展示“今日已调用”与“今日剩余可用”纯数字指标，超出警告阈值自动染色。
+- **全量测试（Verification）**：自动化测试套件通过。
+
 ## [v2.9.30] - 2026-10-15
 
 全面补齐上下行 HTTP 压缩（Gzip/Deflate/Brotli）解压感知与 WebSocket 全双工穿透代理（HTTP Compression Decompression & WebSocket Full-Duplex Proxying）：

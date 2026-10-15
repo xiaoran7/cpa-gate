@@ -1,6 +1,6 @@
 {
   "name": "cpa-gate",
-  "version": "2.9.30",
+  "version": "2.9.31",
   "description": "High-Performance Resilient LLM API Gateway & Reverse Proxy for CLIProxyAPI",
   "main": "server.mjs",
   "type": "module",
