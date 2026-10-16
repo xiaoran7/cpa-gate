@@ -13,6 +13,9 @@
   - **紧凑视图（Compact Mode）**：在紧凑账号列表中，对 `workbuddy` 与 `workbuddy-cn` 账号直接渲染专属进度条与积分指标：第一行以大号 mono 高亮展示 `剩余 ${remainCredits} 积分`，第二行展示彩色比例进度条，底部附带总额（如 `总额: 800 积分`）与已消耗数，一眼即知剩余可用额度；
   - **网格大卡片视图（Grid Cards Mode）**：在卡片模式中，增加专属“WorkBuddy 资源包与积分额度”区块，呈现当前可用积分、总容量、已用积分与周期资源包进度条；
   - **数据层与就地刷新闭环**：结合 [lib/upstream/sync.mjs](lib/upstream/sync.mjs) 中的腾讯官方计费端点，用户点击卡片上的“刷新额度”即可直接调用官方计量 API 就地拉取最新积分并实时刷新视图；支持兼容直接嵌套在 `data.Packages` 结构与 `PackageCode` 字段的腾讯真实计费响应。
+- **架构与接口文档系统化整理（Integration Specification & Documentation）**：
+  - 新增专项技术文档 [docs/workbuddy-integration.md](docs/workbuddy-integration.md)，详细收录腾讯 WorkBuddy / CodeBuddy 官方计量端点 URL、必须携带的 Headers、真实响应嵌套结构、Gate 侧内存防抖与就地缓存刷新机制以及 Aozora UI 双视图展现标准；
+  - 在 [docs/cpa-upstream.md](docs/cpa-upstream.md) 与 [README.md](README.md) 中建立系统化文档索引，明确 Gate 与 CPA 的自治边界。
 - **自动化测试闭环（Integration Test & Verification）**：
   - 新增独立测试文件 [tests/test_workbuddy_quota_and_table.mjs](tests/test_workbuddy_quota_and_table.mjs)，端到端覆盖 `parseWorkBuddyGroups` 资源包解析计算、`admin.html` 内联语法与 WorkBuddy 渲染契约、API 密钥表格胶囊与高度一致性占位契约；
   - 挂载至 `package.json` 测试流水线，全量 `npm test` 26 大项与子测试全部 100% 绿灯通过。

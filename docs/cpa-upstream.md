@@ -63,3 +63,11 @@ Gate 内部模块通过 `GATE_MGMT_SECRET` 访问 CPA 的 `/v0/management/*` 与
 2. **根路径直达拦截**：非管理员直接请求 `/v0/management/*` 或 `/management.html` 时，Gate 直接在最外层拦截并拦截恶意探针，彻底阻断触发上游 IP 封禁的可能；
 3. **数据面与管理面隔离**：即使管理面不慎遭遇上游内存封禁，数据面（`/v1/*` 推理流量）依然正常走 API Key 认证，服务绝不中断。
 4. **清除方式**：CPA 该封禁状态**仅驻留于内存**，重启 CPA 容器或进程即可瞬间解除，无需等待 30 分钟。
+
+---
+
+## 4. 特殊上游计量与自治扩展 (Special Upstream Metering)
+
+对于具备独立官方计量端点且未被 CPA 深度原生聚合的上游（如腾讯 WorkBuddy / CodeBuddy、OpenRouter 等），Gate 采用自治拓展方案直接对接上游官方接口：
+- **腾讯 WorkBuddy / CodeBuddy 资源计量与积分呈现**：详见 [workbuddy-integration.md](workbuddy-integration.md)。
+

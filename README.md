@@ -180,6 +180,13 @@ systemctl enable --now gate
 
 ---
 
+## Documentation
+
+- **[CPA Upstream Integration Specification](docs/cpa-upstream.md)**: Network topology, management API contracts, and anti-brute force defenses.
+- **[Tencent WorkBuddy / CodeBuddy Quota Integration](docs/workbuddy-integration.md)**: Official metering endpoints, data contracts, and in-place cache hydration.
+
+---
+
 ## Testing
 
 cpa-gate includes an extensive test suite verifying route contracts, AST syntax safety, transactional outbox durability, and cache hydration:
