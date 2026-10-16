@@ -126,4 +126,30 @@ console.log('\n测试 3: API Key 表格排版整洁化契约');
   console.log('  ✓ API Key 表格模型胶囊与高度一致性占位契约验证通过');
 }
 
+// 测试 4: 凭据卡片大盘 WorkBuddy 积分与 OpenRouter 今日请求次数契约
+console.log('\n测试 4: 凭据卡片大盘 WorkBuddy 积分与 OpenRouter 今日请求次数契约');
+{
+  const quotasJs = fs.readFileSync(path.join(__dirname, '../admin-quotas.js'), 'utf8');
+
+  // 1. 验证卡片渲染逻辑是否覆盖 isWorkBuddy 资源包积分分支
+  assert.ok(quotasJs.includes('isWorkBuddy'), '卡片中需包含 isWorkBuddy 凭证判定');
+  assert.ok(quotasJs.includes('资源包积分: <b style="color:${barColor};">剩余 ${remainFormatted}</b>'), 'WorkBuddy 卡片需展示资源包积分与剩余数值');
+  assert.ok(quotasJs.includes('${remPct.toFixed(1)}% 可用'), 'WorkBuddy 卡片需展示积分可用百分比');
+  assert.ok(quotasJs.includes('总额: <b>${totalFormatted}</b> 积分 · 已用: <b>${usedFormatted}</b>'), 'WorkBuddy 卡片底部次行需展示总额与已用积分');
+
+  // 2. 验证卡片渲染逻辑是否覆盖 isOpenRouter 今日请求次数分支
+  assert.ok(quotasJs.includes('isOpenRouter'), '卡片中需包含 isOpenRouter 凭证判定');
+  assert.ok(quotasJs.includes('今日请求: <b style="color:#3b82f6;">${todayCount}</b>'), 'OpenRouter 卡片需展示今日已请求次数高亮');
+  assert.ok(quotasJs.includes('/ ${dailyLimit} 次'), 'OpenRouter 卡片需展示每日限额');
+  assert.ok(quotasJs.includes('今日剩余: <b style="color:${barColor};">${remCount}</b> 次可用 · 周期: <b>UTC日</b>'), 'OpenRouter 卡片底部需展示今日可用剩余次数与周期');
+
+  // 3. 验证服务端 getUpstreamAuthStats 字段导出
+  const summaryModule = fs.readFileSync(path.join(__dirname, '../lib/analytics/status-summary.mjs'), 'utf8');
+  assert.ok(summaryModule.includes('total_credits: totalCredits'), '服务端需导出 total_credits');
+  assert.ok(summaryModule.includes('remaining_credits: remainingCredits'), '服务端需导出 remaining_credits');
+  assert.ok(summaryModule.includes('today_requests: todayRequests'), '服务端需导出 today_requests');
+  assert.ok(summaryModule.includes('daily_limit: dailyLimit'), '服务端需导出 daily_limit');
+  console.log('  ✓ 凭据卡片大盘 WorkBuddy 积分与 OpenRouter 今日请求次数全链路契约验证通过');
+}
+
 console.log('\n=== 全部 WorkBuddy 与 Key 表格测试通过！===');

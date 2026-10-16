@@ -1550,9 +1550,79 @@
             rateBg = '#fffbeb';
           }
 
-          // 周期额度渲染 (5h 窗口与周限额)
+          // 周期额度与配额水位渲染：
+          // 1. WorkBuddy: 资源包积分额度 (剩余/总额/已用)
+          // 2. OpenRouter: 今日请求次数与 800 次每日限额
+          // 3. Antigravity / Codex: 5h 与周限额滑动窗口
           let quotaHtml = '<div style="color:var(--text-dim); font-size:11px; text-align:center; padding:3px 0;">— 暂无实时配额水位 —</div>';
-          if (it.quota_5h) {
+
+          // 辅助凭证对象兜底查询 (以防 stats 接口未刷新时已有 cachedUpstream.accounts)
+          const fallbackAcc = (cachedUpstream.accounts || []).find(a =>
+            (it.auth_index && a.auth_index === it.auth_index) ||
+            a.id === it.name ||
+            a.filename === it.name ||
+            (it.provider === 'openrouter' && (a.id === it.auth_index || a.name === it.name || `openrouter-${a.id}` === it.auth_index))
+          );
+
+          const isWorkBuddy = it.provider === 'workbuddy' || it.provider === 'workbuddy-cn' || String(it.name || '').toLowerCase().startsWith('workbuddy');
+          const isOpenRouter = it.provider === 'openrouter' || String(it.name || '').toLowerCase().startsWith('openrouter');
+
+          if (isWorkBuddy) {
+            const totalCredits = it.total_credits != null ? Number(it.total_credits) : (fallbackAcc?.total_credits != null ? Number(fallbackAcc.total_credits) : null);
+            const remainCredits = it.remaining_credits != null ? Number(it.remaining_credits) : (fallbackAcc?.remaining_credits != null ? Number(fallbackAcc.remaining_credits) : null);
+            const usedCredits = it.used_credits != null ? Number(it.used_credits) : (fallbackAcc?.used_credits != null ? Number(fallbackAcc.used_credits) : 0);
+
+            if (remainCredits != null || totalCredits != null) {
+              const total = totalCredits || 0;
+              const remain = remainCredits || 0;
+              const used = usedCredits || 0;
+              const remPct = total > 0 ? Math.max(0, Math.min(100, Math.round((remain / total) * 1000) / 10)) : (remain > 0 ? 100 : 0);
+              let barColor = '#10b981'; // 充裕 (绿)
+              if (remPct <= 20) barColor = '#ef4444'; // 耗尽或濒危 (红)
+              else if (remPct <= 50) barColor = '#f59e0b'; // 警戒 (黄)
+
+              const remainFormatted = remain.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+              const totalFormatted = total.toLocaleString();
+              const usedFormatted = used.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
+              quotaHtml = `
+                <div class="quota-box-row">
+                  <span class="quota-box-title">资源包积分: <b style="color:${barColor};">剩余 ${remainFormatted}</b></span>
+                  <span class="quota-box-countdown">${remPct.toFixed(1)}% 可用</span>
+                </div>
+                <div class="quota-progress-track">
+                  <div class="quota-progress-fill" style="width:${Math.max(0, Math.min(100, remPct))}%; background:${barColor};"></div>
+                </div>
+                <div class="quota-weekly-row">总额: <b>${totalFormatted}</b> 积分 · 已用: <b>${usedFormatted}</b></div>
+              `;
+            }
+          } else if (isOpenRouter) {
+            const todayCount = it.today_requests != null ? Number(it.today_requests) : (fallbackAcc?.today_requests != null ? Number(fallbackAcc.today_requests) : null);
+            const dailyLimit = it.daily_limit != null ? Number(it.daily_limit) : (fallbackAcc?.daily_limit != null ? Number(fallbackAcc.daily_limit) : 800);
+            const remainingReq = it.remaining_requests != null ? Number(it.remaining_requests) : (fallbackAcc?.remaining_requests != null ? Number(fallbackAcc.remaining_requests) : (todayCount != null ? Math.max(0, dailyLimit - todayCount) : null));
+            const resetCountdown = it.reset_countdown || fallbackAcc?.reset_countdown || '';
+
+            if (todayCount != null) {
+              const remCount = remainingReq != null ? remainingReq : Math.max(0, dailyLimit - todayCount);
+              const remPct = dailyLimit > 0 ? Math.max(0, Math.min(100, Math.round((remCount / dailyLimit) * 1000) / 10)) : 100;
+              let barColor = '#10b981'; // 充裕 (绿)
+              if (remPct <= 20) barColor = '#ef4444'; // 耗尽或濒危 (红)
+              else if (remPct <= 50) barColor = '#f59e0b'; // 警戒 (黄)
+
+              const countdownText = resetCountdown ? (resetCountdown.includes('重置') ? resetCountdown : `重置: ${resetCountdown}`) : 'UTC 00:00 重置';
+
+              quotaHtml = `
+                <div class="quota-box-row">
+                  <span class="quota-box-title">今日请求: <b style="color:#3b82f6;">${todayCount}</b> <span style="font-size:10px; color:var(--text-dim); font-weight:normal;">/ ${dailyLimit} 次</span></span>
+                  <span class="quota-box-countdown">${escapeHtml(countdownText)}</span>
+                </div>
+                <div class="quota-progress-track">
+                  <div class="quota-progress-fill" style="width:${Math.max(0, Math.min(100, remPct))}%; background:${barColor};"></div>
+                </div>
+                <div class="quota-weekly-row">今日剩余: <b style="color:${barColor};">${remCount}</b> 次可用 · 周期: <b>UTC日</b></div>
+              `;
+            }
+          } else if (it.quota_5h) {
             const rem5h = it.quota_5h.remaining_percent;
             let barColor = '#10b981'; // 充裕 (绿)
             if (rem5h < 20) barColor = '#ef4444'; // 耗尽或濒危 (红)

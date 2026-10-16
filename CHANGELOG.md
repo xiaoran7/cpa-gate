@@ -1,5 +1,26 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.9.41] - 2026-10-16
+
+凭据用量大盘卡片支持 WorkBuddy 资源包积分与 OpenRouter 今日请求次数实时水位展示（Render Real-Time Quota Bars for WorkBuddy Credits & OpenRouter Daily Requests in Upstream Auth Cards）：
+
+- **凭据大盘水位卡片多源异构统一呈现（Unified Quota Water Level across Heterogeneous Providers）**：
+  - **核心痛点解决**：此前管理控制台用量大盘的凭据卡片视图（`upstream-stat-card`）硬编码依赖 `quota_5h`（仅限 Antigravity 与 Codex 滑动窗口），导致 WorkBuddy 凭据与 OpenRouter 凭据一律降级显示为“— 暂无实时配额水位 —”，无法直观感知额度余量；
+  - **WorkBuddy 积分实时水位**：确立“WorkBuddy 的配额即资源包积分”的业务领域模型。卡片实时展示资源包可用剩余积分、百分比进度条（绿/黄/红三级警戒色），并在底部次行清晰标明总积分与已用积分；
+  - **OpenRouter 今日请求次数实时水位**：确立“OpenRouter 的配额即今日已请求次数与 800 次/日限额”的业务领域模型。卡片高亮展示今日请求次数与 `/ 800 次` 限额、UTC 00:00 重置倒计时、剩余可用请求条以及日重置周期标签。
+- **服务端大盘统计接口字段聚合补全（Upstream Auth Stats API Field Extraction & Fallback Matching）**：
+  - 在 [lib/analytics/status-summary.mjs](lib/analytics/status-summary.mjs) 的 `getUpstreamAuthStats` 中，扩展多维凭据索引匹配（支持 `auth_index`、`filename`、`id`、`workbuddy` 与 `openrouter-${id}` 兼容前缀）；
+  - 自动提取并导出 WorkBuddy `total_credits`、`remaining_credits` 与 `used_credits`（若顶层缺失则从 `acc.groups[].buckets` 自动按需累加）；
+  - 自动提取并导出 OpenRouter `today_requests`、`daily_limit`（默认 800）、`remaining_requests`、`reset_time` 与 `reset_countdown`。
+- **前端卡片渲染与多层兜底（Aozora UI Responsive Card Rendering in `admin-quotas.js`）**：
+  - 在 [admin-quotas.js](admin-quotas.js) 的 `renderUpstreamStatsTable()` 中扩展卡片分支逻辑：
+    - `isWorkBuddy` 分支：优先使用接口返回的积分，若接口未刷则从前端缓存 `cachedUpstream.accounts` 兜底查找，支持数字本地化格式化；
+    - `isOpenRouter` 分支：优先使用接口返回的每日请求计数，同样支持 `cachedUpstream.accounts` 兜底与 UTC 00:00 倒计时展示；
+    - `quota_5h` 分支：保持 Antigravity 与 Codex 5小时与周限额滑动窗口平滑向下兼容。
+- **全链路自动化测试回归锁死（Full-Stack Regression Locks in Integration Tests）**：
+  - 在 [tests/test_workbuddy_quota_and_table.mjs](tests/test_workbuddy_quota_and_table.mjs) 中增加独立测试“测试 4: 凭据卡片大盘 WorkBuddy 积分与 OpenRouter 今日请求次数契约”，严密断言 `admin-quotas.js` 语法与渲染模板、`lib/analytics/status-summary.mjs` 字段导出与契约一致性；
+  - 运行全部测试流水线 `npm test`，所有 26 项核心测试与子套件 100% 绿灯通过。
+
 ## [v2.9.40] - 2026-10-16
 
 彻底解耦重构管理后台 `admin.html`：完成内联 CSS 与四大业务领域 JS 模块化物理拆分（Decouple Monolithic `admin.html` into CSS & Modular Business JS Scripts）：
