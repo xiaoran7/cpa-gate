@@ -1,13 +1,13 @@
 {
   "name": "cpa-gate",
-  "version": "2.9.38",
+  "version": "2.9.39",
   "description": "High-Performance Resilient LLM API Gateway & Reverse Proxy for CLIProxyAPI",
   "main": "server.mjs",
   "type": "module",
   "license": "MIT",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --env-file-if-exists=.env.test -e \"process.env.GATE_MGMT_SECRET=process.env.GATE_MGMT_SECRET||'test-secret-12345678901234567890'; import('./tests/test_gate_features.mjs')\" && node tests/test_gate_pagination.mjs && node tests/test_gate_validation_url.mjs && node tests/test_gate_caching.mjs && node tests/test_cpa_management.mjs && node tests/test_compression_websocket.mjs && node tests/test_openrouter_quota.mjs && node tests/test_workbuddy_quota_and_table.mjs",
+    "test": "node --env-file-if-exists=.env.test -e \"process.env.GATE_MGMT_SECRET=process.env.GATE_MGMT_SECRET||'test-secret-12345678901234567890'; import('./tests/test_gate_features.mjs')\" && node tests/test_gate_pagination.mjs && node tests/test_gate_validation_url.mjs && node tests/test_gate_caching.mjs && node tests/test_cpa_management.mjs && node tests/test_compression_websocket.mjs && node tests/test_openrouter_quota.mjs && node tests/test_workbuddy_quota_and_table.mjs && node tests/test_antigravity_quota_multi_endpoint.mjs",
     "test:management:ui": "node tests/test_cpa_management.mjs --browser"
   },
   "dependencies": {

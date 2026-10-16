@@ -70,4 +70,8 @@ Gate 内部模块通过 `GATE_MGMT_SECRET` 访问 CPA 的 `/v0/management/*` 与
 
 对于具备独立官方计量端点且未被 CPA 深度原生聚合的上游（如腾讯 WorkBuddy / CodeBuddy、OpenRouter 等），Gate 采用自治拓展方案直接对接上游官方接口：
 - **腾讯 WorkBuddy / CodeBuddy 资源计量与积分呈现**：详见 [workbuddy-integration.md](workbuddy-integration.md)。
+- **Google Antigravity 官方客户端版本门槛与多端点容灾**：
+  - **版本门槛（Client UA Threshold）**：Google 服务端对 `retrieveUserQuotaSummary` 接口增加了客户端版本判定，要求客户端版本必须 `>= 1.2.0`。使用老旧版本（如 `1.0.13`）会被静默降级为只下发 `Claude and GPT models`；Gate 统一切换为官方 CLI 最新 `antigravity/cli/1.3.6 (aidev_client; os_type=darwin; arch=arm64)`。
+  - **多端点容灾轮询（Multi-Endpoint Fallback）**：按序探测 `daily-cloudcode-pa.googleapis.com`、`cloudcode-pa.googleapis.com` 与 `daily-cloudcode-pa.sandbox.googleapis.com`，当且仅当响应包含完整的 Gemini 模型组时才提交生效。
+
 

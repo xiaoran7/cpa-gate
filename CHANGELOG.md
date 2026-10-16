@@ -1,5 +1,19 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.9.39] - 2026-10-16
+
+修复 Google Antigravity 配额因客户端版本门槛导致 Gemini 模型组缺失问题，并引入官方多端点容灾轮询（Fix Google Antigravity Missing Gemini Quota via Client UA Threshold & Multi-Endpoint Fallback）：
+
+- **Google Antigravity 客户端版本门槛升级与 UA 对齐（Client Version Threshold & UA Alignment）**：
+  - **核心痛点解决**：近期 Google 上游对 `retrieveUserQuotaSummary` 接口增加了客户端版本判定，要求客户端版本必须达到 `>= 1.2.0`。使用老旧的 `1.0.13` 时，Google 服务端会自动降级响应，只下发 `Claude and GPT models` 组，导致管理后台凭据卡片中的 `Gemini Models`（含 Flash / Pro 5小时与周限额）凭空消失；
+  - **对齐官方 CLI 1.3.6 UA**：在 [lib/upstream/sync.mjs](lib/upstream/sync.mjs) 中统一定义并导出 `ANTIGRAVITY_USER_AGENT = 'antigravity/cli/1.3.6 (aidev_client; os_type=darwin; arch=arm64)'`，全面替代全项目遗留的 `1.0.13` 硬编码；同时同步更新 [static/management.html](static/management.html) 中静态打包的客户端版本。
+- **多端点容灾轮询与完整性保障（Multi-Endpoint Fallback & Integrity Guard）**：
+  - **端点列表**：配置 `ANTIGRAVITY_QUOTA_URLS`，依次尝试 `daily-cloudcode-pa.googleapis.com`、`cloudcode-pa.googleapis.com`（官方 PR #496 推荐稳定端点）与 `daily-cloudcode-pa.sandbox.googleapis.com` 沙箱端点；
+  - **健壮轮询函数 `requestAntigravityQuotaSummary`**：在周期同步 `syncUpstreamQuotas` 与就地单点刷新 `activateUpstreamQuotaWindow` 中接入多端点容灾机制，若返回结果中未包含 Gemini 模型组则自动顺延请求下一端点，保证凭据配额完整性。
+- **自动化测试闭环（Integration Test & Verification）**：
+  - 新增独立测试文件 [tests/test_antigravity_quota_multi_endpoint.mjs](tests/test_antigravity_quota_multi_endpoint.mjs)，覆盖客户端 UA 版本门槛（`>= 1.2.0`）、容灾端点列表完整性以及 `parseAntigravityGroups` 双模型组解析与百分比换算；
+  - 接入 `package.json` 测试流水线，全量 `npm test` 全部 100% 绿灯通过。
+
 ## [v2.9.38] - 2026-10-15
 
 重构美化 API 密钥管理表格排版并实现 WorkBuddy 剩余积分与官方资源包实时高亮呈现（Refactor API Keys Table Alignment & Add WorkBuddy Credits Display to Upstream Cards）：
