@@ -159,22 +159,33 @@ console.log('测试 4: 前端 admin.html 内联 JavaScript 语法验证 (防语�
   console.log('  ✓ admin.html 内联脚本编译解析无语法错误 (通过 AST/vm.Script 校验)');
 
   // 外置前端脚本同样进这道门禁：v2.4.10 的白屏事故正是前端脚本语法断裂导致的。
-  for (const asset of ['admin-cpa.js', 'admin-overview.js']) {
+  for (const asset of ['admin-cpa.js', 'admin-overview.js', 'admin-logs.js', 'admin-quotas.js', 'admin-keys.js', 'admin-stats.js']) {
     const source = fs.readFileSync(new URL(`../${asset}`, import.meta.url), 'utf8');
     new vm.Script(source, { filename: asset });
     console.log(`  ✓ ${asset} 编译解析无语法错误`);
   }
 
-  // admin.html 必须同时挂载两套外置资源，否则运行总览会静默不出现
+  // admin.html 必须挂载外置主样式与外置业务脚本资源
+  assert.ok(html.includes('/admin/style.css'), 'admin.html 未引入 /admin/style.css');
+  assert.ok(html.includes('/admin/quotas.js'), 'admin.html 未引入 /admin/quotas.js');
+  assert.ok(html.includes('/admin/keys.js'), 'admin.html 未引入 /admin/keys.js');
+  assert.ok(html.includes('/admin/stats.js'), 'admin.html 未引入 /admin/stats.js');
+  assert.ok(html.includes('/admin/logs.js'), 'admin.html 未引入 /admin/logs.js');
   assert.ok(html.includes('/admin/overview.js'), 'admin.html 未引入 /admin/overview.js');
   assert.ok(html.includes('/admin/overview.css'), 'admin.html 未引入 /admin/overview.css');
 
+  const clientScripts = html +
+    fs.readFileSync('admin-quotas.js', 'utf8') +
+    fs.readFileSync('admin-keys.js', 'utf8') +
+    fs.readFileSync('admin-stats.js', 'utf8') +
+    fs.readFileSync('admin-logs.js', 'utf8');
+
   // v2.6.3 回归锁：探针详情列表使用 blocked_details / warning_details 且经过 Array.isArray 守卫；
   // 上游配额异常占位同时同步双容器 (setUpstreamPlaceholder)；休眠唤醒监听已挂载
-  assert.ok(html.includes('probeData.blocked_details'), 'admin.html 探针详情必须对齐后端 blocked_details 字段');
-  assert.ok(html.includes('probeData.warning_details'), 'admin.html 探针详情必须对齐后端 warning_details 字段');
-  assert.ok(!html.includes('for (const bk of probeData.blocked_keys)'), '禁止直接遍历非数组的 blocked_keys');
-  assert.ok(html.includes('setUpstreamPlaceholder'), 'admin.html 必须使用 setUpstreamPlaceholder 同步紧凑与卡片容器');
+  assert.ok(clientScripts.includes('probeData.blocked_details'), '前端探针详情必须对齐后端 blocked_details 字段');
+  assert.ok(clientScripts.includes('probeData.warning_details'), '前端探针详情必须对齐后端 warning_details 字段');
+  assert.ok(!clientScripts.includes('for (const bk of probeData.blocked_keys)'), '禁止直接遍历非数组的 blocked_keys');
+  assert.ok(clientScripts.includes('setUpstreamPlaceholder'), '前端必须使用 setUpstreamPlaceholder 同步紧凑与卡片容器');
   assert.ok(html.includes("addEventListener('visibilitychange'"), 'admin.html 必须包含 visibilitychange 休眠唤醒自愈监听');
   assert.ok(html.includes('refreshCurrentTab'), 'admin.html 必须使用智能靶向刷新 refreshCurrentTab 杜绝并发队头阻塞与后台重绘卡顿');
   assert.ok(!html.includes('tab-btn-providers'), 'admin.html 已彻底移除 AI 提供商与号池侧边栏菜单，职责回归监控与统计');
@@ -183,9 +194,10 @@ console.log('测试 4: 前端 admin.html 内联 JavaScript 语法验证 (防语�
   const cpaJs = fs.readFileSync('admin-cpa.js', 'utf8');
   assert.ok(!cpaJs.includes("'cpa-auth'"), 'admin-cpa.js 已彻底移除 cpa-auth 页面');
   assert.ok(!cpaJs.includes("'cpa-providers'"), 'admin-cpa.js 已彻底移除 cpa-providers 页面');
-  assert.ok(html.includes('renderProvidersList'), 'admin.html 必须包含 AI 提供商 Token 分布与占比统计渲染器');
+  assert.ok(clientScripts.includes('renderProvidersList'), '前端脚本必须包含 AI 提供商 Token 分布与占比统计渲染器');
   assert.ok(html.includes('isUserBusyInteracting'), 'admin.html 必须包含用户操作忙碌防打扰检测');
-  assert.ok(html.includes('live-row-highlight'), 'admin.html 必须包含请求流水热加载新行高亮动效');
+  const logsJs = fs.readFileSync('admin-logs.js', 'utf8');
+  assert.ok(html.includes('live-row-highlight') || logsJs.includes('live-row-highlight'), '前端脚本必须包含请求流水热加载新行高亮动效');
   assert.ok(html.includes('getSafePollingInterval'), 'admin.html 必须包含重度报表页自适应保护节流');
   console.log('  ✓ 运行总览资源、探针契约、网络自愈、靶向刷新与提供商 Token 分布统计均已在 admin.html 中验证通过\n');
 }
@@ -1424,19 +1436,21 @@ console.log('测试 19: 请求流水与错误中心提供商推断兜底');
 
   console.log('  ✓ getPagedRequests 端到端返回的流水中 provider 与 auth_name 准确无裸哈希');
 
-  // 3) 前端 admin.html 静态契约验证
+  // 3) 前端静态契约验证 (包含 admin.html 与外置 admin-logs.js)
+  const adminLogsJs = fs.readFileSync('admin-logs.js', 'utf8');
+  const clientScripts = adminHtml + adminLogsJs;
   assert.ok(
-    /m\.includes\('opencode'\)\s*\|\|\s*m\.includes\('-free'\)/.test(adminHtml),
-    'admin.html 中的 resolveEventProvider 必须覆盖 opencode 与 -free 规则'
+    /m\.includes\('opencode'\)\s*\|\|\s*m\.includes\('-free'\)/.test(clientScripts),
+    '前端脚本中的 resolveEventProvider 必须覆盖 opencode 与 -free 规则'
   );
   assert.ok(
-    /cachedUpstream\.accounts\.find/.test(adminHtml),
-    'admin.html 中的 resolveEventProvider 必须支持从已同步凭据列表中反查 provider'
+    /cachedUpstream\.accounts\.find/.test(clientScripts),
+    '前端脚本中的 resolveEventProvider 必须支持从已同步凭据列表中反查 provider'
   );
   assert.ok(
-    /p\.includes\('stealth'\)/.test(adminHtml) &&
-    /p\.includes\('deepseek'\)/.test(adminHtml) &&
-    /p\.includes\('qwen'\)/.test(adminHtml),
+    /p\.includes\('stealth'\)/.test(clientScripts) &&
+    /p\.includes\('deepseek'\)/.test(clientScripts) &&
+    /p\.includes\('qwen'\)/.test(clientScripts),
     'admin.html 中的 getProviderBrand 必须覆盖 stealth / deepseek / qwen 提供商'
   );
 
@@ -1793,14 +1807,15 @@ console.log('测试 25: 腾讯 WorkBuddy / CodeBuddy 上游提供商接入与全
     adminHtml.includes("p.includes('workbuddy')"),
     'admin.html 中的 getProviderBrand 必须包含 workbuddy 识别分支'
   );
+  const clientScriptsWb = adminHtml + fs.readFileSync('admin-logs.js', 'utf8');
   assert.ok(
-    adminHtml.includes("m.includes('workbuddy')"),
-    'admin.html 中的 resolveEventProvider 必须包含 workbuddy 推断分支'
+    clientScriptsWb.includes("m.includes('workbuddy')"),
+    '前端脚本中的 resolveEventProvider 必须包含 workbuddy 推断分支'
   );
 
   assert.ok(
-    adminHtml.includes("m.includes('copilot.tencent')"),
-    'admin.html 中的 resolveEventProvider 必须覆盖 copilot.tencent 推断分支'
+    clientScriptsWb.includes("m.includes('copilot.tencent')"),
+    '前端脚本中的 resolveEventProvider 必须覆盖 copilot.tencent 推断分支'
   );
 
   console.log('  ✓ 前端 admin.html 凭证过滤、品牌图标与流水推断契约验证通过');
@@ -1904,8 +1919,10 @@ console.log('测试 25: 腾讯 WorkBuddy / CodeBuddy 上游提供商接入与全
   );
   console.log('  ✓ 路由层 provider 参数接收与透传契约验证通过');
 
-  // 7) 前端 DOM 与脚本契约校验
+  // 7) 前端 DOM 与脚本契约校验 (包含 admin.html 与外置 admin-logs.js)
   const adminHtml = fs.readFileSync('admin.html', 'utf8');
+  const adminLogsJs = fs.readFileSync('admin-logs.js', 'utf8');
+  const clientScripts = adminHtml + adminLogsJs;
   assert.ok(
     adminHtml.includes('id="logs-provider-filter-container"'),
     'admin.html 必须包含 logs-provider-filter-container 容器'
@@ -1915,20 +1932,20 @@ console.log('测试 25: 腾讯 WorkBuddy / CodeBuddy 上游提供商接入与全
     'admin.html 必须包含 logs-provider-dropdown 下拉组件'
   );
   assert.ok(
-    adminHtml.includes('function changeLogsProviderFilter'),
-    'admin.html 必须实现 changeLogsProviderFilter 函数'
+    clientScripts.includes('function changeLogsProviderFilter'),
+    '前端脚本必须实现 changeLogsProviderFilter 函数'
   );
   assert.ok(
-    adminHtml.includes('function filterBySpecificProvider'),
-    'admin.html 必须实现 filterBySpecificProvider 快捷胶囊筛选函数'
+    clientScripts.includes('function filterBySpecificProvider'),
+    '前端脚本必须实现 filterBySpecificProvider 快捷胶囊筛选函数'
   );
   assert.ok(
-    adminHtml.includes('function updateLogsProviderSelect'),
-    'admin.html 必须实现 updateLogsProviderSelect 动态选项更新函数'
+    clientScripts.includes('function updateLogsProviderSelect'),
+    '前端脚本必须实现 updateLogsProviderSelect 动态选项更新函数'
   );
   assert.ok(
-    adminHtml.includes("params.set('provider', logsProviderFilter)"),
-    'admin.html fetchEventsData 中必须携带 provider 参数'
+    clientScripts.includes("params.set('provider', logsProviderFilter)"),
+    '前端脚本 fetchEventsData 中必须携带 provider 参数'
   );
   console.log('  ✓ 前端 DOM 组件、状态管理与胶囊筛选交互契约验证通过');
   console.log('');

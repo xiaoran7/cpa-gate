@@ -95,24 +95,34 @@ console.log('\n测试 2: admin.html 内联语法与 WorkBuddy 积分渲染契约
   }
   console.log('  ✓ admin.html 内联脚本语法检查全部通过');
 
+  for (const asset of ['admin-quotas.js', 'admin-keys.js', 'admin-stats.js', 'admin-logs.js']) {
+    const source = fs.readFileSync(path.join(__dirname, `../${asset}`), 'utf8');
+    new vm.Script(source, { filename: asset });
+    console.log(`  ✓ ${asset} 语法检查全部通过`);
+  }
+
+  const clientScripts = adminHtml +
+    fs.readFileSync(path.join(__dirname, '../admin-quotas.js'), 'utf8') +
+    fs.readFileSync(path.join(__dirname, '../admin-keys.js'), 'utf8');
+
   // 验证 WorkBuddy 渲染契约
-  assert.ok(adminHtml.includes("acc.provider === 'workbuddy' || acc.provider === 'workbuddy-cn'"), '需覆盖 workbuddy 与 workbuddy-cn 提供商判断');
-  assert.ok(adminHtml.includes('acc.remaining_credits'), '紧凑与大卡视图中需读取 remaining_credits');
-  assert.ok(adminHtml.includes('WorkBuddy 资源包与积分额度'), '卡片模式需包含 WorkBuddy 专属额度标题');
-  assert.ok(adminHtml.includes('资源包积分'), '紧凑模式需包含资源包积分微标签');
+  assert.ok(clientScripts.includes("acc.provider === 'workbuddy' || acc.provider === 'workbuddy-cn'"), '需覆盖 workbuddy 与 workbuddy-cn 提供商判断');
+  assert.ok(clientScripts.includes('acc.remaining_credits'), '紧凑与大卡视图中需读取 remaining_credits');
+  assert.ok(clientScripts.includes('WorkBuddy 资源包与积分额度'), '卡片模式需包含 WorkBuddy 专属额度标题');
+  assert.ok(clientScripts.includes('资源包积分'), '紧凑模式需包含资源包积分微标签');
   console.log('  ✓ WorkBuddy 剩余积分与进度条展示契约验证通过');
 }
 
 // 测试 3: API Key 表格排版整洁化契约
 console.log('\n测试 3: API Key 表格排版整洁化契约');
 {
-  const adminHtml = fs.readFileSync(path.join(__dirname, '../admin.html'), 'utf8');
+  const keysJs = fs.readFileSync(path.join(__dirname, '../admin-keys.js'), 'utf8');
 
-  assert.ok(adminHtml.includes('model-perm-badge all'), '必须包含全部模型规整微胶囊');
-  assert.ok(adminHtml.includes('model-perm-badge limited'), '必须包含受限模型微胶囊');
-  assert.ok(adminHtml.includes('key-usage-cell'), '必须包含统一高度结构的用量单元格');
-  assert.ok(adminHtml.includes('usage-progress-bar unlimited'), '无硬限行必须包含占位槽以保证表格行高完全对齐');
-  assert.ok(adminHtml.includes('chip-cache zero'), '零命中率必须包含对齐的灰色微胶囊');
+  assert.ok(keysJs.includes('model-perm-badge all'), '必须包含全部模型规整微胶囊');
+  assert.ok(keysJs.includes('model-perm-badge limited'), '必须包含受限模型微胶囊');
+  assert.ok(keysJs.includes('key-usage-cell'), '必须包含统一高度结构的用量单元格');
+  assert.ok(keysJs.includes('usage-progress-bar unlimited'), '无硬限行必须包含占位槽以保证表格行高完全对齐');
+  assert.ok(keysJs.includes('chip-cache zero'), '零命中率必须包含对齐的灰色微胶囊');
   console.log('  ✓ API Key 表格模型胶囊与高度一致性占位契约验证通过');
 }
 

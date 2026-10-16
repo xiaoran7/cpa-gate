@@ -337,6 +337,11 @@ try {
   );
   assert.equal((await fetch(`http://127.0.0.1:${gatePort}/admin/overview.js`)).status, 200);
   assert.equal((await fetch(`http://127.0.0.1:${gatePort}/admin/overview.css`)).status, 200);
+  assert.equal((await fetch(`http://127.0.0.1:${gatePort}/admin/style.css`)).status, 200);
+  assert.equal((await fetch(`http://127.0.0.1:${gatePort}/admin/quotas.js`)).status, 200);
+  assert.equal((await fetch(`http://127.0.0.1:${gatePort}/admin/keys.js`)).status, 200);
+  assert.equal((await fetch(`http://127.0.0.1:${gatePort}/admin/stats.js`)).status, 200);
+  assert.equal((await fetch(`http://127.0.0.1:${gatePort}/admin/logs.js`)).status, 200);
   // 回归：静态资源缺失必须返回 404 而不是二次 writeHead 崩掉整个网关进程
   assert.equal((await fetch(`http://127.0.0.1:${gatePort}/admin/assets/routing-header.png`)).status, 200);
   // 回归：资源文件缺失必须返回 404 而不是在 catch 里二次 writeHead，
@@ -357,6 +362,11 @@ try {
     // 映射里存在但磁盘上没有 -> 恰好一次 404
     assert.deepEqual(capture('/admin/overview.js'), [404], '外置脚本缺失应返回单个 404');
     assert.deepEqual(capture('/admin/overview.css'), [404], '外置样式缺失应返回单个 404');
+    assert.deepEqual(capture('/admin/style.css'), [404], '外置主样式缺失应返回单个 404');
+    assert.deepEqual(capture('/admin/quotas.js'), [404], '外置配额脚本缺失应返回单个 404');
+    assert.deepEqual(capture('/admin/keys.js'), [404], '外置密钥脚本缺失应返回单个 404');
+    assert.deepEqual(capture('/admin/stats.js'), [404], '外置统计脚本缺失应返回单个 404');
+    assert.deepEqual(capture('/admin/logs.js'), [404], '外置流水脚本缺失应返回单个 404');
     assert.deepEqual(capture('/admin/assets/sakura-observatory-v3.webp'), [404], '图片资源缺失应返回单个 404');
     // 映射里不存在的路径应放行给后续路由，而不是在这里 404
     assert.deepEqual(capture('/admin/does-not-exist.js'), [], '未登记的路径应交还主路由处理');

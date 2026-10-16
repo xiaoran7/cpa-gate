@@ -1,5 +1,26 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.9.40] - 2026-10-16
+
+彻底解耦重构管理后台 `admin.html`：完成内联 CSS 与四大业务领域 JS 模块化物理拆分（Decouple Monolithic `admin.html` into CSS & Modular Business JS Scripts）：
+
+- **单体上帝文件彻底瘦身（Eliminate Monolithic God File）**：
+  - **核心痛点解决**：随着 Google Antigravity 多端点容灾、WorkBuddy 官方计量集成、请求流水多维筛选等业务特性的快速迭代，管理控制台 `admin.html` 逐渐膨胀至 **9,421 行**的超大单体文件，维护心智负担与代码合并冲突风险剧增；
+  - **体积锐减 71%**：在严格遵守**零打包依赖（Vanilla JS/CSS 开箱即用）**、**HTML 内联事件回调兼容**与**原生浏览器加载顺畅**的前提下，将 `admin.html` 从 9,421 行彻底精简至 **2,727 行**（仅保留核心 HTML DOM 骨架、全局核心状态管理与 Tab 路由引导代码）。
+- **业务领域垂直解耦与静态资源架构（Domain-Driven JS & CSS Extraction）**：
+  - **`admin-style.css`（3,033 行）**：集中收敛 `:root` 变量、基础 Reset、组件层（Buttons, Modals, Panels, Tables, Badges, Tabs）以及 v2.3.9/v2.3.10 樱花主题与 Beszel 监控多层样式覆盖；
+  - **`admin-quotas.js`（1,771 行）**：负责上游凭证配额（Antigravity、Codex、WorkBuddy 等全上游卡片与紧凑视图渲染）、配额多维度检索过滤、Google 验证专区、OpenRouter 原生账号管理与优先级/停用管理；
+  - **`admin-keys.js`（517 行）**：负责 API Key 完整生命周期管理（CRUD、脱敏轮换、别名修改、模型权限规则编辑与 SWR 缓存）以及模型定价规则管理；
+  - **`admin-stats.js`（706 行）**：负责 Uptime Kuma 风格服务心跳卡汇总、免密探针状态监控、核心大卡统计与多维度用量趋势图表（SVG 渲染与交互）；
+  - **`admin-logs.js`（688 行）**：负责请求流水真分页拉取、服务商反查与权威同口径推断、多维筛选联动以及错误与熔断中心审计。
+- **静态路由缓存与零开销分发（Static Routing with ETag & 304 Cache）**：
+  - 在 [lib/routes/static-routes.mjs](lib/routes/static-routes.mjs) 中登记 `/admin/quotas.js`、`/admin/keys.js`、`/admin/stats.js`、`/admin/logs.js`、`/admin/style.css` 及其兼容别名路由；
+  - 接入内存级 Stat 缓存与 MD5 ETag 协商机制，实现 304 秒级响应与 Gzip 压缩分发；单 404 捕获杜绝 `ERR_HTTP_HEADERS_SENT` 崩溃风险。
+- **自动化测试契约锁死与严密门禁（AST Validation & Regression Locks）**：
+  - 在 [tests/test_gate_features.mjs](tests/test_gate_features.mjs) 与 [tests/test_workbuddy_quota_and_table.mjs](tests/test_workbuddy_quota_and_table.mjs) 中将所有拆分的外置脚本纳入 `vm.Script` 语法检查门禁，并在客户端脚本聚合上严格保障探针契约、占位同步、WorkBuddy 渲染与 Key 表格排版整洁化；
+  - 在 [tests/test_cpa_management.mjs](tests/test_cpa_management.mjs) 中完善静态资源 HTTP 200 与缺失 404 单次捕获断言；
+  - 全套 `npm test`（26 项核心测试与子套件）全部 100% 绿灯通过。
+
 ## [v2.9.39] - 2026-10-16
 
 修复 Google Antigravity 配额因客户端版本门槛导致 Gemini 模型组缺失问题，并引入官方多端点容灾轮询（Fix Google Antigravity Missing Gemini Quota via Client UA Threshold & Multi-Endpoint Fallback）：
