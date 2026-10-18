@@ -2407,4 +2407,230 @@ console.log('测试 25: 腾讯 WorkBuddy / CodeBuddy 上游提供商接入与全
   console.log('');
 }
 
+// -------------------------------------------------------------
+// 测试 31: 上游 CPA 凭证别名 (Nickname/DisplayName) 解析与请求流水全链路贯通 (v2.10.1)
+// -------------------------------------------------------------
+{
+  console.log('测试 31: 上游 CPA 凭证别名 (Nickname/DisplayName) 解析与请求流水全链路贯通 (v2.10.1)');
+
+  const {
+    resolveAuthAccountDisplayName,
+    isGenericProviderIdentifier,
+    cachedUpstreamQuotas
+  } = await import('../lib/upstream/sync.mjs');
+  const auditLogs = await import('../lib/analytics/audit-logs.mjs');
+  const { getUpstreamAuthStats } = await import('../lib/analytics/status-summary.mjs');
+  const { quotaDb } = await import('../lib/db/sqlite.mjs');
+
+  // 1) resolveAuthAccountDisplayName 纯函数单元测试与边界契约
+  // 1.1 显式 nickname 优先解析（如现场 WorkBuddy 真实凭证）
+  assert.equal(
+    resolveAuthAccountDisplayName({
+      name: 'workbuddy-cn-1791808639195.json',
+      nickname: '唐棠瑭堂',
+      label: 'workbuddy-cn',
+      auth_index: '85f0b8ce6545f427'
+    }, 'workbuddy'),
+    '唐棠瑭堂',
+    '含有 nickname 时必须最高优先级解析为 nickname'
+  );
+
+  // 1.2 兼容 nick_name 字段拼写
+  assert.equal(
+    resolveAuthAccountDisplayName({
+      name: 'workbuddy-cn-1791808639195.json',
+      nick_name: '唐棠瑭堂',
+      label: 'workbuddy-cn'
+    }, 'workbuddy'),
+    '唐棠瑭堂',
+    '兼容 nick_name 属性命名'
+  );
+
+  // 1.3 手机号或自定义工号作为昵称
+  assert.equal(
+    resolveAuthAccountDisplayName({
+      name: 'workbuddy-cn-1791808639195.json',
+      nickname: '156****3228',
+      label: 'workbuddy-cn'
+    }),
+    '156****3228',
+    '手机号脱敏别名解析正确'
+  );
+
+  // 1.4 从 label 括号中提取友好别名
+  assert.equal(
+    resolveAuthAccountDisplayName({
+      name: 'workbuddy-cn-1791808639195.json',
+      label: 'workbuddy-cn(唐棠瑭堂)'
+    }),
+    '唐棠瑭堂',
+    '无显式 nickname 时应从 label 括号提取别名'
+  );
+  assert.equal(
+    resolveAuthAccountDisplayName({
+      name: 'workbuddy-cn-1791808639195.json',
+      label: 'WorkBuddy (技术中台研发组)'
+    }),
+    '技术中台研发组',
+    '空格和长别名提取正确'
+  );
+
+  // 1.5 排除括号内的地域/系统保留标签 (cn / intl / global / default / api)
+  assert.equal(
+    resolveAuthAccountDisplayName({
+      name: 'workbuddy-cn-1791808639195.json',
+      label: 'workbuddy(cn)'
+    }, 'workbuddy'),
+    'workbuddy-cn-1791808639195',
+    '括号内为 cn 时不得误作为别名，应回退至剥离 .json 的文件名'
+  );
+  assert.equal(
+    resolveAuthAccountDisplayName({
+      name: 'workbuddy-intl-12345.json',
+      label: 'workbuddy (intl)'
+    }, 'workbuddy'),
+    'workbuddy-intl-12345',
+    '括号内为 intl 时不得误作为别名'
+  );
+
+  // 1.6 真实用户邮箱解析优先于纯文件名
+  assert.equal(
+    resolveAuthAccountDisplayName({
+      name: 'antigravity-123.json',
+      email: 'tanner@example.com',
+      label: 'antigravity'
+    }, 'antigravity'),
+    'tanner@example.com',
+    '真实邮箱解析正确'
+  );
+
+  // 1.7 通用提供商占位邮箱与标识识别防混
+  assert.equal(
+    isGenericProviderIdentifier('workbuddy-cn', 'workbuddy'),
+    true,
+    'workbuddy-cn 必须被判定为通用占位符'
+  );
+  assert.equal(
+    isGenericProviderIdentifier('tanner@example.com', 'workbuddy'),
+    false,
+    '有效用户邮箱不得被判定为通用占位符'
+  );
+
+  // 1.8 剥离 .json 后缀兜底
+  assert.equal(
+    resolveAuthAccountDisplayName({
+      name: 'upstream-account-file.json'
+    }),
+    'upstream-account-file',
+    '文件名必须自动去除 .json 后缀'
+  );
+
+  // 1.9 裸 auth_index 兜底
+  assert.equal(
+    resolveAuthAccountDisplayName({
+      auth_index: '85f0b8ce6545f427'
+    }),
+    '85f0b8ce6545f427',
+    '无名字和邮箱时回退至 auth_index'
+  );
+  console.log('  ✓ resolveAuthAccountDisplayName 别名解析矩阵与通用标识守卫单测通过');
+
+  // 2) 模拟 WorkBuddy 国内凭证 (85f0b8ce6545f427) 在审计日志与请求流水中的全链路贯通
+  const testWbAuth = '85f0b8ce6545f427';
+  const originalAccounts = cachedUpstreamQuotas.accounts;
+
+  try {
+    cachedUpstreamQuotas.accounts = [
+      {
+        auth_index: testWbAuth,
+        provider: 'workbuddy',
+        filename: 'workbuddy-cn-1791808639195.json',
+        email: '',
+        nickname: '唐棠瑭堂',
+        display_name: '唐棠瑭堂',
+        label: 'workbuddy-cn'
+      }
+    ];
+
+    // 清理短时缓存
+    auditLogs.clearAuditLogsCache();
+
+    // 2.1 验证 resolveAuthAccountInfo 能够准确提取 display_name / nickname，且不带 .json
+    const authInfo = auditLogs.resolveAuthAccountInfo(testWbAuth);
+    assert.equal(authInfo.auth_name, '唐棠瑭堂', 'resolveAuthAccountInfo 必须返回别名 唐棠瑭堂');
+    assert.ok(!authInfo.auth_name.endsWith('.json'), 'auth_name 绝不能以 .json 结尾');
+
+    // 2.2 验证 resolveEventAuthInfo 事件信息综合推断
+    const eventAuthInfo = auditLogs.resolveEventAuthInfo(testWbAuth, 'copilot.tencent/deepseek-r1');
+    assert.equal(eventAuthInfo.auth_name, '唐棠瑭堂', 'resolveEventAuthInfo 必须返回别名 唐棠瑭堂');
+    assert.equal(eventAuthInfo.provider, 'workbuddy', '提供商必须正确识别为 workbuddy');
+    assert.ok(!eventAuthInfo.auth_name.endsWith('.json'), '事件 auth_name 绝不能以 .json 结尾');
+
+    // 2.3 插入一条模拟请求事件，验证 getPagedRequests 接口返回的流水项
+    const nowTs = Math.floor(Date.now() / 1000);
+    quotaDb.prepare(`
+      INSERT INTO request_events (ts, key_id, model, status, prompt_tokens, completion_tokens, cached_tokens, total_tokens, latency_ms, ttft_ms, stream, estimated, error_type, auth_index)
+      VALUES (?, 1, 'copilot.tencent/deepseek-r1', 200, 100, 50, 0, 150, 180, 75, 1, 0, null, ?)
+    `).run(nowTs, testWbAuth);
+
+    auditLogs.clearAuditLogsCache();
+    const paged = auditLogs.getPagedRequests({ page: 1, pageSize: 10 });
+    const matched = paged.events.find(it => it.auth_index === testWbAuth);
+    assert.ok(matched, 'getPagedRequests 必须查出测试插入的请求事件');
+    assert.equal(matched.auth_name, '唐棠瑭堂', '请求流水中的上游账号必须显示别名 唐棠瑭堂 而非裸文件名');
+    assert.ok(!matched.auth_name.includes('.json'), '请求流水中的 auth_name 绝不能包含 .json');
+
+    // 2.4 验证流水按别名搜索检索能力
+    auditLogs.clearAuditLogsCache();
+    const searchPaged = auditLogs.getPagedRequests({ page: 1, pageSize: 10, search: '唐棠瑭堂' });
+    const searchMatched = searchPaged.events.find(it => it.auth_index === testWbAuth);
+    assert.ok(searchMatched, '流水按别名 唐棠瑭堂 搜索必须精准命中对应请求');
+
+    // 2.5 验证 getUpstreamAuthStats 中账号各项属性
+    const authStats = getUpstreamAuthStats();
+    const statItem = authStats.items.find(it => it.auth_index === testWbAuth);
+    assert.ok(statItem, 'getUpstreamAuthStats 必须包含该凭据');
+    assert.equal(statItem.display_name, '唐棠瑭堂', 'display_name 必须为 唐棠瑭堂');
+    assert.equal(statItem.nickname, '唐棠瑭堂', 'nickname 必须为 唐棠瑭堂');
+    assert.equal(statItem.name, '唐棠瑭堂', 'name 字段必须为别名 唐棠瑭堂');
+    assert.ok(!statItem.name.includes('.json'), 'statItem.name 绝不能包含 .json');
+
+    console.log('  ✓ 审计日志与流水查询全链路 display_name 贯通验证通过');
+  } finally {
+    cachedUpstreamQuotas.accounts = originalAccounts;
+    auditLogs.clearAuditLogsCache();
+    quotaDb.prepare('DELETE FROM request_events WHERE auth_index = ?').run(testWbAuth);
+  }
+
+  // 3) 本地基线表 (upstream_auth_baselines) 兜底防御与 .json 自动清洗验证
+  const testBaselineAuth = 'test_baseline_json_strip_auth';
+  try {
+    quotaDb.prepare(`
+      INSERT OR REPLACE INTO upstream_auth_baselines (auth_index, provider, name)
+      VALUES (?, ?, ?)
+    `).run(testBaselineAuth, 'workbuddy', 'raw-account-disk-name.json');
+
+    auditLogs.clearAuditLogsCache();
+    const bInfo = auditLogs.resolveAuthAccountInfo(testBaselineAuth);
+    assert.equal(bInfo.auth_name, 'raw-account-disk-name', '查本地基线表时也必须自动剥离 .json 后缀');
+    console.log('  ✓ 基线表兜底查询 .json 自动剥离防御验证通过');
+  } finally {
+    quotaDb.prepare('DELETE FROM upstream_auth_baselines WHERE auth_index = ?').run(testBaselineAuth);
+    auditLogs.clearAuditLogsCache();
+  }
+
+  // 4) 前端代码防退化与防 .json 泄露契约测试
+  const adminLogsJs = fs.readFileSync('admin-logs.js', 'utf8');
+  assert.ok(adminLogsJs.includes('acc.display_name || acc.nickname'), 'admin-logs.js 必须优先使用 acc.display_name 与 acc.nickname');
+  assert.ok(adminLogsJs.includes('.replace(/\\.json$/i'), 'admin-logs.js 必须具备针对 .json 后缀的清洗正则');
+
+  const adminQuotasJs = fs.readFileSync('admin-quotas.js', 'utf8');
+  assert.ok(adminQuotasJs.includes('display_name'), 'admin-quotas.js 必须支持 display_name 字段');
+  assert.ok(adminQuotasJs.includes('nickname'), 'admin-quotas.js 必须支持 nickname 字段');
+  assert.ok(adminQuotasJs.includes('.replace(/\\.json$/i'), 'admin-quotas.js 必须在视图呈现中去除 .json 后缀');
+
+  console.log('  ✓ 前端静态代码别名优先与 .json 防泄露契约验证通过');
+  console.log('');
+}
+
 console.log('=== 全部集成测试用例执行完毕，全部通过！===');

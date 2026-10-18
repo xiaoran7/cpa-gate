@@ -121,7 +121,8 @@ export {
   getPagedErrorEvents,
   getTodayStartTimestamp,
   getTodayRequestsCount,
-  getTodayErrorsCount
+  getTodayErrorsCount,
+  clearAuditLogsCache
 } from './lib/analytics/audit-logs.mjs';
 
 export {

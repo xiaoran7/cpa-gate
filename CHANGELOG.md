@@ -1,5 +1,25 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.10.1] - 2026-10-19
+
+上游 CPA 凭证别名 (Nickname/DisplayName) 权威解析与全链路流水穿透、审计搜索与前端 .json 防泄露治理：
+
+- **上游 CPA 凭证别名 (Nickname/DisplayName) 权威解析与分级推断（Upstream Credential Nickname & Display Hierarchy）**：
+  1. **层级化别名解析矩阵**：在 `lib/upstream/sync.mjs` 中构建统一的 `resolveAuthAccountDisplayName(file, provider)` 函数，建立 `nickname`（或 `nick_name`）-> `label` 括号别名提取（如 `workbuddy-cn(唐棠瑭堂)` -> `唐棠瑭堂`，严格排除 `cn`/`intl`/`global`/`default`/`api` 等区域保留字）-> 真实非通用邮箱 -> 自定义非通用 label -> 剥离 `.json` 的干净文件名 -> 16 位 `auth_index` 的分级决策树；
+  2. **通用标识守卫强化**：新增 `isGenericProviderIdentifier(str, provider)`，防止通用占位串（如 `workbuddy`、`workbuddy-cn`、`antigravity`、`codex`、`other` 等）抢占作为展示名称；
+  3. **数据同步与快照全链路挂载**：在 `syncUpstreamQuotas` 的普通凭据循环、`openai-compatibility` 循环及 OpenRouter 凭证解析中，统一为账号对象挂载 `display_name` 与 `nickname`，并清洗 `email` 与 `filename`；
+  4. **PATCH 白名单放行与即时缓存失效**：在 `lib/routes/admin-routes.mjs` 的 `/auth-files/fields` PATCH 端点白名单中加入 `nickname` 与 `label`，并在修改完成后主动调用 `clearAuditLogsCache()` 触发即时失效。
+- **请求流水、错误中心与数据大盘穿透治理（Audit Logs, Error Center & Dashboard Penetration）**：
+  1. **流水账号动态解析修复**：在 `lib/analytics/audit-logs.mjs` 的 `resolveAuthAccountInfo` 与 `resolveEventAuthInfo` 中，优先提取 `acc.display_name || acc.nickname || acc.email || acc.filename`，并自动剥离 `.json` 后缀；解决上游改名后流水依然展示生产磁盘裸文件名（如 `workbuddy-cn-1791808639195.json`）的顽疾；
+  2. **本地基线兜底清洗**：对于未同步到活跃列表的账号，从 `upstream_auth_baselines` 本地基线表读取时一律通过 `.replace(/\.json$/i, '')` 剥离 `.json` 后缀；
+  3. **流水按别名/上游账号全文检索**：在 `getPagedRequests` 的 `term` 搜索过滤中，支持根据搜索词匹配 `cachedUpstreamQuotas.accounts` 中的 `display_name`、`nickname`、`email`、`filename`、`label` 及 `upstream_auth_baselines.name`，并将命中账号的 `auth_index` 引入 SQL 索引查询，彻底解决管理台按账号别名搜索无结果的问题；
+  4. **状态大盘与运行时统计对齐**：在 `lib/analytics/status-summary.mjs` 与 `lib/upstream/runtime-stats.mjs` 中对齐 `display_name` 与 `nickname` 字段导出，消除跨端名称不一致。
+- **前端 Aozora UI 视觉防退化与防 .json 泄露（Frontend Defenses & Cache Invalidation）**：
+  1. **请求流水表格渲染**：更新 `admin-logs.js`，在 `getAuthDisplayName`、请求行及错误中心行中优先展示友好别名，并增加全局 `.replace(/\.json$/i, '')` 防御，杜绝界面出现 `.json`；
+  2. **配额管理控制台**：更新 `admin-quotas.js`，卡片标题、紧凑行、优先级弹窗与 403 验证单表格全面对齐别名展示与 `.json` 剥离，同时扩展前端本地搜索过滤支持 `display_name` 与 `nickname`；
+  3. **静态资源防缓存版本更新**：同步升级版本至 `v2.10.1`，更新 `package.json`、`package-lock.json` 与 `admin.html` 中静态资源版本查询参数；
+  4. **自动化回归测试扩展**：在 `tests/test_gate_features.mjs` 中新增「测试 31: 上游 CPA 凭证别名 (Nickname/DisplayName) 解析与请求流水全链路贯通」，全量 31 项测试套件 100% 通过。
+
 ## [v2.10.0] - 2026-10-18
 
 开源发布硬化：修复全新 clone 无法启动与静态资源 500/404 两个阻断性缺陷、补齐 .env 加载、重试可配置化、npm 包白名单与 GitHub 社区治理体系，并新增双层 AI 检索规范：

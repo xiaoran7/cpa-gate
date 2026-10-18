@@ -299,11 +299,17 @@
       const str = String(authIndex).trim();
       if (typeof cachedUpstream !== 'undefined' && cachedUpstream && Array.isArray(cachedUpstream.accounts)) {
         const acc = cachedUpstream.accounts.find(a => a.auth_index === str);
-        if (acc) return acc.filename || acc.email || str;
+        if (acc) {
+          const name = acc.display_name || acc.nickname || acc.email || acc.filename || str;
+          return String(name).replace(/\.json$/i, '');
+        }
       }
       if (typeof cachedUpstreamStats !== 'undefined' && cachedUpstreamStats && Array.isArray(cachedUpstreamStats.items)) {
         const it = cachedUpstreamStats.items.find(i => i.auth_index === str);
-        if (it) return it.name || str;
+        if (it) {
+          const name = it.display_name || it.nickname || it.name || str;
+          return String(name).replace(/\.json$/i, '');
+        }
       }
       return str;
     }
@@ -400,6 +406,9 @@
       const shortAuth = ev.auth_index ? ev.auth_index.slice(0, 8) : '';
       const authBrand = getProviderBrand(resolveEventProvider(ev));
       let authName = ev.auth_name || (ev.auth_index ? getAuthDisplayName(ev.auth_index) : '') || '';
+      if (authName && typeof authName === 'string') {
+        authName = authName.replace(/\.json$/i, '');
+      }
       if (ev.auth_index && (!authName || authName === ev.auth_index)) {
         authName = (authBrand && authBrand.id !== 'other')
           ? `${authBrand.name} 渠道 ${shortAuth}`
@@ -665,6 +674,9 @@
         const shortId = ev.auth_index ? ev.auth_index.slice(0, 8) : '';
         const brand = getProviderBrand(resolveEventProvider(ev));
         let authName = ev.auth_name || (ev.auth_index ? getAuthDisplayName(ev.auth_index) : '') || '';
+      if (authName && typeof authName === 'string') {
+        authName = authName.replace(/\.json$/i, '');
+      }
         if (ev.auth_index && (!authName || authName === ev.auth_index)) {
           authName = (brand && brand.id !== 'other')
             ? `${brand.name} 渠道 ${shortId}`

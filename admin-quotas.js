@@ -15,7 +15,8 @@
       }
       currentEditingAuth = acc;
       document.getElementById('prio-modal-filename').innerText = acc.filename;
-      document.getElementById('prio-modal-email').innerText = acc.email;
+      const dispName = (acc.display_name || acc.nickname || acc.email || acc.filename || '').replace(/\.json$/i, '');
+      document.getElementById('prio-modal-email').innerText = dispName || acc.email;
       document.getElementById('prio-modal-input').value = normalizeAuthPriority(acc.priority);
       // 保存总是会把当前数值作为显式字段写进 auths/<name>.json——哪怕一个键都没碰。
       // 而服务端已把 "未设" 归一化成默认档位，前端无从区分显式与未设，因此不能只对
@@ -496,7 +497,7 @@
             return `
               <tr>
                 <td>
-                  <div style="font-weight:600; color:var(--text-main); font-size:13px;">${escapeHtml(acc.email || acc.filename || acc.id)}</div>
+                  <div style="font-weight:600; color:var(--text-main); font-size:13px;">${escapeHtml((acc.display_name || acc.email || acc.filename || acc.id || '').replace(/\.json$/i, ''))}</div>
                   <div style="font-size:11px; color:var(--text-dim);">${escapeHtml(acc.plan_name || 'Google AI Pro')}</div>
                 </td>
                 <td style="font-family:var(--mono); font-size:12px; color:var(--text-muted);">${escapeHtml(acc.auth_index || '--')}</td>
@@ -1117,7 +1118,13 @@
           const email = (a.email || '').toLowerCase();
           const authIdx = (a.auth_index || '').toLowerCase();
           const fname = (a.filename || a.id || '').toLowerCase();
-          return email.includes(upstreamSearchQuery) || authIdx.includes(upstreamSearchQuery) || fname.includes(upstreamSearchQuery);
+          const disp = (a.display_name || '').toLowerCase();
+          const nick = (a.nickname || '').toLowerCase();
+          return email.includes(upstreamSearchQuery) ||
+                 authIdx.includes(upstreamSearchQuery) ||
+                 fname.includes(upstreamSearchQuery) ||
+                 disp.includes(upstreamSearchQuery) ||
+                 nick.includes(upstreamSearchQuery);
         });
       }
 
@@ -1370,6 +1377,8 @@
             const valInfo = acc.validation;
             const hasValidation = Boolean(valInfo && valInfo.status === 'pending');
             const safeValUrl = valInfo && valInfo.validation_url ? escapeHtml(valInfo.validation_url) : '';
+            const accountTitle = (acc.display_name || acc.email || acc.filename || '').replace(/\.json$/i, '');
+            const fullTip = acc.email && acc.email !== accountTitle ? `${accountTitle} (${acc.email})` : accountTitle;
 
             return `
               <div class="compact-account-row ${isDisabled ? 'is-disabled' : ''}" style="${hasValidation ? 'border-color:rgba(239,68,68,0.5); background:rgba(239,68,68,0.03);' : ''}">
@@ -1379,8 +1388,8 @@
                     <div style="display:flex; align-items:center; gap:6px; flex-wrap:nowrap;">
                       <span class="provider-pill ${brand.pillClass}" style="font-size:10px; padding:1px 5px;">${escapeHtml(brand.name)}</span>
                       <span class="priority-badge ${prioCls}">P${prio}</span>
-                      <span style="font-weight:600; font-size:12.5px; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(acc.email)}">
-                        ${escapeHtml(acc.email)}
+                      <span style="font-weight:600; font-size:12.5px; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(fullTip)}">
+                        ${escapeHtml(accountTitle)}
                       </span>
                       ${isDisabled ? '<span class="chip chip-red" style="font-size:10px; padding:1px 5px; line-height:1.2; white-space:nowrap; flex-shrink:0;">已停用</span>' : ''}
                       ${isBlocked && !isDisabled ? `<span class="chip chip-red" style="font-size:10px; padding:1px 5px; line-height:1.2;">${escapeHtml(health.label)}</span>` : ''}
@@ -1622,6 +1631,9 @@
               quotaSectionHtml = '<div class="account-quota-unknown">额度未知，等待 CPA 返回有效数据</div>';
             }
 
+            const accountCardTitle = (acc.display_name || acc.email || acc.filename || '').replace(/\.json$/i, '');
+            const cardFullTip = acc.email && acc.email !== accountCardTitle ? `${accountCardTitle} (${acc.email})` : accountCardTitle;
+
             return `
               <div class="account-card ${isDisabled ? 'is-disabled' : ''}" style="${hasValidation ? 'border-color:rgba(239,68,68,0.5); box-shadow:0 0 12px rgba(239,68,68,0.15);' : ''}">
                 <div class="account-card-header">
@@ -1635,7 +1647,7 @@
                         ${isBlocked && !isDisabled ? `<span class="chip chip-red" style="font-size:10.5px; padding:1px 6px; line-height:1.2;">${escapeHtml(health.label)}</span>` : ''}
                         ${hasValidation ? '<span class="chip chip-red" style="font-size:10.5px; padding:1px 6px; line-height:1.2; white-space:nowrap; flex-shrink:0; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3); animation:pulse 2s infinite;">⚠️ 需 Google 验证</span>' : ''}
                       </div>
-                      <div class="account-card-email" title="${escapeHtml(acc.email)}">${escapeHtml(acc.email)}</div>
+                      <div class="account-card-email" title="${escapeHtml(cardFullTip)}">${escapeHtml(accountCardTitle)}</div>
                     </div>
                   </div>
                   <div style="display:flex; align-items:center; gap:6px;">
