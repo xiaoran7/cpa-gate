@@ -19,6 +19,9 @@
   2. **配额管理控制台**：更新 `admin-quotas.js`，卡片标题、紧凑行、优先级弹窗与 403 验证单表格全面对齐别名展示与 `.json` 剥离，同时扩展前端本地搜索过滤支持 `display_name` 与 `nickname`；
   3. **静态资源防缓存版本更新**：同步升级版本至 `v2.10.1`，更新 `package.json`、`package-lock.json` 与 `admin.html` 中静态资源版本查询参数；
   4. **自动化回归测试扩展**：在 `tests/test_gate_features.mjs` 中新增「测试 31: 上游 CPA 凭证别名 (Nickname/DisplayName) 解析与请求流水全链路贯通」，全量 31 项测试套件 100% 通过。
+- **CI 流水线环境隔离与测试自愈（CI Environment Isolation & Self-Contained Test Fixtures）**：
+  1. **OpenRouter 配额测试沙箱隔离**：在 `tests/_isolated-db.mjs` 中为子进程注入 `GATE_OPENROUTER_ACCOUNTS_PATH` 环境变量，将账号存储指派至独立临时目录；并在 `tests/test_openrouter_quota.mjs` 中接入 `isolateTestDb` 与基础凭据预置（Seed Fixture），根除干净拉取的 CI Runner（GitHub Actions 与 Gitea Actions）因缺少宿主机真实 `data/openrouter-accounts.json` 触发 404 导致测试红灯的缺陷；
+  2. **跨平台独立验证**：测试用例自包含生命周期断言，不依赖任何宿主机外部持久化状态，13 套件全量通过。
 
 ## [v2.10.0] - 2026-10-18
 

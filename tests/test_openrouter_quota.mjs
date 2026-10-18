@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
-import {
+import { isolateTestDb } from './_isolated-db.mjs';
+
+// 隔离到专属临时目录与临时账号文件，测试绝不能读或改写开发机/生产机上的 openrouter-accounts.json
+isolateTestDb(import.meta.url, 'gate-openrouter-quota');
+
+const {
   OPENROUTER_DAILY_LIMIT,
   getNextUtcMidnight,
   formatResetCountdown,
@@ -10,11 +15,19 @@ import {
   addOpenRouterAccount,
   updateOpenRouterAccount,
   deleteOpenRouterAccount
-} from '../lib/upstream/openrouter.mjs';
-import { getProviderQuota } from '../lib/upstream/provider-quota.mjs';
-import { activateUpstreamQuotaWindow, syncUpstreamQuotas } from '../lib/upstream/sync.mjs';
+} = await import('../lib/upstream/openrouter.mjs');
+const { getProviderQuota } = await import('../lib/upstream/provider-quota.mjs');
+const { activateUpstreamQuotaWindow, syncUpstreamQuotas } = await import('../lib/upstream/sync.mjs');
 
 console.log('=== 开始执行 OpenRouter 上游配额集成测试 ===\n');
+
+// 初始化隔离环境中的基准测试账号
+addOpenRouterAccount({
+  name: 'openrouter-1',
+  note: '测试基准凭证',
+  apiKey: 'sk-or-v1-mockapikey1234567890abcdef',
+  mgmtKey: 'sk-or-v1-mockmgmtkey1234567890abcdef'
+});
 
 // 1. 常量与时间重置
 console.log('测试 1: OpenRouter 免费层 800 次每日限额与 UTC 00:00 重置计算');
@@ -48,15 +61,14 @@ console.log('测试 2: OpenRouter 凭证数据加载与归一化');
 
   const accounts = await syncOpenRouterAccounts({ force: true, fetchImpl: mockFetch });
   assert.ok(Array.isArray(accounts), '返回账号列表为数组');
-  if (accounts.length > 0) {
-    const acc = accounts[0];
-    assert.equal(acc.provider, 'openrouter', '提供商标识为 openrouter');
-    assert.equal(acc.daily_limit, 800, '每日上限为 800');
-    assert.equal(acc.today_requests, 42, '今日调用次数应通过 mock 解析为 42');
-    assert.ok(acc.auth_index.startsWith('openrouter-'), 'auth_index 前缀规范');
-    assert.ok(acc.reset_time, '包含 reset_time');
-    assert.ok(acc.reset_countdown, '包含 reset_countdown');
-  }
+  assert.ok(accounts.length > 0, '返回账号列表至少包含基准账号');
+  const acc = accounts[0];
+  assert.equal(acc.provider, 'openrouter', '提供商标识为 openrouter');
+  assert.equal(acc.daily_limit, 800, '每日上限为 800');
+  assert.equal(acc.today_requests, 42, '今日调用次数应通过 mock 解析为 42');
+  assert.ok(acc.auth_index.startsWith('openrouter-'), 'auth_index 前缀规范');
+  assert.ok(acc.reset_time, '包含 reset_time');
+  assert.ok(acc.reset_countdown, '包含 reset_countdown');
   console.log('  ✓ 凭证归一化与今日调用次数解析正确');
 }
 

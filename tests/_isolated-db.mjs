@@ -42,6 +42,8 @@ export function isolateTestDb(testUrl, label = 'gate-test') {
         GATE_DB: join(dir, 'gate.db'),
         // Keeper 库指向不存在的文件：测试不该去读开发机/生产机上的 keeper.db。
         GATE_KEEPER_DB: join(dir, 'missing-keeper.db'),
+        // OpenRouter 账号隔离：测试跑在专属临时文件，不读也不污染本地/生产 accounts.json。
+        GATE_OPENROUTER_ACCOUNTS_PATH: join(dir, 'data', 'openrouter-accounts.json'),
         GATE_MGMT_SECRET: process.env.GATE_MGMT_SECRET || 'test-secret-12345678901234567890',
         GATE_ADMIN_SECRET: process.env.GATE_ADMIN_SECRET || 'test-admin-secret-12345678901234567890'
       },
