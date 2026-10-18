@@ -44,6 +44,28 @@ async def main():
         # 降级横幅在 CPA 正常时不得出现
         assert not await page.locator("#ovw-banner").is_visible(), "CPA 可用时不应显示降级横幅"
 
+        # 实时流量时间窗口切换器（3h20m / 5h / 1d / 3d / 7d）
+        switcher = page.locator("#ovw-window-switcher")
+        await switcher.wait_for(timeout=5000)
+        window_btns = await switcher.locator(".ovw-window-btn").all_inner_texts()
+        assert window_btns == ["3h20m", "5h", "1d", "3d", "7d"], f"时间窗口选项不全: {window_btns}"
+        active_btn = await switcher.locator(".ovw-window-btn.active").inner_text()
+        assert active_btn == "3h20m", f"默认激活窗口应为 3h20m，实际为 {active_btn}"
+
+        # 点击切换至 5h
+        await switcher.locator(".ovw-window-btn", has_text="5h").click()
+        await page.wait_for_timeout(800)
+        assert await switcher.locator(".ovw-window-btn.active").inner_text() == "5h"
+        saved_window = await page.evaluate("localStorage.getItem('gate_ovw_window')")
+        assert saved_window == "5h", f"切换时间窗口后应持久化到 localStorage，实际: {saved_window}"
+        hero_meta_text = await page.locator("#ovw-hero-meta").inner_text()
+        assert "近 5 小时" in hero_meta_text, f"Hero meta 未更新为 5 小时: {hero_meta_text}"
+
+        # 切换回 3h20m
+        await switcher.locator(".ovw-window-btn", has_text="3h20m").click()
+        await page.wait_for_timeout(800)
+        assert await switcher.locator(".ovw-window-btn.active").inner_text() == "3h20m"
+
         # P1：路由三项必须可编辑，且写入后能从服务端读回（不是只在界面上变了）
         try:
             await page.locator("#ovw-routing-strategy").wait_for(timeout=10000)

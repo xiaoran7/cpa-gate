@@ -26,8 +26,9 @@
       if (cached && !force) {
         cachedEvents = cached.data.events || [];
         cachedEventsTotal = Number.isFinite(cached.data.total) ? cached.data.total : cachedEvents.length;
-        const badge = document.getElementById('nav-badge-logs');
-        if (badge) badge.innerText = cachedEventsTotal > 9999 ? '9999+' : cachedEventsTotal;
+        if (Number.isFinite(cached.data?.today_total) && typeof updateNavBadgeLogs === 'function') {
+          updateNavBadgeLogs(cached.data.today_total);
+        }
         renderEventsTable(cachedEvents, cachedEventsTotal);
         if (!isMember) updateLogsKeySelect(cachedEvents);
         updateLogsProviderSelect(cachedEvents);
@@ -63,8 +64,9 @@
 
         cachedEvents = incomingEvents;
         cachedEventsTotal = incomingTotal;
-        const badge = document.getElementById('nav-badge-logs');
-        if (badge) badge.innerText = cachedEventsTotal > 9999 ? '9999+' : cachedEventsTotal;
+        if (Number.isFinite(data?.today_total) && typeof updateNavBadgeLogs === 'function') {
+          updateNavBadgeLogs(data.today_total);
+        }
         if (logsPage === 1 && (!eventFilter || eventFilter === 'all') && (!logsKeyFilter || logsKeyFilter === 'all') && (!logsProviderFilter || logsProviderFilter === 'all') && (!logsTimeRange || logsTimeRange === 'all') && (!logsAuthFilter || logsAuthFilter === 'all') && !logsSearchQuery) {
           try {
             localStorage.setItem(KEY_STORAGE_LOGS, JSON.stringify({ events: cachedEvents.slice(0, 50), total: cachedEventsTotal, ts: Date.now() }));
@@ -277,11 +279,11 @@
       // 2. 模型维度推断：与 lib/core/provider-registry.mjs 权威规则全面同口径
       const m = String(ev?.model || '').toLowerCase();
       if (m.includes('antigravity')) return 'antigravity';
+      if (m.includes('opencode') || m.includes('-free')) return 'opencode';
       if (m.startsWith('step') || m.includes('stepfun')) return 'stepfun';
       if (m.startsWith('claude') || m.includes('anthropic')) return 'claude';
       if (m.startsWith('gemini')) return 'gemini';
       if (m.startsWith('gpt') || m.startsWith('chatgpt') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4') || m.startsWith('text-embedding')) return 'codex';
-      if (m.includes('opencode') || m.includes('-free')) return 'opencode';
       if (m.includes('stealth')) return 'stealth';
       if (m.includes('deepseek')) return 'deepseek';
       if (m.includes('openrouter')) return 'openrouter';
@@ -422,6 +424,23 @@
         ? `HTTP ${ev.status}${ev.error_type ? ` · ${errorTypeLabel(ev.error_type)}` : ''}`
         : `HTTP ${ev.status} 成功`;
 
+      // 思考强度标签 (Reasoning Effort / Thinking Budget)
+      let reasoningHtml = '<span style="color:var(--text-dim); font-size:11.5px;">—</span>';
+      if (ev.reasoning_effort) {
+        reasoningHtml = `<span class="chip chip-purple" title="思考强度 / Thinking: ${escapeHtml(ev.reasoning_effort)}">${escapeHtml(ev.reasoning_effort)}</span>`;
+      }
+
+      // 速率 (Tokens/s 生成吞吐)
+      let tpsHtml = '<span style="color:var(--text-dim); font-size:11.5px;">—</span>';
+      const tpsNum = Number(ev.tokens_per_sec);
+      if (Number.isFinite(tpsNum) && tpsNum > 0) {
+        let speedColor = '#0284c7';
+        if (tpsNum >= 100) speedColor = '#10b981';
+        else if (tpsNum >= 50) speedColor = '#06b6d4';
+        else if (tpsNum < 20) speedColor = '#f59e0b';
+        tpsHtml = `<span class="speed-badge" style="color:${speedColor}; font-weight:600; font-size:11.5px;" title="生成速率: ${tpsNum} tokens/s (纯输出阶段速率)">${tpsNum} <span style="font-size:10px; font-weight:400; opacity:0.8;">tok/s</span></span>`;
+      }
+
       return `<tr${rowClassAttr} data-id="${escapeHtml(String(ev.id || ''))}">
         <td class="num" style="color:var(--text-dim); font-size:11.5px;" title="${escapeHtml(fullIso)}">
           <div class="live-cell-content"><span style="color:var(--text-muted); margin-right:3px;">${dateStr}</span>${timeStr}</div>
@@ -439,7 +458,9 @@
         </td>
         <td><div class="live-cell-content">${authTdHtml}</div></td>
         <td><div class="live-cell-content"><span class="tag-pill" title="${escapeHtml(ev.model)}">${escapeHtml(ev.model || '-')}</span></div></td>
+        <td><div class="live-cell-content">${reasoningHtml}</div></td>
         <td><div class="live-cell-content"><span class="chip ${statusClass}" title="${escapeHtml(statusTitle)}">${ev.status}</span></div></td>
+        <td><div class="live-cell-content">${tpsHtml}</div></td>
         <td class="num"><div class="live-cell-content">${(ev.prompt_tokens || 0).toLocaleString()} / <b>${(ev.completion_tokens || 0).toLocaleString()}</b></div></td>
         <td class="num"><div class="live-cell-content">${cacheTag}</div></td>
         <td><div class="live-cell-content">${costTag}</div></td>
@@ -464,7 +485,7 @@
       const tbody = document.getElementById('events-tbody');
       if (!tbody) return;
       if (totalFiltered === 0 || pageEvents.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: var(--text-dim); padding: 32px;">当前筛选条件与搜索词下暂无流水数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; color: var(--text-dim); padding: 32px;">当前筛选条件与搜索词下暂无流水数据</td></tr>';
         return;
       }
 
@@ -542,8 +563,9 @@
       if (cached && !force) {
         cachedErrors = cached.data.errors || [];
         cachedErrorsTotal = Number.isFinite(cached.data.total) ? cached.data.total : cachedErrors.length;
-        const badge = document.getElementById('nav-badge-errors');
-        if (badge) badge.innerText = cachedErrorsTotal > 9999 ? '9999+' : cachedErrorsTotal;
+        if (Number.isFinite(cached.data?.today_total) && typeof updateNavBadgeErrors === 'function') {
+          updateNavBadgeErrors(cached.data.today_total);
+        }
         renderErrorsTable(cachedErrors, cachedErrorsTotal);
         if (Date.now() - cached.ts < 4000) return;
       }
@@ -555,8 +577,9 @@
         setErrorsQueryCache(cacheKey, data);
         cachedErrors = data.errors || [];
         cachedErrorsTotal = Number.isFinite(data.total) ? data.total : cachedErrors.length;
-        const badge = document.getElementById('nav-badge-errors');
-        if (badge) badge.innerText = cachedErrorsTotal > 9999 ? '9999+' : cachedErrorsTotal;
+        if (Number.isFinite(data?.today_total) && typeof updateNavBadgeErrors === 'function') {
+          updateNavBadgeErrors(data.today_total);
+        }
         if (errorsPage === 1 && (!errorsTimeRange || errorsTimeRange === 'all')) {
           try {
             localStorage.setItem(KEY_STORAGE_ERRORS, JSON.stringify({ errors: cachedErrors.slice(0, 50), total: cachedErrorsTotal, ts: Date.now() }));

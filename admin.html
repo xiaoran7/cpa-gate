@@ -6,13 +6,13 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Gate — LLM API Gateway</title>
 <link href="/admin/assets/gate-sakura-mark-128.png" rel="icon" type="image/png"/>
-<link rel="stylesheet" href="/admin/style.css"/>
-  <script src="/admin/quotas.js"></script>
-  <script src="/admin/keys.js"></script>
-  <script src="/admin/stats.js"></script>
-  <script src="/admin/logs.js"></script>
-<link rel="stylesheet" href="/admin/cpa-management.css"/>
-<link rel="stylesheet" href="/admin/overview.css"/>
+<link rel="stylesheet" href="/admin/style.css?v=2.10.0"/>
+  <script src="/admin/quotas.js?v=2.10.0"></script>
+  <script src="/admin/keys.js?v=2.10.0"></script>
+  <script src="/admin/stats.js?v=2.10.0"></script>
+  <script src="/admin/logs.js?v=2.10.0"></script>
+<link rel="stylesheet" href="/admin/cpa-management.css?v=2.10.0"/>
+<link rel="stylesheet" href="/admin/overview.css?v=2.10.0"/>
 </head>
 <body>
 <div class="container app-shell">
@@ -23,7 +23,7 @@
 <img alt="" src="/admin/assets/gate-sakura-mark-128.webp" width="39" height="39"/>
 </div>
 <div class="title-group">
-<h1>Gate <span class="version-tag">v2.9.37</span></h1>
+<h1>Gate <span class="version-tag">v2.10.0</span></h1>
 <div class="title-desc">LLM Gateway</div>
 </div>
 </div>
@@ -50,10 +50,10 @@
 <svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>用量趋势</span>
 </button>
 <button class="nav-tab-btn" id="tab-btn-logs" onclick="switchNavTab('logs')">
-<svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 015.586-1.414l5.414 5.414V19a2 2 0 01-2 2H7a2 2 0 01-2-2V5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span id="tab-text-logs">请求流水</span><span class="tab-badge" id="nav-badge-logs">0</span>
+<svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 015.586-1.414l5.414 5.414V19a2 2 0 01-2 2H7a2 2 0 01-2-2V5" stroke-linecap="round" stroke-linejoin="round"></path></svg><span id="tab-text-logs">请求流水</span><span class="tab-badge" id="nav-badge-logs" title="今日请求数">0</span>
 </button>
 <button class="nav-tab-btn" id="tab-btn-errors" onclick="switchNavTab('errors')">
-<svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>故障中心</span><span class="tab-badge" id="nav-badge-errors" style="color:var(--danger);">0</span>
+<svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round"></path></svg><span>故障中心</span><span class="tab-badge" id="nav-badge-errors" style="color:var(--danger);" title="今日故障数">0</span>
 </button>
 <div class="sidebar-section-divider"></div>
 <button class="nav-tab-btn" id="tab-btn-keys" onclick="switchNavTab('keys')">
@@ -111,7 +111,7 @@
 </header>
 <div aria-hidden="true" class="workspace-scene"></div>
 <section aria-live="polite" class="page-intro">
-<div><span class="page-eyebrow" id="page-eyebrow">UPSTREAM OPERATIONS</span><h2 id="page-title">上游凭证</h2><p id="page-description">查看真实上游额度、可用性与近期请求表现。</p></div>
+<div style="display:none;" aria-hidden="true"><h2 id="page-title">上游凭证</h2><p id="page-description">查看真实上游额度、可用性与近期请求表现。</p></div>
 <div class="page-intro-actions" id="page-intro-actions"><button class="btn btn-secondary" onclick="openQuotaModal()" type="button">配额健康详情</button><button class="btn" onclick="refreshUpstreamQuotas(true)" type="button">刷新上游配额</button></div>
 </section>
 <div class="tab-page active" id="tab-page-quotas">
@@ -242,6 +242,7 @@
 <button onclick="switchUpstreamFilter('claude')">Claude</button>
 <button onclick="switchUpstreamFilter('workbuddy')">WorkBuddy</button>
 <button onclick="switchUpstreamFilter('openrouter')">OpenRouter</button>
+<button onclick="switchUpstreamFilter('opencode')">OpenCode</button>
 </div>
 <!-- 隐藏已停用 -->
 <label style="display:inline-flex; align-items:center; gap:4px; font-size:11.5px; color:var(--text-muted); cursor:pointer; user-select:none;">
@@ -536,7 +537,7 @@
 <!-- 搜索、容量、Key筛选与分页控制条 (现代定制轻量 Dropdown) -->
 <div class="logs-controls">
 <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-<input class="logs-search-input" id="logs-search" oninput="onLogsSearch(this.value)" placeholder="搜索模型、API Key/别名、上游账号或错误..." type="text"/>
+<input class="logs-search-input" id="logs-search" oninput="onLogsSearch(this.value)" placeholder="搜索模型、思考强度、API Key/别名、上游账号或错误..." type="text"/>
 <div class="filter-control-item" id="logs-key-filter-container">
 <span class="filter-label">筛选密钥:</span>
 <div aria-label="请求密钥筛选" class="dropdown" id="logs-key-dropdown" style="max-width:220px;"></div>
@@ -575,7 +576,9 @@
 <th>客户端 Key</th>
 <th>上游账号</th>
 <th>模型</th>
+<th>思考强度</th>
 <th>状态</th>
+<th>速率 (tok/s)</th>
 <th>Tokens 构成 (入 / 出)</th>
 <th>缓存明细</th>
 <th>预估花费</th>
@@ -584,7 +587,7 @@
 </tr>
 </thead>
 <tbody id="events-tbody">
-<tr><td colspan="10" style="text-align: center; color: var(--text-dim); padding: 32px;">正在加载实时请求日志...</td></tr>
+<tr><td colspan="12" style="text-align: center; color: var(--text-dim); padding: 32px;">正在加载实时请求日志...</td></tr>
 </tbody>
 </table>
 </div>
@@ -943,22 +946,35 @@
 <div class="form-group">
 <label>允许访问模型 (白名单)</label>
 <div class="tag-container" id="edit-tags-box"></div>
-<div class="input-wrapper" style="margin-bottom: 8px;">
-<input class="form-control" id="edit-model-input" placeholder="输入模型ID并回车 (如 gemini-3.8-flash-high)" type="text"/>
-<button class="btn btn-secondary btn-sm" onclick="addModelFromInput()" style="position:absolute; right:4px;" type="button">添加</button>
-</div>
-<div class="quick-preset">
-<button onclick="setPreset('all')" type="button">全部 (*)</button>
-<button onclick="setPreset('flash')" type="button">Flash/Mini经济组</button>
-<button onclick="setPreset('claude')" type="button">Claude专属组</button>
-<button onclick="setPreset('reasoning')" type="button">推理旗舰组</button>
-<button onclick="clearModels()" type="button">清空</button>
+<div class="model-picker-dropdown" id="model-picker-container">
+  <div class="model-picker-trigger" id="model-picker-trigger" onclick="toggleModelPickerDropdown()">
+    <div class="model-picker-trigger-left">
+      <svg class="model-picker-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+      <span class="model-picker-label" id="model-picker-label">点击搜索或选择上游模型添加...</span>
+    </div>
+    <div class="model-picker-trigger-right">
+      <button class="model-picker-fetch-btn" id="btn-fetch-models" onclick="event.stopPropagation(); fetchUpstreamModelsForPicker();" title="重新从上游同步模型清单" type="button">
+        <svg class="fetch-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+        <span>同步上游</span>
+      </button>
+      <svg class="picker-arrow-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+  </div>
+  <div class="model-picker-menu" id="model-picker-menu">
+    <div class="model-picker-search-bar" onclick="event.stopPropagation();">
+      <svg class="search-bar-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" x2="16.65" y1="21" y2="16.65"></line></svg>
+      <input autocomplete="off" class="model-picker-search-input" id="model-picker-search" oninput="filterUpstreamModels(this.value)" placeholder="快速过滤或输入任意模型ID..." type="text"/>
+      <span class="model-picker-clear-search" id="model-picker-clear-btn" onclick="clearModelPickerSearch(event)" style="display:none;">&times;</span>
+    </div>
+    <div class="model-picker-list" id="model-picker-list">
+      <div class="model-picker-empty">正在加载上游模型...</div>
+    </div>
+  </div>
 </div>
 </div>
 <div class="form-group" style="display:flex; justify-content:space-between; align-items:center;">
 <div>
 <div style="font-size:12.5px; font-weight:500; color:var(--text-main);">启用每日额度硬顶管控</div>
-<div class="help-text">关闭时此 Key 不限制每日 Token 上限</div>
 </div>
 <label class="switch-toggle">
 <input id="edit-enabled" type="checkbox"/>
@@ -1201,6 +1217,67 @@
     const KEY_STORAGE_KEYS = 'gate_cache_keys_v2';
     const KEY_STORAGE_LOGS = 'gate_cache_logs_v2';
     const KEY_STORAGE_ERRORS = 'gate_cache_errors_v2';
+    const KEY_STORAGE_TODAY_BADGES = 'gate_cache_today_badges_v1';
+
+    // 格式化上海时区日期字符串 (YYYY-MM-DD)，用于今日计数隔天自愈归零
+    function getShanghaiDateStr(d = new Date()) {
+      try {
+        return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(d);
+      } catch {
+        const pad = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      }
+    }
+
+    // 格式化徽标显示数字（上限 9999+）
+    function formatBadgeCount(val) {
+      const num = Number(val);
+      if (!Number.isFinite(num) || num <= 0) return '0';
+      return num > 9999 ? '9999+' : String(num);
+    }
+
+    function getTodayBadgesFromStorage() {
+      try {
+        const raw = localStorage.getItem(KEY_STORAGE_TODAY_BADGES);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        const todayStr = getShanghaiDateStr();
+        if (parsed && parsed.date === todayStr) {
+          return parsed;
+        }
+      } catch {}
+      return null;
+    }
+
+    function saveTodayBadgesToStorage(partial) {
+      try {
+        const todayStr = getShanghaiDateStr();
+        const current = getTodayBadgesFromStorage() || { date: todayStr, logs: 0, errors: 0 };
+        const updated = {
+          date: todayStr,
+          logs: partial.logs !== undefined ? partial.logs : current.logs,
+          errors: partial.errors !== undefined ? partial.errors : current.errors,
+          ts: Date.now()
+        };
+        localStorage.setItem(KEY_STORAGE_TODAY_BADGES, JSON.stringify(updated));
+      } catch {}
+    }
+
+    function updateNavBadgeLogs(count) {
+      const num = Number(count);
+      if (!Number.isFinite(num)) return;
+      const badge = document.getElementById('nav-badge-logs');
+      if (badge) badge.innerText = formatBadgeCount(num);
+      saveTodayBadgesToStorage({ logs: num });
+    }
+
+    function updateNavBadgeErrors(count) {
+      const num = Number(count);
+      if (!Number.isFinite(num)) return;
+      const badge = document.getElementById('nav-badge-errors');
+      if (badge) badge.innerText = formatBadgeCount(num);
+      saveTodayBadgesToStorage({ errors: num });
+    }
 
     // 完整 API Key 一律不落 localStorage：列表接口只给 display_key，
     // 完整明文仅在点击「复制」时按需拉取。这里在写盘前再剥一次，
@@ -1304,8 +1381,6 @@
           if (Array.isArray(parsed.events)) {
             cachedEvents = parsed.events;
             cachedEventsTotal = Number.isFinite(parsed.total) ? parsed.total : cachedEvents.length;
-            const badge = document.getElementById('nav-badge-logs');
-            if (badge) badge.innerText = cachedEventsTotal > 9999 ? '9999+' : cachedEventsTotal;
           }
         }
       } catch {}
@@ -1317,9 +1392,20 @@
           if (Array.isArray(parsed.errors)) {
             cachedErrors = parsed.errors;
             cachedErrorsTotal = Number.isFinite(parsed.total) ? parsed.total : cachedErrors.length;
-            const badge = document.getElementById('nav-badge-errors');
-            if (badge) badge.innerText = cachedErrorsTotal > 9999 ? '9999+' : cachedErrorsTotal;
           }
+        }
+      } catch {}
+
+      // 统一水合今日流水与今日故障徽标（仅展示当天的计数，隔天自动归零，不再展示历史全量）
+      try {
+        const todayBadges = getTodayBadgesFromStorage();
+        const badgeLogs = document.getElementById('nav-badge-logs');
+        if (badgeLogs) {
+          badgeLogs.innerText = formatBadgeCount(todayBadges ? todayBadges.logs : 0);
+        }
+        const badgeErrors = document.getElementById('nav-badge-errors');
+        if (badgeErrors) {
+          badgeErrors.innerText = formatBadgeCount(todayBadges ? todayBadges.errors : 0);
         }
       } catch {}
     }
@@ -1428,7 +1514,8 @@
       const isMember = isMemberAuth();
       const title = isMember && tabId === 'quotas' ? '我的额度与服务状态' : isMember && tabId === 'logs' ? '我的请求流水' : meta.title;
       document.getElementById('breadcrumb-current').textContent = title;
-      document.getElementById('page-eyebrow').textContent = meta.eyebrow;
+      const eyebrowEl = document.getElementById('page-eyebrow');
+      if (eyebrowEl) eyebrowEl.textContent = meta.eyebrow || '';
       document.getElementById('page-title').textContent = title;
       document.getElementById('page-description').textContent = isMember && tabId === 'quotas' ? '查看个人 Key 用量和服务可用性。' : meta.description;
     }
@@ -1488,6 +1575,19 @@
       }
 
       updateOptions(options, selectedValue) {
+        const nextVal = selectedValue !== undefined ? String(selectedValue) : this.value;
+        const isSameOptions = Array.isArray(this.options) && Array.isArray(options) &&
+          this.options.length === options.length &&
+          this.options.every((opt, i) => String(opt.value) === String(options[i]?.value) && opt.label === options[i]?.label);
+
+        if (isSameOptions && String(this.value) === String(nextVal)) {
+          // 选项和选中项完全一致，无需重绘 DOM，保留用户正在展开/操作的下拉菜单及滚动位置
+          return;
+        }
+
+        const menuEl = this.container?.querySelector('.dropdown-menu');
+        const prevScrollTop = menuEl ? menuEl.scrollTop : 0;
+
         this.options = options;
         if (selectedValue !== undefined) {
           this.value = String(selectedValue);
@@ -1495,6 +1595,14 @@
           this.value = this.options[0]?.value !== undefined ? String(this.options[0].value) : '';
         }
         this.render();
+
+        if (this.isOpen) {
+          this.container.classList.add('open');
+          const newMenuEl = this.container.querySelector('.dropdown-menu');
+          if (newMenuEl && prevScrollTop > 0) {
+            newMenuEl.scrollTop = prevScrollTop;
+          }
+        }
       }
 
       setValue(val, triggerChange = false) {
@@ -1612,12 +1720,17 @@
 
         this.container.classList.add('open');
         this.isOpen = true;
+        this.container.closest('.logs-controls')?.classList.add('has-open-dropdown');
         this.container.querySelector('.dropdown-trigger')?.setAttribute('aria-expanded', 'true');
       }
 
       close() {
         this.container.classList.remove('open');
         this.isOpen = false;
+        const parentControls = this.container.closest('.logs-controls');
+        if (parentControls && !parentControls.querySelector('.dropdown.open')) {
+          parentControls.classList.remove('has-open-dropdown');
+        }
         this.container.querySelector('.dropdown-trigger')?.setAttribute('aria-expanded', 'false');
       }
     }
@@ -2367,6 +2480,10 @@
       } else {
         limitBox.style.display = 'none';
       }
+
+      if (Number.isFinite(info.today_requests)) {
+        updateNavBadgeLogs(info.today_requests);
+      }
     }
 
     // ---- 智能靶向数据拉取与更新 (按需精准拉取，根除并发队头阻塞与非当前Tab的DOM重绘风暴) ----
@@ -2721,7 +2838,7 @@
     });
   
 </script>
-  <script src="/admin/cpa-management.js"></script>
-  <script src="/admin/overview.js"></script>
+  <script src="/admin/cpa-management.js?v=2.10.0"></script>
+  <script src="/admin/overview.js?v=2.10.0"></script>
 </body>
 </html>

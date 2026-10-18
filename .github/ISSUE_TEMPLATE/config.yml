@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/xiaoran7/cpa-gate#documentation
+    about: Quick start, configuration reference, and upstream integration specs.
+  - name: AI-readable specification
+    url: https://github.com/xiaoran7/cpa-gate/blob/main/llms-full.txt
+    about: Full architecture, API, and behavior specification for assistants and deep research.

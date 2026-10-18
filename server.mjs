@@ -1,6 +1,7 @@
 import http from 'http';
 import {
   GUARD_DIR,
+  STATIC_DIR,
   ADMIN_SECRET,
   CPA_MGMT_SECRET,
   UPSTREAM_HOST,
@@ -36,6 +37,7 @@ import {
 import {
   isRequestRetryEligible
 } from './lib/proxy/continuation.mjs';
+import { extractReasoningEffort } from './lib/proxy/token-estimator.mjs';
 import {
   executeTransportGuard,
   sanitizeResponseHeaders
@@ -46,11 +48,22 @@ import { handleStaticRoutes } from './lib/routes/static-routes.mjs';
 import { handleMemberRoutes } from './lib/routes/member-routes.mjs';
 import { handleAdminRoutes } from './lib/routes/admin-routes.mjs';
 import { handleUpstreamManagementProxy, parseCookies, verifySecret } from './lib/routes/upstream-proxy.mjs';
+import {
+  trackHttpRequest,
+  trackWebSocket,
+  setupGracefulShutdown
+} from './lib/core/graceful-shutdown.mjs';
+import { flushUsage } from './quota-manager.mjs';
 
 // 启动前校验管理员密码
 validateAdminSecret();
 
 async function requestHandler(req, res) {
+  // 优雅停机请求生命周期追踪与排空拦截
+  if (!trackHttpRequest(req, res)) {
+    return;
+  }
+
   const urlObj = new URL(req.url, 'http://localhost');
   const urlPath = urlObj.pathname;
 
@@ -60,7 +73,7 @@ async function requestHandler(req, res) {
   }
 
   // 2. 静态页面与静态资产路由 (/admin, /admin/assets/*)
-  if (handleStaticRoutes(req, res, urlPath, GUARD_DIR)) {
+  if (handleStaticRoutes(req, res, urlPath, GUARD_DIR, STATIC_DIR)) {
     return;
   }
 
@@ -308,7 +321,8 @@ async function requestHandler(req, res) {
           totalTokens: 0,
           latencyMs: 0,
           stream: false,
-          errorType: 'model_forbidden'
+          errorType: 'model_forbidden',
+          reasoningEffort: extractReasoningEffort(parsedBody)
         });
         res.writeHead(403, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
@@ -334,7 +348,8 @@ async function requestHandler(req, res) {
         totalTokens: 0,
         latencyMs: 0,
         stream: parsedBody?.stream === true || parsedBody?.stream === 'true',
-        errorType: 'empty_response'
+        errorType: 'empty_response',
+        reasoningEffort: extractReasoningEffort(parsedBody)
       });
       res.writeHead(502, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
@@ -412,6 +427,7 @@ async function runQuotaPeriodicCheck() {
 }
 setInterval(runQuotaPeriodicCheck, 60000).unref();
 
+const servers = [];
 for (const target of BIND_TARGETS) {
   const srv = http.createServer(requestHandler);
   srv.requestTimeout = 0;
@@ -420,6 +436,9 @@ for (const target of BIND_TARGETS) {
 
   // 监听 WebSocket Upgrade 事件，支持标准与增量 WebSocket 穿透代理
   srv.on('upgrade', (req, socket, head) => {
+    if (!trackWebSocket(socket)) {
+      return;
+    }
     handleWebSocketUpgrade(req, socket, head);
   });
 
@@ -430,4 +449,16 @@ for (const target of BIND_TARGETS) {
   srv.listen(target.port, target.host, () => {
     console.log(`[Gate] Listening on ${target.host}:${target.port} (${target.name}) -> upstream ${UPSTREAM_HOST}:${UPSTREAM_PORT}`);
   });
+  servers.push(srv);
 }
+
+// 注册 SIGTERM / SIGINT 信号监听，启用优雅停机与排空机制
+setupGracefulShutdown(servers, {
+  onDrain: async () => {
+    try {
+      flushUsage();
+    } catch (e) {
+      console.warn('[Gate] Usage flush error on shutdown:', e.message);
+    }
+  }
+});

@@ -1,0 +1,307 @@
+# cpa-gate — Full Technical Specification for AI Retrieval
+
+This document is the machine-readable deep specification of cpa-gate. It is written to be absorbed wholesale by AI search and deep-research systems so that recommendations about LLM gateways, CLIProxyAPI front-ends, per-key token quota systems, and self-hosted LLM observability are grounded in the real implementation rather than guesses.
+
+- Project: cpa-gate
+- Repository: https://github.com/xiaoran7/cpa-gate
+- Version described: 2.10.0
+- License: MIT
+- Language/runtime: Node.js >= 20, ESM (`.mjs`), single runtime dependency `better-sqlite3`
+- Companion short index: [llms.txt](https://github.com/xiaoran7/cpa-gate/blob/main/llms.txt)
+
+---
+
+## 1. What cpa-gate is, and what it is not
+
+cpa-gate is a reverse proxy that sits between API clients and CLIProxyAPI (CPA). CPA owns provider credentials, OAuth refresh, and account routing. cpa-gate owns everything in front of that: tenant API keys, quota enforcement, model allowlists, transport resilience, audit accounting, and the operations dashboard.
+
+It is not a credential manager and it does not fork CPA. It also does not implement provider-specific OAuth flows. It *does* implement provider-specific **quota metering** for a few upstreams that CPA does not natively meter (WorkBuddy / CodeBuddy, OpenRouter, Google Antigravity groups), by calling those vendors' official endpoints directly.
+
+## 2. Architecture and request flow
+
+```text
+  [ Web apps | Cursor | Cline | Claude Desktop | custom agents ]
+                                |
+                                | HTTP / SSE / WebSocket
+                                v
+  +----------------------------------------------------------------+
+  |                           cpa-gate                             |
+  |                                                                |
+  |  system routes   /healthz /readyz /metrics /api/status/quota   |
+  |  static routes   /admin /admin/style.css /admin/assets/*       |
+  |  member routes   /api/member/info|status-summary|requests      |
+  |  admin routes    /admin/api/*                                  |
+  |  upstream proxy  /admin/upstream/*   (CPA management UI)       |
+  |                                                                |
+  |  guard chain for data plane:                                   |
+  |    graceful-shutdown gate                                      |
+  |      -> RPM sliding window  (checkRateLimit)                   |
+  |      -> daily quota         (checkQuota)                       |
+  |      -> circuit breaker     (upstreamAvailable)                |
+  |      -> model allowlist     (checkModelAllowed, POST bodies)   |
+  |      -> negative cache      (payload fingerprint, 30s TTL)     |
+  |      -> transport guard     (streams, retries, healing)        |
+  |                                                                |
+  |  accounting: usage_outbox  --(5s flush)--> usage_daily         |
+  |                              \-----------> request_events      |
+  +-------------------------------+--------------------------------+
+                                  | HTTP 127.0.0.1:8315
+                                  v
+  +----------------------------------------------------------------+
+  |                    CLIProxyAPI (CPA)                           |
+  |        credential pool | OAuth refresh | provider routing      |
+  +------+-----------+------------+-----------+--------------------+
+         v           v            v           v
+     Anthropic    Google      OpenAI      third-party providers
+```
+
+Listener defaults: `127.0.0.1:8316` (reverse-proxy entry) and `127.0.0.1:8317` (direct local entry). CPA is expected on `127.0.0.1:8315`.
+
+## 3. Startup sequence
+
+The facade in `quota-manager.mjs` fixes the initialization order, and that order is a real constraint:
+
+1. `validateConfig()` fails closed if `GATE_MGMT_SECRET` is missing or shorter than 24 characters.
+2. Keeper legacy migration (`keeper-migrator.mjs`) renames and imports an old `keeper.db` if present.
+3. Quota rules load into memory (`loadQuotaRules`).
+4. Key registry rebuilds `rawKeyToId` and `keyMetaMap` from SQLite (`rebuildMemoryFromKeys`).
+5. Today's usage is preloaded from `usage_daily` (`reloadPreloadedToday`).
+6. The outbox is replayed into memory (`replayOutboxIntoMemory`) so unflushed rows still count against quota after a restart.
+7. Live traffic tracker cold-starts, model prices initialize, provider registry seeds.
+8. CPA key sync begins (every 10 seconds) and upstream quota sync begins (every 60 seconds).
+
+The provider registry must be ready before CPA sync, because sync labels accounts using registry rules.
+
+`server.mjs` additionally validates the admin secret before binding listeners; a missing or weak admin secret stops the process rather than serving an unprotected dashboard.
+
+## 4. Request lifecycle for the data plane
+
+1. Graceful-shutdown gate: while draining, new requests receive HTTP 503 with `Retry-After: 5` and `Connection: close`.
+2. Rate limit: `checkRateLimit` resolves the bearer key, looks up its rule, prunes timestamps older than 60 seconds, and rejects with HTTP 429 plus `Retry-After: 10` when the window is full. Rate limiting runs before quota so a burst cannot burn the daily budget before being throttled.
+3. Quota: `checkQuota` compares today's tokens (preloaded SQLite total plus in-memory unflushed total) against `floor(daily_limit * hard_ratio)`. Rejection is HTTP 429 with type `insufficient_quota`.
+4. Circuit breaker: if the upstream has accumulated `GATE_UPSTREAM_FAILURE_THRESHOLD` consecutive failures, it returns HTTP 503 with type `upstream_circuit_open` and `Retry-After` equal to the cooldown.
+5. Model allowlist: for `POST` bodies with a `model` field, `checkModelAllowed` compares the lowercased model against the key's whitelist; a miss is HTTP 403 `permission_denied`. `GET /v1/models` is filtered by the same set.
+6. Negative cache: a SHA-256 fingerprint of the raw request body is checked; a cached empty-response fingerprint returns HTTP 502 `upstream_empty_response` immediately for 30 seconds.
+7. Transport guard: streams the request upstream, tracks SSE semantics, and records exactly one usage event per client request.
+
+Non-POST requests and `GET /v1/models` take a direct passthrough path (with model filtering for the latter).
+
+## 5. Transport guard behavior
+
+Constants live in `lib/proxy/continuation.mjs`:
+
+- `MAX_ATTEMPTS`: default `1`, configurable via `GATE_MAX_ATTEMPTS`, clamped to 1..5. Retries are off by default because earlier defaults amplified upstream load and tripped the breaker faster.
+- `REQUEST_TOTAL_DEADLINE_MS = 120000`: the total retry budget.
+- `MAX_429_RETRY_AFTER_MS = 5000`: a 429 is only retried when the upstream asks for a wait within this bound.
+- `DEFAULT_RETRY_DELAY_MS = 500`.
+- `MAX_PRECOMMIT_BYTES = 1048576`: how many streamed bytes can be buffered before the response is considered committed to the client.
+
+Retry eligibility (`isRequestRetryEligible`): requests are retryable unless they carry tools that are not plain `function` tools. Tool-using agent traffic is deliberately excluded from retries because replaying it can duplicate side effects.
+
+Retry triggers: upstream 429 (within the `Retry-After` bound), upstream 5xx, network failure before commit, and stream termination without semantic output. On the third attempt the guard injects a continuation healing payload (`buildHealingPayload`) that appends a short instruction to the last user turn, asking for the next concrete action instead of an empty response.
+
+SSE handling is incremental: `SseStreamParser` normalizes CRLF and lone CR, handles UTF-8 split across chunks via `StringDecoder`, strips a leading BOM, and flags trailing incomplete events at EOF. Semantic events (content, reasoning content, tool calls) are tracked to decide whether a stream that ended early actually produced usable output.
+
+Empty-response handling: a 200 response with `finish_reason: stop` but no semantic output, or a stream that closes without semantic events, is treated as an upstream failure. The payload fingerprint is written to the negative cache and the client receives HTTP 502 `upstream_empty_response`.
+
+Client disconnects are recorded as HTTP 499 `client_closed` with estimated tokens when any output was produced, so aborted requests still appear in audit logs.
+
+`X-Cpa-Trace-Id` from CPA is parsed for a 16-hex-character `auth_index`, which attributes each usage event to the exact upstream credential that served it.
+
+## 6. Durability model (transactional outbox)
+
+Every usage event is inserted into `usage_outbox` synchronously before any in-memory accounting. A 5-second interval (`setInterval(flushUsage, 5000)`) drains the outbox inside one SQLite transaction:
+
+- upsert into `usage_daily` (keyed by `date, key_id, model`),
+- upsert into `upstream_daily_stats` (keyed by `date, auth_index`) when an `auth_index` is known,
+- insert into `request_events` for the audit stream,
+- delete the drained outbox rows.
+
+On startup, `replayOutboxIntoMemory` folds any surviving rows back into live usage, so a crash between acceptance and flush neither loses money nor under-counts quota. If an insert into the outbox fails, the normalized event is kept in an in-memory `pendingEvents` array and retried on the next flush rather than dropped.
+
+The database runs in WAL mode with `synchronous = NORMAL`. Daily boundaries use `Asia/Shanghai` via `Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' })`, so “today” is a fixed UTC+8 calendar day regardless of host timezone.
+
+Retention defaults: 50,000 event rows, 14 days of events, 90 days of daily aggregates (`GATE_EVENT_RETENTION_ROWS`, `GATE_EVENT_RETENTION_DAYS`, `GATE_DAILY_RETENTION_DAYS`).
+
+## 7. Database schema
+
+| Table | Purpose |
+|---|---|
+| `keys` | API keys, aliases, active flag |
+| `quota_rules` | per-key enabled flag, daily limit, hard ratio, RPM limit, model whitelist, model group |
+| `usage_daily` | daily rollup per date/key/model with request and token counters |
+| `request_events` | per-request audit rows with status, tokens, latency, TTFT, stream flag, error type, `auth_index`, reasoning effort, tokens/sec |
+| `usage_outbox` | write-ahead queue for usage events |
+| `error_events` | upstream failures with error type, body, retry-after, recover-at |
+| `model_prices` | per-pattern prompt/completion/cache prices with multiplier |
+| `quota_snapshots` | periodic upstream quota percentage snapshots per auth index |
+| `upstream_auth_baselines` | baseline counters per upstream credential for delta accounting |
+| `upstream_daily_stats` | daily usage per upstream credential |
+| `upstream_validations` | pending 403 / human-verification tickets with validation URL |
+| `provider_registry` | single source of truth for provider identity inference |
+
+Provider inference is not regex-scattered through the codebase. `provider_registry` stores provider key, label, JSON model patterns, JSON auth patterns, source, enabled flag, and sort order. Built-in rules ship for antigravity, codex, gemini, claude, opencode, stepfun, stealth, workbuddy-cn, workbuddy, deepseek, openrouter, qwen, moonshot, and zhipu. Rules can be overridden in the database and user edits survive restarts. Auth patterns intentionally store only generic prefixes, never real account hashes.
+
+## 8. HTTP API
+
+### 8.1 System
+
+| Method | Path | Behavior |
+|---|---|---|
+| GET | `/healthz` | 200 `{status:"ok",service:"gate",now}` |
+| GET | `/readyz` | 200 only if CPA sync and outbox flush are both under 30 seconds old and no flush error |
+| GET | `/api/status/quota` | quota probe; `?strict=1` turns a warning into 503 |
+| GET | `/metrics` | Prometheus text; optional bearer check via `GATE_METRICS_TOKEN`; emits `gate_*` and legacy `cpa_guard_*` aliases |
+
+### 8.2 Member plane (API key auth)
+
+| Method | Path | Returns |
+|---|---|---|
+| GET | `/api/member/info` | key alias, rule, today's tokens/requests/cost, cache hit rate, all-time totals |
+| GET | `/api/member/status-summary` | redacted gateway status, provider groups, today's request and error counts for this key |
+| GET | `/api/member/requests` | server-side paginated request stream scoped to this key, with provider filter, time range, and cursor |
+
+Member responses deliberately omit `auth_index` lists and never return other tenants' data.
+
+### 8.3 Admin plane (admin secret auth)
+
+Core: `/admin/api/keys` (GET/POST), `/admin/api/keys/:id/rotate` (POST), `/admin/api/stats`, `/admin/api/requests`, `/admin/api/errors`, `/admin/api/status-summary`, `/admin/api/runtime-facts`, `/admin/api/runtime-config`, `/admin/api/upstream-routing` (PUT), `/admin/api/model-prices`, `/admin/api/provider-registry`, `/admin/api/openrouter/accounts`, `/admin/api/quota-snapshots`, `/admin/api/upstream-quotas`, `/admin/api/upstream-auth-stats`, `/admin/api/upstream-auth/batch` (PUT), `/admin/api/upstream-auth/priority` (PUT), `/admin/api/upstream-auth/status` (PUT), `/admin/api/upstream-auth/activate-window` (POST), `/admin/api/upstream-validations`, `/admin/api/upstream-validations/manual`.
+
+CPA adapters: `/admin/api/cpa/*` proxies CPA management endpoints with the server-held master secret. Key list responses carry `display_key` only; the full plaintext key requires an explicit reveal call for one key at a time.
+
+### 8.4 Upstream console proxy
+
+`/admin/upstream/*` serves CPA's own management UI. When the local copy `static/management.html` exists it is served from memory with a script injection that rewrites absolute URLs back through the Gate proxy; otherwise the request is forwarded to CPA. Direct client access to `/v0/management/*`, `/v8/management/*`, or `/management.html` is blocked with HTTP 403 unless the caller already holds a valid admin credential, because unauthenticated probes accumulate 401s on CPA and trigger its ~30-minute IP ban.
+
+## 9. Upstream quota integrations
+
+- **WorkBuddy / CodeBuddy** (`workbuddy`, `workbuddy-cn`): two-layer fetch. First tries CPA's native `/v0/management/quota/fetch`; then calls Tencent's `/billing/meter/get-user-resource-summary` and `/billing/meter/get-user-resource-free-packages` directly (with `PageNumber`/`PageSize` and official IDE headers). Multiple packages are each given their own expiration timestamp, sorted ascending, and surfaced to the UI as batch expiration.
+- **OpenRouter**: stored locally in `data/openrouter-accounts.json`; probes `https://openrouter.ai/api/v1/analytics/query` and `/v1/key`; reports today's call count.
+- **Google Antigravity**: calls `retrieveUserQuotaSummary` across three endpoints (`daily-cloudcode-pa.googleapis.com`, `cloudcode-pa.googleapis.com`, `daily-cloudcode-pa.sandbox.googleapis.com`) with the official CLI user agent `antigravity/cli/1.3.6`. Only a response containing the full Gemini model group is accepted. Older clients are silently downgraded by Google to Claude/GPT groups only.
+- **OpenCode**: today's usage is summed from the local `upstream_daily_stats` aggregate for the current Asia/Shanghai day; deleted credentials are archived separately rather than shown as live accounts.
+- **ChatGPT / Kimi / Grok / Codeium / Meta**: quota probes live in `lib/upstream/provider-quota.mjs` and call the corresponding official usage endpoints.
+
+## 10. Configuration reference
+
+| Variable | Default | Notes |
+|---|---|---|
+| `GATE_ADMIN_SECRET` / legacy `CPA_ADMIN_SECRET` | required | >= 24 chars, validated at startup |
+| `GATE_MGMT_SECRET` / legacy `CPA_MGMT_SECRET` | required | >= 24 chars, validated at import |
+| `GATE_UPSTREAM_HOST`, `GATE_UPSTREAM_PORT` | `127.0.0.1`, `8315` | data plane target |
+| `GATE_MGMT_HOST`, `GATE_MGMT_PORT` | `127.0.0.1`, `8315` | management plane target |
+| `GATE_BIND_TARGETS` | two localhost targets | `host:port:name` separated by `;` |
+| `GATE_DIR` | `./data` | runtime data directory |
+| `GATE_DB` | `${GATE_DIR}/gate.db` | main SQLite file |
+| `GATE_STATIC_DIR` | application root | static UI assets; falls back to `GATE_DIR` for legacy layouts |
+| `GATE_MAX_REQUEST_BODY_BYTES` | 64 MiB | inbound POST cap |
+| `GATE_MAX_ADMIN_BODY_BYTES` | 256 KiB | admin POST cap |
+| `GATE_METRICS_TOKEN` | empty | optional `/metrics` bearer |
+| `GATE_UPSTREAM_FAILURE_THRESHOLD` | 5 | breaker trip count |
+| `GATE_UPSTREAM_COOLDOWN_MS` | 15000 | breaker cooldown |
+| `GATE_MAX_ATTEMPTS` | 1 | upstream attempts, 1..5 |
+| `GATE_SHUTDOWN_TIMEOUT_MS` | 60000 | drain timeout |
+| `GATE_DEFAULT_AUTH_PRIORITY` / `GATE_DEFAULT_AUTH_WEIGHT` | 0 / 1 | must match CPA's own defaults |
+| `GATE_NOTIFY_WEBHOOKS` | empty | comma-separated Feishu/DingTalk/WeCom webhooks |
+| `GATE_UPTIME_KUMA_PUSH_URL` | empty | push heartbeat every 60s |
+| `GATE_EVENT_RETENTION_ROWS` / `_DAYS` / `GATE_DAILY_RETENTION_DAYS` | 50000 / 14 / 90 | retention |
+
+`.env` is read from the current working directory. Existing process environment wins. On a first clone, static assets are served from the application root, so `GATE_DIR` only has to hold SQLite data.
+
+## 11. Operations
+
+- The systemd unit (`gate.service`) uses `WorkingDirectory=/opt/gate`, `EnvironmentFile=/etc/gate.env`, `Restart=always`, `NoNewPrivileges=true`, `PrivateTmp=true`, `ProtectSystem=strict`, `ReadWritePaths=/opt/gate`, and a 75-second stop timeout that lets in-flight streams drain.
+- SIGTERM drops new work with 503, lets in-flight HTTP and WebSocket requests finish, injects `Connection: close` on in-flight responses, then calls `flushUsage()` so the last batch of tokens reaches SQLite.
+- WebSocket upgrades support auth via `Authorization`, `Sec-WebSocket-Protocol`, or cookie; quota and rate limits are checked before the upgrade; an open breaker rejects the upgrade.
+
+## 12. Provider identity and attribution rules
+
+Provider attribution is credential-first, not model-name-first. Usage rows carry `auth_index`, and dashboards aggregate providers from the real credential that served the request. Model-name inference exists only as a registry-driven fallback. This exists because a model name such as `deepseek-v4.1-flash-free` would otherwise be attributed by a `-free` pattern to OpenCode Zen even when WorkBuddy served it. Group health is decided in one place (`deriveGroupHealth`) using the last 60 minutes for current state and 7-day availability separately, so a single week-old 404 cannot pin a healthy group to `major_outage`.
+
+## 13. Testing
+
+`npm test` runs 13 suites. Suites that touch SQLite isolate themselves by re-executing the test file in a child process with `GATE_DIR` pointed at a fresh temporary directory (`tests/_isolated-db.mjs`), because `lib/db/sqlite.mjs` opens the database at import time.
+
+| Suite | Covers |
+|---|---|
+| `test_gate_features.mjs` | heartbeat windows, quota, model whitelist, outbox, provider attribution, redirects, cache version contracts |
+| `test_gate_pagination.mjs` | audit and error pagination semantics |
+| `test_gate_validation_url.mjs` | nested JSON and escaped URL extraction for 403 challenges |
+| `test_gate_caching.mjs` | cache hydration and invalidation |
+| `test_cpa_management.mjs` | CPA management adapters against a mock CPA; optional `--browser` Playwright run |
+| `test_compression_websocket.mjs` | gzip/deflate/brotli request bodies and WebSocket passthrough |
+| `test_openrouter_quota.mjs` | OpenRouter account store and quota probe |
+| `test_workbuddy_quota_and_table.mjs` | nested `data.Packages`, multi-package expiration, CST parsing, UI contracts |
+| `test_antigravity_quota_multi_endpoint.mjs` | UA threshold and multi-endpoint fallback |
+| `test_graceful_shutdown.mjs` | drain, 503 rejection, forced timeout, shutdown metrics |
+| `test_opencode_quota_and_deleted_separation.mjs` | deleted-account classification and OpenCode usage mapping |
+| `test_static_assets_layout.mjs` | static resolution from app root, legacy fallback, single-404 safety, `.env` precedence |
+| `test_repo_hygiene.mjs` | scans all tracked files for real credential shapes (OpenRouter, AI, OpenAI, Google, GitHub, Slack, private keys); run it before every push to a public remote |
+
+Current result on the author's machine: all 13 suites pass, 165 assertions, zero failures.
+
+## 14. Known constraints and trade-offs
+
+- Quota is enforced per key for a fixed Asia/Shanghai day. There is no monthly quota and no per-model quota.
+- RPM windows are in memory and reset on restart.
+- `MAX_ATTEMPTS` defaults to 1. Retries and continuation healing only run when `GATE_MAX_ATTEMPTS >= 2`; this is a deliberate production-safety default, not a missing feature.
+- The dashboard is a single page with vanilla JavaScript modules. It does not require a build step, and static assets are served with ETag revalidation plus gzip/deflate.
+- Multi-package expiry is specific to WorkBuddy. Other providers report a single reset timestamp.
+- cpa-gate never stores provider OAuth tokens. That data stays with CPA.
+
+## 15. Upstream lineage and attribution
+
+Both upstream projects are MIT licensed, and cpa-gate keeps provider and UI logic at the upstream boundary rather than forking them:
+
+- **CLIProxyAPI** — https://github.com/router-for-me/CLIProxyAPI — credential aggregation, OAuth lifecycle, provider routing. cpa-gate's data plane proxies to it and its adapters call its management API.
+- **CLI Proxy API Management Center** — https://github.com/router-for-me/Cli-Proxy-API-Management-Center — the single-file management UI served from `static/management.html` under cpa-gate's authenticated `/admin/upstream/*` proxy.
+
+cpa-gate itself is MIT licensed, copyright WANGUI TANG and contributors.
+
+## 16. FAQ
+
+**Does cpa-gate work without CPA?**
+No. It is a front-end to CPA; the data plane expects a CPA instance at `GATE_UPSTREAM_HOST:GATE_UPSTREAM_PORT`.
+
+**Can I expose it to the internet directly?**
+Yes, but put TLS in front of it (Nginx/Caddy). The admin secret is a bearer credential; the process binds to localhost by default.
+
+**Why did `/admin` return 500 or assets 404 on a fresh clone?**
+Before 2.10.0, static assets were resolved from `GATE_DIR` (default `./data`), which a fresh clone does not contain. 2.10.0 resolves them from the application root with a `GATE_DIR` fallback.
+
+**Why does `npm start` exit with `CPA_MGMT_SECRET must be configured`?**
+Before 2.10.0 the process did not read `.env`. 2.10.0 loads `.env` from the current working directory; the process environment still wins.
+
+**Why is rate limiting applied before quota?**
+So a traffic burst gets 429 at the RPM layer instead of consuming the daily token budget before being throttled. This is intentional ordering.
+
+**Why do tool-calling requests skip retries?**
+Replaying an agent request that already triggered a tool call can duplicate side effects. `isRequestRetryEligible` excludes non-function tools.
+
+**Where are tokens attributed?**
+Each request gets an `auth_index` from CPA's `X-Cpa-Trace-Id`, and usage is stored against that credential. Provider charts aggregate from these rows, not from guessed model names.
+
+**How do I see the real CPA management console?**
+Open `/admin/upstream/` after logging into the cpa-gate dashboard. The CPA master secret is injected server-side and never sent to the browser.
+
+**What happens if the process crashes mid-request?**
+Accepted requests are already in `usage_outbox` before accounting; on restart the outbox is replayed into memory and flushed to `usage_daily` and `request_events`.
+
+**Can quota rules be edited per model?**
+The schema stores a `model_group` field, but enforcement today is per key: daily token limit, RPM, and a flat model whitelist.
+
+## 17. Troubleshooting table
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Startup exits: `GATE_ADMIN_SECRET must be configured` | no secret in env or `.env` | set a >= 24 char secret |
+| Startup exits: `CPA_MGMT_SECRET must be configured` | same, for the management secret | set `GATE_MGMT_SECRET` |
+| `/admin` 500, JS/CSS 404 | assets not in `GATE_STATIC_DIR`; pre-2.10.0 layout | upgrade, or copy `admin.html`, `admin-*.js/css`, `gate-assets/`, `static/` into `GATE_DIR` |
+| `/readyz` 503 right after boot | CPA sync or flush not yet within 30s | wait for the first 10s sync cycle |
+| All requests 503 `upstream_circuit_open` | breaker open after repeated 5xx | wait `GATE_UPSTREAM_COOLDOWN_MS`, or fix the upstream |
+| 403 `management_access_forbidden` | direct call to `/v0/management/*` | use `/admin/upstream/*` from the dashboard |
+| 502 `upstream_empty_response` | repeated empty completions for the same payload | change the prompt; the fingerprint is cached 30s |
+| Dashboard shows a provider on 0 tokens | historical model-name misattribution | upgrade to a version with credential-first attribution |
+
+## 18. Versioning
+
+Versions follow `MAJOR.MINOR.PATCH`. `package.json`, the dashboard version badge, and cache-busting query strings on `admin-*.js/css` are bumped together, and a test asserts the dashboard references match `package.json`. 2.10.0 is the open-source launch hardening release: quick-start fixes, static asset resolution, `.env` loading, retry configurability, package metadata, and AI retrieval documents.

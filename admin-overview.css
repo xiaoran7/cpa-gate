@@ -72,6 +72,10 @@ body.member-mode #tab-btn-runtime + .sidebar-section-divider { display: none !im
 .ovw-chart-bar.has-failed { cursor: pointer; }
 .ovw-chart-bar.has-failed:hover .ovw-chart-bar-failed { filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.7)) brightness(1.15); }
 .ovw-chart-axis { font-family: var(--mono, monospace); font-size: 10px; fill: #7d97ad; }
+@media (max-width: 480px) {
+  /* 超窄移动端屏幕下隐藏非首尾偶数 X 轴刻度，避免字符拥挤重叠 */
+  .ovw-chart .ovw-xaxis-sparse-hide { display: none; }
+}
 .ovw-tooltip {
   position: fixed; z-index: 999; pointer-events: none; opacity: 0; transition: opacity .15s ease, transform .15s ease;
   background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -139,6 +143,45 @@ select.ovw-control:hover:not(:disabled) {
   border-color: #8cb6d9;
   background-color: #ffffff;
 }
+
+/* 现代 Aozora UI 统一路由下拉组件 */
+.ovw-dropdown-wrap {
+  position: relative;
+  display: inline-flex;
+  justify-content: flex-end;
+  max-width: 65%;
+  min-width: 0;
+}
+.ovw-routing-dropdown {
+  position: relative;
+  max-width: 100%;
+}
+.ovw-routing-dropdown .dropdown-trigger {
+  height: 28px;
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1c3f5e;
+  background: #ffffff;
+  border-color: #c9dcec;
+  border-radius: 8px;
+  max-width: 100%;
+}
+.ovw-routing-dropdown .dropdown-trigger:hover {
+  border-color: #8cb6d9;
+  background: #ffffff;
+}
+.ovw-routing-dropdown .dropdown-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ovw-routing-dropdown .dropdown-menu {
+  min-width: 140px;
+  font-family: inherit;
+  font-weight: 500;
+}
 .ovw-switch { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; color: #1c3f5e; cursor: pointer; }
 .ovw-switch input { width: 15px; height: 15px; accent-color: #2a6ba8; cursor: pointer; }
 .ovw-switch input:disabled { cursor: progress; }
@@ -154,6 +197,42 @@ select.ovw-control:hover:not(:disabled) {
 .ovw-source-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 5px; background: #e8f3ff; color: #2a6ba8; letter-spacing: .02em; }
 .ovw-source-tag.is-local { background: #f1f0fb; color: #5b52a8; }
 .ovw-source-tag.is-warn { background: #fff4e5; color: #a15c07; }
+
+/* Aozora UI 风格时间窗口药丸切换器 */
+.ovw-window-switcher {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(220, 235, 248, 0.65);
+  border: 1px solid #cfe2f2;
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+  box-shadow: inset 0 1px 2px rgba(18, 57, 92, 0.05);
+}
+.ovw-window-btn {
+  border: none;
+  background: transparent;
+  color: #55728b;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  font-family: inherit;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.ovw-window-btn:hover {
+  color: #12395c;
+  background: rgba(255, 255, 255, 0.6);
+}
+.ovw-window-btn.active {
+  background: #ffffff;
+  color: #1b64a5;
+  font-weight: 700;
+  box-shadow: 0 1.5px 5px rgba(27, 100, 165, 0.15), 0 0.5px 1.5px rgba(0, 0, 0, 0.05);
+}
 
 @media (max-width: 640px) {
   .ovw-hero-value { font-size: 32px; }

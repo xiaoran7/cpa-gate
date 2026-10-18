@@ -765,10 +765,10 @@
           return (a.provider || '').toLowerCase() === filter;
         }
         const prov = (a.provider || '').toLowerCase();
-        return prov === 'codex' || prov === 'antigravity' || prov === 'workbuddy' || prov === 'workbuddy-cn' || prov === 'openrouter';
+        return prov === 'codex' || prov === 'antigravity' || prov === 'workbuddy' || prov === 'workbuddy-cn' || prov === 'openrouter' || prov === 'opencode';
       });
 
-      const filterLabel = filter === 'all' ? '全部' : (filter === 'antigravity' ? 'Antigravity' : (filter === 'codex' ? 'Codex' : (filter === 'claude' ? 'Claude' : (filter === 'workbuddy' ? 'WorkBuddy' : (filter === 'openrouter' ? 'OpenRouter' : filter)))));
+      const filterLabel = filter === 'all' ? '全部' : (filter === 'antigravity' ? 'Antigravity' : (filter === 'codex' ? 'Codex' : (filter === 'claude' ? 'Claude' : (filter === 'workbuddy' ? 'WorkBuddy' : (filter === 'openrouter' ? 'OpenRouter' : (filter === 'opencode' ? 'OpenCode' : filter))))));
       if (accounts.length === 0) {
         showToast(`未找到可查询额度的有效 ${filterLabel} 凭证`, 'warning');
         return;
@@ -840,6 +840,9 @@
       } else if (f === 'openrouter') {
         btn.textContent = '刷新全部 OpenRouter 额度';
         btn.title = '对所有有效 OpenRouter 凭据批量查询今日调用次数与剩余额度';
+      } else if (f === 'opencode') {
+        btn.textContent = '刷新全部 OpenCode 额度';
+        btn.title = '对所有有效 OpenCode 凭据刷新今日 Token 消耗与请求次数';
       } else {
         const brandName = f.charAt(0).toUpperCase() + f.slice(1);
         btn.textContent = `刷新全部 ${brandName} 额度`;
@@ -872,6 +875,206 @@
         return '周限额';
       }
       return n;
+    }
+
+    function getWorkBuddyExpirationInfo(acc) {
+      if (!acc) {
+        return {
+          hasExpiration: false,
+          shortText: '未公布到期时间',
+          fullText: '未公布到期时间',
+          countdown: '',
+          color: 'var(--text-dim)',
+          tooltip: '腾讯官方暂未公布该资源包到期时间',
+          packages: [],
+          hasMultiplePackages: false,
+          packageCount: 0
+        };
+      }
+
+      // 提取所有候选包明细（优先 acc.expiration_packages，其次 acc.groups 各 buckets）
+      let rawPackages = [];
+      if (Array.isArray(acc.expiration_packages) && acc.expiration_packages.length > 0) {
+        rawPackages = acc.expiration_packages;
+      } else if (Array.isArray(acc.groups)) {
+        for (const g of acc.groups) {
+          for (const b of (g.buckets || [])) {
+            if (b.expires_at || b.reset_time) {
+              rawPackages.push({
+                package_name: b.name,
+                package_code: b.package_code || b.bucket_id,
+                remain_points: b.remain_capacity != null ? Number(b.remain_capacity) : 0,
+                total_points: b.total_capacity != null ? Number(b.total_capacity) : 0,
+                expires_at: b.expires_at || '',
+                reset_time: b.reset_time || ''
+              });
+            }
+          }
+        }
+      }
+
+      // 如果未收集到包列表，但顶层有 expires_at / reset_time，构建兜底单包
+      if (rawPackages.length === 0 && (acc.expires_at || acc.reset_time)) {
+        rawPackages.push({
+          package_name: '标准积分包',
+          package_code: '',
+          remain_points: acc.runs_out_points != null ? Number(acc.runs_out_points) : (acc.remaining_credits != null ? Number(acc.remaining_credits) : 0),
+          total_points: acc.total_credits != null ? Number(acc.total_credits) : 0,
+          expires_at: acc.expires_at || '',
+          reset_time: acc.reset_time || ''
+        });
+      }
+
+      if (rawPackages.length === 0) {
+        return {
+          hasExpiration: false,
+          shortText: '未公布到期时间',
+          fullText: '未公布到期时间',
+          countdown: '',
+          color: 'var(--text-dim)',
+          tooltip: '腾讯官方暂未公布该资源包到期时间',
+          packages: [],
+          hasMultiplePackages: false,
+          packageCount: 0
+        };
+      }
+
+      const now = Date.now();
+      const formattedPackages = [];
+
+      for (const p of rawPackages) {
+        let targetTs = null;
+        if (p.reset_time) {
+          try {
+            const d = new Date(p.reset_time);
+            if (!isNaN(d.getTime())) targetTs = d.getTime();
+          } catch (_) {}
+        }
+        if (!targetTs && p.expires_at) {
+          try {
+            const s = String(p.expires_at).trim();
+            const norm = /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i.test(s) ? s : s.replace(' ', 'T') + '+08:00';
+            const d = new Date(norm);
+            if (!isNaN(d.getTime())) targetTs = d.getTime();
+          } catch (_) {}
+        }
+
+        let shortText = '';
+        let fullText = p.expires_at || '';
+        if (targetTs) {
+          // 全局东八区单点真理源：统一转为东八区（UTC+8 北京时间）并使用 UTC getter 提取，避免多时区偏移
+          const cstDate = new Date(targetTs + 8 * 3600 * 1000);
+          const yyyy = cstDate.getUTCFullYear();
+          const mm = cstDate.getUTCMonth() + 1;
+          const dd = cstDate.getUTCDate();
+          const hh = String(cstDate.getUTCHours()).padStart(2, '0');
+          const min = String(cstDate.getUTCMinutes()).padStart(2, '0');
+          shortText = `${mm}月${dd}日 ${hh}:${min}`;
+          if (!fullText) {
+            const ss = String(cstDate.getUTCSeconds()).padStart(2, '0');
+            fullText = `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')} ${hh}:${min}:${ss}`;
+          }
+        } else if (p.expires_at) {
+          shortText = String(p.expires_at).slice(5, 16).replace('T', ' ');
+        } else {
+          shortText = '未知到期日';
+          fullText = '未知到期日';
+        }
+
+        let countdown = '';
+        let color = 'var(--text-muted)';
+        if (targetTs) {
+          const diff = targetTs - now;
+          if (diff <= 0) {
+            countdown = '已到期';
+            color = '#ef4444';
+          } else {
+            const hours = Math.floor(diff / (1000 * 3600));
+            if (hours < 24) {
+              countdown = `${Math.max(1, hours)}小时后`;
+              color = '#ef4444';
+            } else if (hours < 72) {
+              const days = Math.floor(hours / 24);
+              countdown = `${days}天后`;
+              color = '#f59e0b';
+            } else {
+              const days = Math.floor(hours / 24);
+              countdown = `${days}天后`;
+              color = 'var(--text-muted)';
+            }
+          }
+        }
+
+        formattedPackages.push({
+          name: p.package_name || p.name || '标准积分包',
+          code: p.package_code || '',
+          points: Number(p.remain_points ?? p.remain_capacity ?? 0),
+          totalPoints: Number(p.total_points ?? p.total_capacity ?? 0),
+          targetTs,
+          shortText,
+          fullText,
+          countdown,
+          color
+        });
+      }
+
+      // 按到期时间排序（最早到期的排前面，有到期但无时间戳的其次，完全无到期时间的排末尾）
+      formattedPackages.sort((a, b) => {
+        if (a.targetTs && b.targetTs) return a.targetTs - b.targetTs;
+        if (a.targetTs) return -1;
+        if (b.targetTs) return 1;
+        const aHasText = a.fullText && a.fullText !== '未知到期日';
+        const bHasText = b.fullText && b.fullText !== '未知到期日';
+        if (aHasText && !bHasText) return -1;
+        if (!aHasText && bHasText) return 1;
+        return 0;
+      });
+
+      // 检查是否有任何包包含有效到期时间（无论是 targetTs 还是非空的 expires_at）
+      const hasAnyExpiration = formattedPackages.some(p => p.targetTs != null || (p.fullText && p.fullText !== '未知到期日'));
+      if (!hasAnyExpiration) {
+        return {
+          hasExpiration: false,
+          shortText: '未公布到期时间',
+          fullText: '未公布到期时间',
+          countdown: '',
+          color: 'var(--text-dim)',
+          tooltip: '腾讯官方暂未公布该资源包到期时间',
+          packages: formattedPackages,
+          hasMultiplePackages: false,
+          packageCount: formattedPackages.length
+        };
+      }
+
+      const earliest = formattedPackages[0];
+      const hasMultiplePackages = formattedPackages.length > 1;
+
+      let tooltip = '';
+      if (!hasMultiplePackages) {
+        tooltip = `积分到期截至时间: ${earliest.fullText} (北京时间)`;
+        if (earliest.points > 0) {
+          tooltip += ` · 可用: ${earliest.points} 积分`;
+        }
+      } else {
+        tooltip = `积分按资源包分批到期 (北京时间 · 共 ${formattedPackages.length} 批次):\n` +
+          formattedPackages.map((p, idx) =>
+            `第 ${idx + 1} 批 [${p.name}]: ${p.points} 积分 · 截至 ${p.fullText}${p.countdown ? ` (${p.countdown})` : ''}`
+          ).join('\n');
+      }
+
+      return {
+        hasExpiration: true,
+        targetTs: earliest.targetTs,
+        shortText: earliest.shortText,
+        fullText: earliest.fullText,
+        countdown: earliest.countdown,
+        color: earliest.color,
+        tooltip,
+        runsOutPoints: earliest.points,
+        packages: formattedPackages,
+        hasMultiplePackages,
+        packageCount: formattedPackages.length
+      };
     }
 
     function renderUpstreamCards() {
@@ -977,6 +1180,25 @@
               metersHtml = `<div class="account-health-warning" style="color:var(--danger); font-size:11px;" title="${escapeHtml(acc.raw_error)}">${escapeHtml(acc.raw_error)}</div>`;
             } else if ((acc.provider === 'antigravity' && !Number.isFinite(gemini5hBucket?.remaining_percent)) || (acc.provider === 'codex' && !Number.isFinite(codex5hBucket?.remaining_percent))) {
               metersHtml = '<div class="account-quota-unknown">额度未知，等待上游返回有效数据</div>';
+            } else if (acc.provider === 'opencode') {
+              const todayCount = Number.isFinite(acc.today_requests) ? acc.today_requests : 0;
+              const todayTokens = Number.isFinite(acc.today_tokens) ? acc.today_tokens : 0;
+
+              metersHtml = `
+                <div class="compact-meter-wrap" style="display:flex; flex-direction:column; justify-content:center; gap:2px;" title="OpenCode 今日调用量统计">
+                  <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px;">
+                    <span style="color:var(--text-muted); font-size:11px;">今日消耗</span>
+                    <span style="font-family:var(--mono); font-weight:700; color:var(--text-main);">
+                      <span style="color:#0ea5e9; font-size:13px;">${formatTokens(todayTokens)}</span>
+                      <span style="color:var(--text-dim); font-size:10.5px;"> Tokens</span>
+                    </span>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; color:var(--text-dim);">
+                    <span>今日请求: <b style="font-family:var(--mono); color:var(--text-muted);">${todayCount}</b> 次</span>
+                    <span>自然日累计</span>
+                  </div>
+                </div>
+              `;
             } else if (acc.provider === 'openrouter') {
               const todayCount = Number.isFinite(acc.today_requests) ? acc.today_requests : 0;
               const resetTxt = (acc.reset_time || acc.reset_countdown) ? escapeHtml(acc.reset_countdown || (formatResetAbs(acc.reset_time) + '刷新')) : '00:00 UTC';
@@ -1005,8 +1227,10 @@
               if (pct <= 20) { cls = 'meter-low'; col = '#ef4444'; }
               else if (pct <= 50) { cls = 'meter-medium'; col = '#f59e0b'; }
 
+              const expInfo = getWorkBuddyExpirationInfo(acc);
+
               metersHtml = `
-                <div class="compact-meter-wrap" style="display:flex; flex-direction:column; justify-content:center; gap:3px;" title="腾讯 WorkBuddy 官方资源包积分 (剩余: ${remainCredits} / 总额: ${totalCredits})">
+                <div class="compact-meter-wrap" style="display:flex; flex-direction:column; justify-content:center; gap:3px;" title="${escapeHtml(expInfo.tooltip || `腾讯 WorkBuddy 官方资源包积分 (剩余: ${remainCredits} / 总额: ${totalCredits})`)}">
                   <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
                     <span style="color:var(--text-muted); font-size:10.5px;">资源包积分</span>
                     <span style="font-family:var(--mono); font-weight:700; color:${col};">
@@ -1019,6 +1243,12 @@
                   <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:var(--text-dim); font-family:var(--mono);">
                     <span>总额: ${totalCredits.toLocaleString()} 积分</span>
                     <span>已用: ${usedCredits.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2})}</span>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; font-size:9.5px; color:var(--text-dim); font-family:var(--mono); margin-top:1px; padding-top:2px; border-top:1px dashed var(--border-subtle, rgba(0,0,0,0.06));" title="${escapeHtml(expInfo.tooltip)}">
+                    <span>${expInfo.hasMultiplePackages ? `分批到期 <span style="font-size:9px; opacity:0.8;">(${expInfo.packageCount}批)</span>` : '截至到期'}</span>
+                    <span style="color:${expInfo.color}; font-weight:600;">
+                      ${expInfo.hasMultiplePackages ? '首批 ' : ''}${escapeHtml(expInfo.shortText)}${expInfo.countdown ? ` <span style="font-size:9px; font-weight:normal; opacity:0.85;">(${escapeHtml(expInfo.countdown)})</span>` : ''}
+                    </span>
                   </div>
                 </div>
               `;
@@ -1263,6 +1493,35 @@
             let quotaSectionHtml = '';
             if (isBlocked) {
               quotaSectionHtml = `<div class="account-health-warning">${escapeHtml(health.detail || health.label || 'CPA 报告凭据不可用')} · 额度已隐藏</div>`;
+            } else if (acc.provider === 'opencode') {
+              const todayCount = Number.isFinite(acc.today_requests) ? acc.today_requests : 0;
+              const todayTokens = Number.isFinite(acc.today_tokens) ? acc.today_tokens : 0;
+
+              quotaSectionHtml = `
+                <div class="model-group-section" style="margin-top:8px;">
+                  <div class="model-group-title" style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>OpenCode 今日调用统计</span>
+                    <span style="font-size:11px; font-weight:normal; color:var(--text-dim);">自然日累计</span>
+                  </div>
+                  <div style="background:var(--bg-subtle, rgba(0,0,0,0.02)); border:1px solid var(--border-subtle, rgba(0,0,0,0.06)); border-radius:8px; padding:12px 14px; margin-top:6px; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                      <div style="font-size:11px; color:var(--text-muted); margin-bottom:2px;">今日 Token 消耗</div>
+                      <div style="font-family:var(--mono); line-height:1.2;">
+                        <span style="font-size:24px; font-weight:700; color:#0ea5e9;">${formatTokens(todayTokens)}</span>
+                        <span style="font-size:12px; color:var(--text-dim); font-weight:normal;" title="${todayTokens.toLocaleString()} Tokens"> Tokens</span>
+                      </div>
+                    </div>
+                    <div style="text-align:right;">
+                      <div style="font-size:11px; color:var(--text-muted); margin-bottom:2px;">今日请求次数</div>
+                      <div style="font-family:var(--mono); line-height:1.2;">
+                        <span style="font-size:22px; font-weight:700; color:var(--text-main);">${todayCount}</span>
+                        <span style="font-size:12px; color:var(--text-dim); font-weight:normal;"> 次</span>
+                      </div>
+                    </div>
+                  </div>
+                  ${acc.raw_error ? `<div class="account-health-warning" style="color:var(--danger); margin-top:6px; font-size:11px;">${escapeHtml(acc.raw_error)}</div>` : ''}
+                </div>
+              `;
             } else if (acc.provider === 'openrouter') {
               const todayCount = Number.isFinite(acc.today_requests) ? acc.today_requests : 0;
               const resetTxt = (acc.reset_time || acc.reset_countdown) ? escapeHtml(acc.reset_countdown || (formatResetAbs(acc.reset_time) + '刷新')) : '00:00 UTC';
@@ -1298,6 +1557,8 @@
               if (pct <= 20) { meterClass = 'meter-low'; remColor = '#ef4444'; }
               else if (pct <= 50) { meterClass = 'meter-medium'; remColor = '#f59e0b'; }
 
+              const expInfo = getWorkBuddyExpirationInfo(acc);
+
               quotaSectionHtml = `
                 <div class="model-group-section" style="margin-top:8px;">
                   <div class="model-group-title" style="display:flex; justify-content:space-between; align-items:center;">
@@ -1327,6 +1588,28 @@
                       <span>已消耗: ${usedCredits.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2})} 积分</span>
                       <span>周期资源包</span>
                     </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border-subtle, rgba(0,0,0,0.06)); font-size:11px;">
+                      <span style="color:var(--text-muted); display:inline-flex; align-items:center; gap:4px;">
+                        <span>⏱️ ${expInfo.hasMultiplePackages ? `积分分批到期 <span style="font-size:10px; opacity:0.8;">(共 ${expInfo.packageCount} 批)</span>` : '积分截至到期'}</span>
+                      </span>
+                      <span style="font-family:var(--mono); font-weight:600; color:${expInfo.color};" title="${escapeHtml(expInfo.tooltip)}">
+                        ${expInfo.hasMultiplePackages ? '首批 ' : ''}${escapeHtml(expInfo.fullText || expInfo.shortText)}${expInfo.countdown ? ` <span style="font-weight:normal; font-size:10px; opacity:0.85;">(${escapeHtml(expInfo.countdown)})</span>` : ''}
+                      </span>
+                    </div>
+                    ${expInfo.hasMultiplePackages ? `
+                      <div style="margin-top:8px; display:flex; flex-direction:column; gap:5px; padding:8px 10px; background:var(--bg-subtle, rgba(0,0,0,0.02)); border-radius:6px; border:1px solid var(--border-subtle, rgba(0,0,0,0.06)); font-size:10.5px; font-family:var(--mono);">
+                        ${expInfo.packages.map((pkg, pIdx) => `
+                          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;" title="资源包 [${escapeHtml(pkg.name)}]: 可用 ${pkg.points} 积分，截至 ${escapeHtml(pkg.fullText || pkg.shortText)}">
+                            <span style="color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:55%;">
+                              <b style="color:var(--text-dim); font-weight:600;">${pIdx + 1}.</b> ${escapeHtml(pkg.name)} <span style="font-weight:600; color:var(--text-main);">${pkg.points} 积分</span>
+                            </span>
+                            <span style="color:${pkg.color}; font-weight:500; flex-shrink:0;">
+                              ${escapeHtml(pkg.shortText)}${pkg.countdown ? ` <span style="font-size:9.5px; opacity:0.85;">(${escapeHtml(pkg.countdown)})</span>` : ''}
+                            </span>
+                          </div>
+                        `).join('')}
+                      </div>
+                    ` : ''}
                   </div>
                   ${acc.raw_error ? `<div class="account-health-warning" style="color:var(--danger); margin-top:6px; font-size:11px;">${escapeHtml(acc.raw_error)}</div>` : ''}
                 </div>
@@ -1561,11 +1844,13 @@
             (it.auth_index && a.auth_index === it.auth_index) ||
             a.id === it.name ||
             a.filename === it.name ||
-            (it.provider === 'openrouter' && (a.id === it.auth_index || a.name === it.name || `openrouter-${a.id}` === it.auth_index))
+            (it.provider === 'openrouter' && (a.id === it.auth_index || a.name === it.name || `openrouter-${a.id}` === it.auth_index)) ||
+            (it.provider === 'opencode' && (a.id === it.auth_index || a.filename === it.name || a.email === it.name))
           );
 
           const isWorkBuddy = it.provider === 'workbuddy' || it.provider === 'workbuddy-cn' || String(it.name || '').toLowerCase().startsWith('workbuddy');
           const isOpenRouter = it.provider === 'openrouter' || String(it.name || '').toLowerCase().startsWith('openrouter');
+          const isOpenCode = it.provider === 'opencode' || String(it.name || '').toLowerCase().startsWith('opencode');
 
           if (isWorkBuddy) {
             const totalCredits = it.total_credits != null ? Number(it.total_credits) : (fallbackAcc?.total_credits != null ? Number(fallbackAcc.total_credits) : null);
@@ -1585,6 +1870,9 @@
               const totalFormatted = total.toLocaleString();
               const usedFormatted = used.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
+              const targetObj = (it && (it.expires_at || it.reset_time)) ? it : (fallbackAcc || it);
+              const expInfo = getWorkBuddyExpirationInfo(targetObj);
+
               quotaHtml = `
                 <div class="quota-box-row">
                   <span class="quota-box-title">资源包积分: <b style="color:${barColor};">剩余 ${remainFormatted}</b></span>
@@ -1593,7 +1881,12 @@
                 <div class="quota-progress-track">
                   <div class="quota-progress-fill" style="width:${Math.max(0, Math.min(100, remPct))}%; background:${barColor};"></div>
                 </div>
-                <div class="quota-weekly-row">总额: <b>${totalFormatted}</b> 积分 · 已用: <b>${usedFormatted}</b></div>
+                <div class="quota-weekly-row" style="display:flex; justify-content:space-between; align-items:center;">
+                  <span>总额: <b>${totalFormatted}</b> 积分 · 已用: <b>${usedFormatted}</b></span>
+                  <span style="color:${expInfo.color}; font-size:11px;" title="${escapeHtml(expInfo.tooltip)}">
+                    截至: ${expInfo.hasMultiplePackages ? '首批 ' : ''}<b>${escapeHtml(expInfo.shortText)}</b>${expInfo.countdown ? ` (${escapeHtml(expInfo.countdown)})` : ''}${expInfo.hasMultiplePackages ? ` <span style="font-size:9.5px; opacity:0.8;">(共${expInfo.packageCount}批)</span>` : ''}
+                  </span>
+                </div>
               `;
             }
           } else if (isOpenRouter) {
@@ -1622,6 +1915,17 @@
                 <div class="quota-weekly-row">今日剩余: <b style="color:${barColor};">${remCount}</b> 次可用 · 周期: <b>UTC日</b></div>
               `;
             }
+          } else if (isOpenCode) {
+            const todayCount = it.today_requests != null ? Number(it.today_requests) : (fallbackAcc?.today_requests != null ? Number(fallbackAcc.today_requests) : 0);
+            const todayTokens = it.today_tokens != null ? Number(it.today_tokens) : (fallbackAcc?.today_tokens != null ? Number(fallbackAcc.today_tokens) : 0);
+
+            quotaHtml = `
+              <div class="quota-box-row">
+                <span class="quota-box-title">今日消耗: <b style="color:#0ea5e9;">${formatTokens(todayTokens)}</b> Tokens</span>
+                <span class="quota-box-countdown">今日请求: <b style="color:var(--text-main); font-weight:700;">${todayCount}</b> 次</span>
+              </div>
+              <div class="quota-weekly-row" style="margin-top:4px;">自然日累计: <b>${todayTokens.toLocaleString()}</b> Tokens · <b>${todayCount}</b> 次请求</div>
+            `;
           } else if (it.quota_5h) {
             const rem5h = it.quota_5h.remaining_percent;
             let barColor = '#10b981'; // 充裕 (绿)

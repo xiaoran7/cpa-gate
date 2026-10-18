@@ -380,6 +380,30 @@ try {
   assert.equal(facts.degraded, false, 'mock CPA 可用时不应降级');
   assert.equal(facts.source, 'cpa_runtime');
   assert.equal(facts.window_minutes, 200);
+  assert.equal(facts.window, '3h20m');
+  assert.ok(Array.isArray(facts.available_windows) && facts.available_windows.length === 6, '应提供 6 个可选时间窗口 (含 30d)');
+
+  // 多窗口参数测试：5h 与 1d 动态计算与分桶切片
+  const facts5h = (await call(gatePort, '/admin/api/runtime-facts?window=5h')).body;
+  assert.equal(facts5h.window, '5h');
+  assert.equal(facts5h.window_minutes, 300);
+  assert.equal(facts5h.bucket_count, 30);
+  assert.equal(facts5h.totals.buckets.length, 30);
+
+  const facts1d = (await call(gatePort, '/admin/api/runtime-facts?window=1d')).body;
+  assert.equal(facts1d.window, '1d');
+  assert.equal(facts1d.window_minutes, 1440);
+  assert.equal(facts1d.bucket_minutes, 60);
+  assert.equal(facts1d.bucket_count, 24);
+  assert.equal(facts1d.totals.buckets.length, 24);
+
+  const facts30d = (await call(gatePort, '/admin/api/runtime-facts?window=30d')).body;
+  assert.equal(facts30d.window, '30d');
+  assert.equal(facts30d.window_minutes, 43200);
+  assert.equal(facts30d.bucket_minutes, 1440);
+  assert.equal(facts30d.bucket_count, 30);
+  assert.equal(facts30d.totals.buckets.length, 30);
+
   assert.ok(facts.credentials.length >= 4, '应聚合出全部凭据');
   assert.equal(facts.providers_derived, false);
   const byIndex = Object.fromEntries(facts.credentials.map(c => [c.auth_index, c]));

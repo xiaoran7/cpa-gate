@@ -1,0 +1,100 @@
+name: Bug report
+description: Report something that is broken or behaves unexpectedly.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please do not paste secrets,
+        API keys, cookies, or real account identifiers. Redact them first.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the symptom.
+      placeholder: "After upgrading to 2.10.0, /admin returns 500 and style.css is 404."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      placeholder: "The dashboard should load normally."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Exact commands and configuration, with secrets redacted.
+      placeholder: |
+        1. git clone ...
+        2. cp .env.example .env
+        3. npm start
+        4. open http://127.0.0.1:8317/admin
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: cpa-gate version
+      description: Shown in the dashboard header or `package.json`.
+      placeholder: "2.10.0"
+    validations:
+      required: true
+
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      placeholder: "20.11.1 / 22.9.0 / 24.14.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux (systemd)
+        - Linux (Docker or other)
+        - macOS
+        - Windows
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: cpa
+    attributes:
+      label: CLIProxyAPI version
+      description: The CPA release or image tag you are proxying to.
+      placeholder: "v7.3.17"
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Server stderr, HTTP status codes, or the failing test output. Redact secrets.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and did not find a duplicate.
+          required: true
+        - label: I removed all secrets, API keys, and real account identifiers from this report.
+          required: true
+        - label: If this involves CLIProxyAPI itself, I checked its upstream releases and issues first.
+          required: true

@@ -11,6 +11,18 @@
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         cachedStatusSummary = await res.json();
         renderStatusCards();
+
+        // 统一更新侧边栏今日流水与今日故障徽标（仅展示当天的指标，杜绝混入历史全量）
+        if (Number.isFinite(cachedStatusSummary?.today_requests)) {
+          if (typeof updateNavBadgeLogs === 'function') {
+            updateNavBadgeLogs(cachedStatusSummary.today_requests);
+          }
+        }
+        if (Number.isFinite(cachedStatusSummary?.today_errors)) {
+          if (typeof updateNavBadgeErrors === 'function') {
+            updateNavBadgeErrors(cachedStatusSummary.today_errors);
+          }
+        }
       } catch (err) {
         cachedStatusSummary = null;
         renderOperationsStrip();

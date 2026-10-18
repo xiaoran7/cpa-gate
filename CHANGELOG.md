@@ -1,9 +1,430 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.10.0] - 2026-10-18
+
+开源发布硬化：修复全新 clone 无法启动与静态资源 500/404 两个阻断性缺陷、补齐 .env 加载、重试可配置化、npm 包白名单与 GitHub 社区治理体系，并新增双层 AI 检索规范：
+
+- **开源冷启动阻断性缺陷修复（Open-Source Quick-Start Blockers）**：
+  1. **全文入口崩溃修复**：修复 README 中 `cp .env.example .env && npm start` 直接抛 `CPA_MGMT_SECRET must be configured` 的缺陷——此前进程不读取 `.env`，只认进程环境变量。现在 `lib/config.mjs` 在启动时读取**当前工作目录**下的 `.env`（与 systemd `WorkingDirectory` 语义一致），已存在的进程环境变量优先；`process.loadEnvFile` 在 Node 20.0–20.11 不存在，额外提供极简兜底解析（注释、引号、`KEY=VALUE`）；
+  2. **管理台 500 与静态资源 404 修复**：此前 `admin.html`、`admin-*.js/css`、`gate-assets/` 只从 `GATE_DIR`（默认 `./data`）解析，而全新 clone 的 `./data` 只有 SQLite，导致 `/admin` 返回 500、外置脚本全部 404。新增 `STATIC_DIR`（默认解析到安装根目录，可用 `GATE_STATIC_DIR` 覆盖），并保留「资源放在 `GATE_DIR` 下」的旧部署形态回退；
+  3. **管理台静态副本路径修正**：`lib/routes/upstream-proxy.mjs` 改用 `APP_ROOT` 解析 `static/management.html`，不再依赖进程 `cwd`，并回退到 `GATE_DIR/static/`；
+  4. **回归测试**：新增 `tests/test_static_assets_layout.mjs`，覆盖 14 个静态路径在空 `GATE_DIR` 下的解析、旧部署回退、单次 404 安全性与 `.env` 优先级，并纳入 `npm test`；
+  5. **真实凭据泄漏治理**：`tests/test_opencode_quota_and_deleted_separation.mjs` 曾把一组**真实 OpenRouter Key** 当作样例数据写死（v2.9.58 引入），准备推送公开仓库时被 GitHub Push Protection 拦截。现已替换为全 0 占位串，并新增 `tests/test_repo_hygiene.mjs` 扫描全部被 Git 跟踪的文件（OpenRouter / AI / OpenAI / Google / GitHub / Slack / 私钥形态，自动放行占位串），纳入 `npm test` 作为推送前闸门。
+- **重试策略可配置化（Configurable Retry Policy）**：
+  1. 新增 `GATE_MAX_ATTEMPTS`，默认仍为 `1`（不重试），取值夹紧到 1–5，非法值安全回落；保留「默认不放大上游负载」的生产默认值；
+  2. 开启后第 3 次尝试才会下发 continuation healing payload，与 `llms-full.txt` 描述一致；README 同步把「3-Attempt Safe Retry」改为「opt-in」的准确表述。
+- **包与元数据规范（Package & Metadata Hygiene）**：
+  1. `package.json` 补充 `repository`、`homepage`、`bugs`、`keywords` 与 `files` 白名单（剔除 `tests/`、`.github/`、`node_modules/`、本地运行数据），发布包 72 个文件、约 4.8MB；
+  2. 修正双 `license` 字段冲突（原 `"license": "MIT"` 被后一个 `"license": "UNLICENSED"` 覆盖），统一为 MIT；`package-lock.json` 同步回填 `name` 与 `license`；
+  3. 版本递增至 `2.10.0`，`admin.html` 版本徽章与全部静态资源缓存破坏参数同步。
+- **上游血统与死链修复（Upstream Lineage & Dead Links）**：
+  1. README 中 `github.com/eceasy/cli-proxy-api` 已 404，全量更正为真实上游 `github.com/router-for-me/CLIProxyAPI`（MIT）；
+  2. 新增「Upstream Projects & Attribution」章节，明确 CLIProxyAPI 负责凭据与 OAuth、CLI Proxy API Management Center 负责原生管理台 UI，两者均为 MIT，本项目不 Fork、模块边界归上游；同步写入 `llms-full.txt` 与 `llms.txt`；
+  3. `gate.service` 与 README 的部署路径对齐（README 原写 `/opt/cpa-gate`，实际单元文件为 `/opt/gate`），并补充 `TimeoutStopSec` 排空说明。
+- **GitHub 社区治理体系（Community Standards）**：
+  1. 新增 `.github/ISSUE_TEMPLATE/bug_report.yml`、`feature_request.yml` 与 `config.yml`（YAML 表单，禁用空白 issue，跳转文档）；
+  2. 新增 `.github/PULL_REQUEST_TEMPLATE.md`，要求如实声明已运行的验证项；
+  3. 新增 `.github/workflows/ci.yml`：Node 20/22/24 三版本矩阵执行 `npm ci && npm test`。
+- **AI 检索生态与冷启动物料（GEO & Launch Assets）**：
+  1. 新增 `llms.txt`（89 行，含项目定义、推荐触发场景、五分钟上手、核心配置）与 `llms-full.txt`（18 章全量规格：架构、请求生命周期、传输守卫、数据库结构、HTTP API、上游计量、配置参考、运维、测试矩阵、FAQ、排障表）；
+  2. 新增 `docs/LAUNCH_COPYWRITING.md`（V2EX、Reddit、Show HN、X 中英、知乎五套现成文案）；
+  3. 新增 `docs/DISCUSSIONS_QA_SEEDS.md`（5 篇带官方解答的 Q&A 种子）；
+  4. 新增 `docs/COMMUNITY_SUBMISSIONS.md`（核验过收录标准的 Awesome 列表 PR 模板，并标注暂不提交的列表及原因）；
+  5. 未生成 `smithery.yaml`：本项目不对外提供 MCP Server，凭空生成注册配置属于虚假宣传。
+- **测试证据**：`npm test` 13 个套件、165 项断言全部通过、0 失败；`node --check` 覆盖全部改动文件；实测「空 `GATE_DIR` + 根目录资源」下 `/admin`、`/admin/style.css`、`gate-assets/*.webp`、`/admin/upstream/management.html` 均返回 200；`npm ci --dry-run` 通过，CI 可直接运行。
+
+## [v2.9.66] - 2026-10-18
+
+WorkBuddy 代码审查问题闭环修复、多包容量空值回退、无到期包防误标与全量分组指标导出：
+
+- **深度代码审查问题闭环修复与类型健壮性加固（WorkBuddy Quota Review Fixes & Multi-Package Resilience Guard）**：
+  - 核心修复与优化：
+    1. **资源包剩余容量空值防御与安全回退**：修复 `lib/upstream/sync.mjs` 中对 `accItem.CycleCapacityRemain` 先行执行 `Number(...) != null` 导致的判定短路缺陷（JS 中 `Number(null)` 恒为 `0` 且 `0 != null` 为真，导致字段为 `null` 时被误设为 0 并阻断向 `CapacityRemain` 或汇总包的正常回退）；增加前置 `!= null && !== ''` 检查，确保数据缺失时平滑回退；
+    2. **无到期日资源包防误标有效到期**：修复 `admin-quotas.js` 中 `getWorkBuddyExpirationInfo` 在全部资源包均未公布到期时间时依然误标 `hasExpiration: true` 并渲染“未知到期日”的缺陷；增加 `hasAnyExpiration` 判定，全无到期日时严格返回 `hasExpiration: false`、文案对齐为“未公布到期时间”并使用 `var(--text-dim)` 柔和暗色显示；多包排序时优先将具备明确到期时间的批次排在前面；
+    3. **服务端指标导出全量分组多资源包**：在 `lib/analytics/status-summary.mjs` 中使用 `flatMap` 遍历提取 `acc.groups` 下所有分组的 buckets，彻底修复原本硬编码仅读取第 0 组导致后续分组资源包被丢弃的数据遗漏问题；
+    4. **东八区时间跨时区容器解析加固**：在 `lib/upstream/sync.mjs` 中提取统一的 `normalizeCstTimeString` 与 `parseCstDateToTimestamp` 辅助函数，通过正则精准匹配时区后缀（`Z` 或 `[+-]HH:MM`），防止形如 `2026-10-26T16:16:46`（含 `T` 但无时区后缀）的时间在海外 Docker 容器或生产机器（`TZ=UTC`）中被误当作 UTC 时间导致 8 小时系统性偏移；
+    5. **消除重复解析与可选链防护统一**：消除 `queryWorkBuddyFreePackages` 内部对明细包与汇总包重复的时间解析逻辑，并在 `parseWorkBuddyGroups` 转换时间戳时补齐 `matchedExp?.end_ms` 可选链防护；
+    6. **自动化回归测试扩展**：扩展 `tests/test_workbuddy_quota_and_table.mjs`，增加跨时区时间解析一致性断言、空值容量回退断言、无到期日状态防误标断言与多分组全量导出测试，全量 30 项测试用例全部通过。
+
+## [v2.9.65] - 2026-10-18
+
+腾讯 WorkBuddy 多资源包各包分批截至到期时间全链路透传与三端精细化分批看板：
+
+- **腾讯 WorkBuddy 多资源包各包到期截至时间独立追踪与 Aozora UI 分批到期展示（WorkBuddy Multi-Package Itemized Expiration & Multi-Batch Schedule Guard）**：
+  - 需求背景：用户反馈 WorkBuddy 账号通常由多个生命周期完全不同的资源包组成（例如标准基础月度包 250 积分截至 10月26日、开发者体验额度 100 积分截至 10月29日），过去单一的「到期截至时间」将多包折叠为首批时间，无法得知其余积分包何时到期，且容易产生误解；
+  - 核心架构与多包提取调度：
+    1. **多包到期时间全量拉取与升序排序**：在 `lib/upstream/sync.mjs` 的 `queryWorkBuddyFreePackages` 中遍历腾讯官方返回的所有资源包，提取各自的 `PackageCode`、`PackageName`、`CycleEndTime`、`DeductionEndTime`、剩余积分与总积分，并严格按到期时间由近及远升序排列，生成完整 `packages` 列表并挂载至 `acc.expiration_packages`；
+    2. **全生命周期探针多包聚合**：无论在后台 5 分钟定时同步（`syncUpstreamQuotas`）还是前台就地靶向刷新（`activateUpstreamQuotaWindow`），只要账号包含资源包即并发拉取多包有效期，确保每个包均具备独立到期时间与倒计时；
+    3. **服务端汇总契约升级**：在 `lib/analytics/status-summary.mjs` 中将结构化的 `expiration_packages` 数组作为凭据顶层字段导出至 `/admin/api/accounts/summary` 与前端数据大盘；
+  - 前端 Aozora UI 三端分批到期视觉升级：
+    1. **凭据卡片模式（Account Cards View）**：在核心额度看板下方新增分批自适应展示；单包时展示「⏱️ 积分截至到期」，多包时自适应展示「⏱️ 积分分批到期 (共 N 批)」及首批倒计时；并在下方内嵌展开每个资源包的条目化明细清单（序号、包名称、可用积分、截止时间、独立倒计时与紧急度染色）；
+    2. **紧凑表格视图（Compact Table Mode）**：第 4 行自适应切换为「分批到期 (N批)」及「首批 MM月DD日 HH:mm (倒计时)」，悬停浮动气泡（Tooltip）清晰展示所有批次的完整明细；
+    3. **网格总览大卡（Quota Cards View）**：右侧自适应显示 `截至: 首批 MM月DD日 HH:mm (倒计时) (共N批)`，悬停气泡完整显示分批日程；
+  - 自动化测试与全链路守护：
+    1. 扩展 `tests/test_workbuddy_quota_and_table.mjs`，覆盖多包到期时间升序排列、Node 沙箱多包解析、多批次浮动气泡提示与各端分批 UI 渲染契约；
+    2. 将 `tests/test_gate_features.mjs` 中的静态资源防缓存版本断言升级为动态绑定 `package.json` 版本，防范后续递增漂移；全量 `npm test` 30 项套件 100% 通过。
+
+## [v2.9.64] - 2026-10-18
+
+代码审查问题闭环修复、东八区跨时区真理源对齐与 WorkBuddy 配额查询并发加固：
+
+- **深度代码审查问题系统性修复与高可用加固（WorkBuddy Quota Review Fixes & High-Availability Concurrency Guard）**：
+  - 核心修复与优化：
+    1. **东八区（UTC+8）全局单点真理源与跨时区环境兼容**：在 `admin-quotas.js` 的 `getWorkBuddyExpirationInfo` 中统一采用 `targetTs + 8 * 3600 * 1000` 结合 UTC getters 提取月日时分秒，彻底根治客户端浏览器或测试运行在海外/UTC 时区（如 GitHub Actions、美西沙箱机）时小时数偏离的问题，修复 `test_workbuddy_quota_and_table.mjs` 测试 5 在非东八区时区下的断言异常；
+    2. **防御性时间格式解析与 RangeError 消除**：在 `lib/upstream/sync.mjs` 中对 `expAt` 及资源包 `CycleEndTime` 增加 `.includes('T')` 与 try-catch 保护，防止 ISO 8601 格式时间因无条件拼接 `+08:00` 触发 `RangeError: Invalid time value` 或计算出 `NaN` 丢失到期时间；
+    3. **就地探针刷新并发与高可用容灾**：在 `activateUpstreamQuotaWindow` 中通过 `Promise.allSettled` 将原本串行的 CPA 原生配额查询与腾讯直连接口改为并行执行，请求往返耗时减半；当直连腾讯接口返回非 200 时优先复用 CPA 有效配额数据，杜绝误报探针失败；
+    4. **代码复用与重复逻辑消除**：提取通用的 `queryWorkBuddyFreePackages` 分页查询与最早到期包解析函数，彻底消除后台全量同步与前台就地刷新之间 50 行重复代码；
+    5. **探针激活数据对称性对齐**：在探针激活逻辑中对齐 `runsOutAt` 与 `expiresAt` 的推导，避免 `targetAcc.reset_time` 为空导致的状态不一致；
+    6. **全站版本与防缓存标识同步递增**：将 `package.json`、`admin.html` 顶栏版本徽章及全站静态资源缓存破坏版本号统一递增至 `v2.9.64`；
+  - 自动化测试与契约守护：全量自动化测试（`npm test`）与多时区（`TZ=UTC`、`TZ=America/New_York`、`TZ=Asia/Tokyo`）运行均 100% 绿灯通过。
+
+## [v2.9.63] - 2026-10-17
+
+腾讯 WorkBuddy 官方资源包积分到期截至时间全链路透传与三端看板实时展示：
+
+- **腾讯 WorkBuddy 积分到期截至时间全链路透传与 Aozora UI 实时倒计时看板（WorkBuddy Quota Expiration Deadline & Live Countdown Display Guard）**：
+  - 需求背景：用户在使用腾讯 WorkBuddy / CodeBuddy 上游凭据时，管理台虽然展示了剩余积分、总额与用量进度条，但缺少官方额度的到期截止时间（例如积分包将在何时过期失效），无法提前得知何时需要续期或消耗积分；
+  - 核心架构与多层双轨获取：
+    1. 第一层（原生高速通道）：在 `lib/upstream/sync.mjs` 中直调 CPA `/v0/management/quota/fetch` 接口（CPA 原生实现了 WorkBuddy `QueryQuota`，单次往返聚合返回 `points_remain`、`points_total`、`runs_out_points`、`expires_at` 与 `runs_out_at`）；
+    2. 第二层（自治直接兜底）：若 CPA 原生配额通道暂不可用，Gate 自动通过已解密的凭据调用官方 `/billing/meter/get-user-resource-summary`，并携带提取出的 `PackageCodes` 联动分页查询 `/billing/meter/get-user-resource-free-packages`（规整注入 `PageNumber: 1, PageSize: 50` 解决腾讯网关分页参数校验限制），由 Gate 在内存中解析各包的 `CycleEndTime` 与 `DeductionEndTime` 并计算出最早到期截止时间与到期积分；
+    3. 服务端权威指标透传：在 `lib/analytics/status-summary.mjs` 中将凭据级与桶级的 `expires_at`（北京时间字符串）、`runs_out_points`（首批到期积分数）、`reset_time`（ISO 标准时间）和 `reset_countdown` 导出至 `/admin/api/status-summary` 与 `/admin/api/upstream-quotas`；
+  - Aozora UI 视觉对齐与实时倒计时展示：
+    1. 紧凑表格视图（Compact Table Row）：在 `.compact-meter-wrap` 中新增「截至到期」专行，展示格式化短日期（如 `10月26日 16:16`）与相对倒计时胶囊（如 `8天后`），并引入三阶紧急度染色（已到期或 24 小时内红字 `#ef4444`、72 小时内警示橙 `#f59e0b`、充裕正常柔和灰 `var(--text-muted)`），悬停气泡完整显示北京时间秒级精度与首批到期积分；
+    2. 抽屉详情弹窗（Drawer Detail Modal）：在核心看板区新增虚线分割的「⏱️ 积分截至到期」专行，完整呈现年月日时分秒与到期倒计时；
+    3. 凭据总览大卡（Quota Cards View）：在「总额 / 已用」行右侧优雅呈现 `截至: 10月26日 16:16 (8天后)`，保持整卡紧凑平衡；
+  - 全站版本与防缓存同步递增：将 `package.json` 与 `admin.html` 静态资源缓存破坏版本号统一递增至 `v2.9.63`；
+  - 自动化测试与验证：在 `tests/test_workbuddy_quota_and_table.mjs` 新增「测试 5: WorkBuddy 积分到期截至时间解析与 UI 展示契约」，全量自动化测试（`npm test`）100% 绿灯通过。
+
+## [v2.9.62] - 2026-10-17
+
+移动端超窄屏 X 轴刻度排版自适应优化与全站东八区时区常量集中管理：
+
+- **移动端超窄屏 X 轴刻度自适应稀疏防挤与全局东八区单点真理源集中管理（Mobile X-Axis Sparse Adaptive Guard & Global Timezone Single Source of Truth）**：
+  - 核心优化：
+    1. 全局东八区单点真理源集中管理：在 `lib/config.mjs` 中统一收敛定义 `CHINA_TZ_OFFSET_SECONDS = 28800`，其他模块（如 `live-traffic-tracker.mjs`）统一引用该单点真理源，彻底消除跨文件魔数分散；
+    2. 移动端小屏 X 轴刻度自适应稀疏防挤：针对小于 480px 的超窄屏幕，`admin-overview.js` 对非首尾的中间奇数位 X 轴刻度注入 `ovw-xaxis-sparse-hide` 类，配合 `admin-overview.css` 媒体查询在超小屏幕下自适应隐藏非首尾刻度，彻底杜绝小屏字符重叠；
+    3. 长远扩容与超大历史聚合架构备忘：在内存追踪器核心注释与项目工程备忘中固化超大规模数据演进路径（单月突破 200 万笔时优先引入 60s 内存 TTL 缓存或复用现有 `usage_daily`，杜绝过早设计引入冗余汇总表）；
+    4. 全站版本与防缓存标识同步递增：将 `package.json` 与 `admin.html` 顶栏版本徽章及全站静态资源缓存破坏版本号统一递增至 `v2.9.62`；
+  - 自动化测试与契约守护：在 `tests/test_gate_features.mjs` 测试 30 中补全断言守卫，验证时区单点真理源契约、移动端小屏刻度稀疏化与防缓存版本一致性，全量自动化测试 100% 绿灯通过。
+
+## [v2.9.61] - 2026-10-17
+
+全面重构用量趋势 AI 提供商 Token 聚合引擎并补齐 Anthropic 协议思考强度细粒度档位提取：
+
+- **补齐 Anthropic Messages 协议思考强度（Reasoning Effort）细粒度档位提取，优先识别 `output_config.effort` 与 `thinking.effort`（Anthropic Steering Effort Extraction Guard）**：
+  - 根因分析：客户端（如 Claude Code / Desktop 等）走 Anthropic Messages API 开启思考并指定具体档位（如 `Max` / `High` / `Medium` / `Low`）时，会在请求体中同时携带 `output_config: { effort: "max" }` 与 `thinking: { type: "adaptive" }`。Gate 原本在 `extractReasoningEffort()` 中仅提取了 `thinking.type`，固定返回外层容器模式 `adaptive`，漏看了更精细的 `output_config.effort`、`outputConfig.effort`、`thinking.effort` 与顶层 `effort` 字段，导致用户明明勾选了 `Max`，大盘流水却显示为较为笼统的 `adaptive`；
+  - 核心修复：在 `lib/proxy/token-estimator.mjs` 中强化 Anthropic 思考强度提取策略，优先提取 `output_config.effort`、`outputConfig.effort`、`thinking.effort` 与顶层 `effort` 并完成大小写归一化（如 `max`、`high`、`medium`、`low`），仅在未声明具体档位指导时平滑回落为 `adaptive` 或 `budget:<tokens>`；
+  - 自动化测试与验证：在 `tests/test_gate_features.mjs` 测试 28 中追加 `output_config.effort` 优先于 `adaptive`、驼峰与嵌套属性的多形态断言守卫，所有测试 100% 绿灯通过。
+
+- **根治用量趋势「AI 提供商 Token 分布与占比」因模型正则粗暴猜测导致特化模型被 OpenCode Zen 抢夺冒领缺陷（Authoritative Credential-Based Provider Token Breakdown & Attribution Guard）**：
+  - 根因分析：原本 `getUsageStats()` 统计 `providers` 分布时，直接遍历聚合后的 `models` 数组，并依靠 `inferModelProvider(m.model)` 浅层正则推断提供商。在 `provider-registry.mjs` 中，`opencode` 内置了 `[{ p: '-free', anchor: '' }]` 匹配规则且优先级较高（`sort_order: 45`）。当其他上游提供商（如腾讯 WorkBuddy）运行带有 `-free` 后缀的模型（例如 `deepseek-v4.1-flash-free`）时，所有 Token 与请求数被浅层正则强行掠夺归入 OpenCode Zen，导致出大力的 WorkBuddy 显示为 0，而 OpenCode Zen 虚假吞噬全量 Token；
+  - 核心架构改造（彻底走长期，不留任何后患）：
+    1. 底层持久化与索引加速：在 `lib/db/sqlite.mjs` 中为 `request_events` 新增 `(key_id, ts)` 复合索引，并新增 `stmtAuthEventsModelAgg`、`stmtAuthEventsModelAggByKey`、`stmtAuthEventsModelAggSince`、`stmtAuthEventsModelAggSinceByKey` 4 条高效预编译语句，直接基于 `(auth_index, model)` 权威分组；
+    2. 全生命周期事件双轨聚合：在 `lib/analytics/audit-logs.mjs` 中，联合持久化 `request_events` 与 Outbox / 内存中待刷盘的在途请求事件（`getOutboxSnapshot()` 与 `pendingEvents`），确保高并发与实时请求场景下指标毫秒级准确；
+    3. 真实账号权威凭证溯源：基于每个真实请求绑定的 `auth_index`，通过 `resolveEventAuthInfo(auth_index, model)` 溯源 CPA 在线权威账号快照与离线基线（`upstream_auth_baselines`），让提供商归属牢牢锚定在真实的调用凭证与上游提供商身份上，彻底杜绝跨提供商模型名截胡；
+    4. 模型层优势提供商与多上游智能回标：`models` 列表中的 `provider` 改由该模型真实产生最大 Token 贡献的优势提供商标签标记，保证模型与提供商看板逻辑自洽；
+    5. Token 全量对账补差引擎（Reconciliation Engine）：当历史事件被裁剪或降级测试环境下 `request_events` 不足时，自动基于 `models` 对账平滑补齐差额，确保 `providers` 聚合的总 Token 与请求数与 `periodTotalTokens` 100% 绝对一致；
+  - 自动化测试与契约守护：在 `tests/test_gate_features.mjs` 新增「测试 29: AI 提供商 Token 分布基于真实凭证权威聚合与防抢夺契约 (v2.9.61)」，验证 WorkBuddy 调度 `-free` 模型时 Token 100% 归属腾讯 WorkBuddy 且对账自洽无误，`npm test` 全套测试套件 100% 绿灯通过。
+
+- **修复运行总览多时间窗口（尤其是 30d）分桶跨天错位与东八区自然日零点时区对齐，重构 X 轴多尺度采样刻度并注入全链路防缓存契约（Timezone-Aligned Natural Day Bucketing, Multi-Tick X-Axis & Cache Busting Guard）**：
+  - 根因分析：
+    1. 分桶时区偏移漂移：Unix Epoch 时间戳以 UTC 00:00:00 为基准。在按 86,400 秒（1 天）分桶时，UTC 零点整除后映射到北京时间（Asia/Shanghai UTC+8）恰好是早晨 08:00:00。这导致 30d 窗口下的所谓“天级”分桶实际时间边界为 `08:00 - 次日 08:00`，当天凌晨 0 点到早晨 8 点的请求被错误计入昨天，造成流量与真实自然日严重脱节；
+    2. X 轴刻度粗暴与截断：原前端 X 轴硬编码为固定的 3 个采样点，在天级桶时对时间字符串直接执行 `split('-')[0]`，导致刻度上只显示孤零零的截断月份数字 `"09"`、`"10"`、`"10"`，完全无法识别具体日期；
+    3. 浏览器静态资源强缓存：HTML 引入的静态脚本未附带缓存破坏版本号，导致用户浏览器强缓存了旧版逻辑。
+  - 核心修复：
+    1. 东八区（Asia/Shanghai UTC+8）自然日分桶对齐：引入 `CHINA_TZ_OFFSET_SECONDS = 28800`，本地槽位按 `Math.floor((currentSec + 28800) / bucketSeconds)` 计算，使每个天级桶的起点与终点严格落在北京时间自然日 `00:00:00 - 24:00:00`；
+    2. SQLite 时区感知模除聚合：在 SQL 中执行 `((ts + ?) - ((ts + ?) % ?)) - ? AS slot_start`，将底层持久化数据的分桶聚合与内存时间槽做到纳秒级精准对齐；天级分桶直接格式化为直观清晰的 `MM-DD`（如 `"10-17"`）；
+    3. 自适应多刻度分布与锚点渲染：针对 30d、7d、3d、1d、5h、3h20m 等不同窗口，动态生成 5 ~ 8 个等距刻度点。最左刻度采用 `text-anchor="start"` 防止溢出坐标轴，最右刻度采用 `text-anchor="end"` 防止溢出画布，中间刻度居中对齐；
+    4. 全链路防缓存契约：在 `admin.html` 中为全部 CSS/JS 注入 `?v=2.9.61` 动态版本号，并在 `static-routes.mjs` 中设置 `Cache-Control: no-cache, must-revalidate`，杜绝任何静态缓存问题。
+  - 自动化测试与契约守护：在 `tests/test_gate_features.mjs` 新增「测试 30: 运行总览多时间窗口分桶东八区自然日对齐与全链路防缓存契约 (v2.9.61)」，验证自然日 00:00-24:00 分桶、SQLite 时区聚合、MM-DD 格式化与防缓存头，所有测试 100% 绿灯通过。
+
+## [v2.9.60] - 2026-10-17
+
+修复 Anthropic Messages SSE 流式预提交识别漏洞，支持深度思考与复杂工具调用免误判 502：
+
+- **根治 Anthropic 深度思考与复杂工具调用被误判为 502 空流的缺陷（Anthropic Thinking & Tool Use Stream Guard）**：
+  - 根因分析：在 `lib/proxy/transport.mjs` 中，网关在提交流式响应给下游客户端前，会通过看门狗检测前置 Buffer 内是否存在「有效语义内容」（`hasSemanticEvents`）。原本只针对 OpenAI 协议解析 `payload.choices[0].delta`，针对 Anthropic 协议仅检查了 `payload.delta.text`。当客户端通过 Anthropic `/v1/messages` 发起开启深度思考（`thinking`）或大参数工具调用的请求时，上游首先流式返回的是 `thinking_delta`、`tool_use` 或 `input_json_delta`，此时 `delta.text` 为空且不存在 `choices`，导致看门狗误判为「无语义输出的空流（clean empty stop）」，直接拦截并向下游抛出 HTTP 502 `upstream_empty_response`，进而激活 30 秒负向死锁熔断；
+  - 核心修复：全面补齐 Anthropic Messages 协议全生命周期事件的语义判定：
+    1. 文本块增量：`payload.delta.text`；
+    2. 深度思考增量与签名：`payload.delta.thinking`（置 `hasSemanticEvents` 与 `hasReasoningEvents`）与 `payload.delta.signature`；
+    3. 工具调用参数增量：`payload.delta.partial_json`；
+    4. 块启动事件：`payload.content_block.type === 'tool_use' || 'thinking'`；
+  - 自动化测试与验证：更新 `tests/test_gate_features.mjs`，增加针对 Anthropic `delta.thinking` 与 `delta.partial_json` 的完整断言守卫，所有自动化测试 100% 绿灯。
+
+## [v2.9.59] - 2026-10-17
+
+全面重构运行总览实时流量多时间窗口聚合、自适应 X 轴时间刻度与全上游凭据双轨融合大盘：
+
+- **根治 SQLite 分桶截断浮点除法精度丢失导致的统计断崖下跌（SQLite Epoch Modulo Bucket Alignment）**：
+  - 根因分析：在 `lib/db/sqlite.mjs` 中的时间窗口分桶聚合查询原采用 `(ts / ?) * ?`。SQLite 默认执行浮点除法，当 `bucketSeconds` 为非整除数或计算大数时，产出带小数点的 `slot_start`。而在 `live-traffic-tracker.mjs` 中构建对比槽位使用的是整型秒数（`slot * bucketSeconds`），导致 Map 查找几乎全部落空。切换至 `5h`、`1d`、`3d`、`7d` 时，请求总数从数千笔断崖式跌落至个位数；
+  - 核心修复：改用 SQLite 原生整数模除截断表达式 `(ts - (ts % ?)) AS slot_start`，确保分桶秒级起始绝对对齐整数边界，且优化 SQL 绑定参数（从 4 个减少至 3 个）；生产环境验证后，数据随时间跨度严格单调递增（3h20m: 1,766 → 5h: 4,991 → 1d: 15,414 → 3d: 26,512 → 7d: 38,138 → 30d: 89,271）。
+- **新增 30 天超长分析窗口与六档时间自选全覆盖（30-Day Window Support & Full Presets）**：
+  - 在 `live-traffic-tracker.mjs`、`runtime-stats.mjs` 与前端 `admin-overview.js` 中新增 `'30d'` 预设配置（43,200 分钟 / 1,440 分钟桶 / 30 桶）；
+  - 全面支持 `3h20m`、`5h`、`1d`、`3d`、`7d`、`30d` 六档预设，并在前端窗口切换器中提供统一的胶囊按钮支持与本地缓存记忆（localStorage 记忆用户自选偏好）。
+- **根治多尺度时间分桶 X 轴刻度全屏误显为月份数字 "10" 的异常（Adaptive X-Axis Time Labeling）**：
+  - 根因分析：原前端通过 `fullTime.split('-')[0]` 提取时间作为刻度，对于小颗粒度的时分文本（如 `18:00-18:10`）有效，但当跨度超过 1 小时带日期（如 `10-17 18:00-19:00`）时，按 `-` 切割会将前缀月份 `10` 当作时间渲染，导致整屏刻度全部显示为荒谬的数字 `"10"`；
+  - 核心修复：重构刻度提取算法，按 `bucketMinutes` 分级自适应：小于 60 分钟提取纯时分 `HH:mm`；大于等于 1440 分钟（天级）通过正则匹配日期 `MM-DD`；小时级窗口则完整提取 `MM-DD HH:mm`，并在分桶密集时实施每隔 2~4 个刻度抽样展示，图表时间清晰可读。
+- **全上游凭据（OAuth 与 API Key）双轨融合与舰队大盘数据修复（OAuth & API Key Provider Union）**：
+  - 根因分析：`runtime-stats.mjs` 中原本将 `apiKeyProviders` 与 `credentials` 做排他互斥，只要存在任何 API Key 凭据（如 OpenCode），就彻底弃用从 `credentials` 推导的 OAuth 提供商，导致占生产 99% 请求量的 Antigravity、WorkBuddy、Codex 在供应商舰队（Fleet）列表中瞬间蒸发；
+  - 核心修复：实现 OAuth 提供商与 API Key 提供商的字典并集归集。两者同名时自动合并其请求量、成功率、桶序列与密钥数；两者不同名时完整并列展示，大盘提供商覆盖率与真实流量 100% 吻合。
+- **全套自动化测试套件同步演进与验证（Full Regression Pass）**：
+  - 更新 `tests/test_cpa_management.mjs`，将时间窗口可用数量断言从 5 升级至 6，并新增针对 `30d` 窗口参数、分桶计算及切片长度的端到端断言，`npm test` 28 项测试套件全部绿灯通过。
+
+## [v2.9.58] - 2026-10-17
+
+全面接入 CPA 原生 OpenAI-Compatibility 提供商（OpenCode / OpenRouter / StepFun）16 位 Auth-Index 权威目录：
+
+- **深度打通 CPA `openai-compatibility` 凭据源与真实 Auth-Index 映射（CPA OpenAI-Compatibility Deep Integration）**：
+  - 根因分析：OpenCode 与 OpenRouter 在 CPA 中属于 `openai-compatibility` 配置，而非独立的 `.json` OAuth 授权文件。此前 Gate 仅通过 `/v0/management/auth-files` 获取上游凭据，导致 CPA 中活跃的 10 个 OpenCode 密钥与 OpenRouter 凭证缺失顶层账号定义。请求发生时，从响应 Trace-ID 提取的 16 位 16 进制索引（如 `d4555aac3173ea13`）在 `cachedUpstreamQuotas.accounts` 中查无此号，被 Gate 误判为已删除凭据；
+  - 核心改造：在 [lib/upstream/sync.mjs](lib/upstream/sync.mjs) 中同步拉取 CPA `/v0/management/openai-compatibility` 接口，完整提取 `api-key-entries` 中的 16 位规范 `auth-index`、脱敏密钥及启用状态；
+  - 状态精准关联：[lib/analytics/status-summary.mjs](lib/analytics/status-summary.mjs) 中直接利用真实的 `auth-index` 精准关联账号对象，OpenCode 所有活跃账号在主配额大盘中 100% 标记为 `is_deleted: false`，彻底移出底部已删除归档抽屉；
+  - OpenRouter 凭据双轨映射：将本地 `openrouter-accounts.json` 中的 API Key 与 CPA 下发的 16 位 `auth-index` 自动绑定，同时兼容 `openrouter-N` 别名与底层真实 16 进制 Trace-ID，确保全链路指标自洽汇聚。
+
+## [v2.9.57] - 2026-10-17
+
+上游凭证配额大盘 OpenCode 原生用量接入、历史已删除账号准确归档与冷启动防误判加固：
+
+- **OpenCode 原生用量统计与配额卡片（OpenCode Native Daily Usage & Quota Cards）**：
+  - 完整响应用户对 OpenCode 提供商配额可视化的需求，在凭证卡片与用量大盘中原生呈现 OpenCode 今日消耗与请求统计；
+  - 核心链路利用 Gate 本地 SQLite `upstream_daily_stats` 聚合当日（Asia/Shanghai 自然日）权威 Token 消耗总数与请求次数（`today_tokens` / `today_requests`）；
+  - 配额管理视图（紧凑列表 + 完整卡片双模式）与用量统计大盘均增加 OpenCode 原生卡片块，清爽展示今日消耗 Token 总量与请求次数，彻底终结 “— 暂无实时配额水位 —” 或 “额度未知，等待 CPA 返回有效数据” 的占位；
+  - 上游凭证导航与筛选栏新增 OpenCode 专属过滤标签（`switchUpstreamFilter('opencode')`）与批量刷新按钮。
+- **根治历史基线导致已删除账号霸屏与重复 Codex 异常（Ghost Deleted Accounts & Duplicate Codex Fix）**：
+  - 根因分析：历史基线表 `upstream_auth_baselines` 记录了旧版导入的凭证基线（包含“阿龙中转”与历史旧 Codex 账号）。此前 `isDeleted` 判定为 `!acc && !base && !rt?.email`，当账号已从 CPA 删除（`!acc` 为真）但仍存留历史基线时（`base` 不为空），`!base` 误判为 `false`，导致 Gate 误把已删除账号作为活跃账号在主卡片网格渲染，产生阿龙中转“复活”及双 Codex 卡片现象；
+  - 修复实现：在上游凭证目录已就绪时（`hasUpstreamCatalog`），严格以 CPA 当前活跃凭据目录作为唯一真理源（`isDeleted = Boolean(!acc)`）。不在 CPA 中的账号强制判定为 `is_deleted = true`，自动收拢至底部“已删除账号留痕归档”折叠抽屉中，既保留历史 Token 流水与中文可读名称，又彻底净化主卡片大盘。
+- **彻底根治冷启动时 OpenCode 与 OpenRouter 误判进已删除抽屉痛点（Cold-Start Misclassification Elimination）**：
+  - 根因分析：在网关冷启动或后台配额缓存尚未写回前，`cachedUpstreamQuotas.accounts` 临时为空，而 OpenCode / OpenRouter 作为现代提供商在历史旧基线中无记录，导致首屏被错误归类为已删除账号，数分钟同步完成后才恢复；
+  - 修复实现：
+    1. 在 [lib/upstream/sync.mjs](lib/upstream/sync.mjs) 中为 `syncUpstreamQuotas` 引入并发互斥锁 `inFlightSyncPromise`，防止并发调用并发起重复拉取或返回空快照；
+    2. 在 [lib/routes/admin-routes.mjs](lib/routes/admin-routes.mjs) 的 `/admin/api/upstream-auth-stats` 路由中增加就绪门禁，当凭证目录尚未加载时同步等待后台拉取完成，保证首次请求即下发准确分类。
+- **全套自动化回归测试套件（Automated Regression Test Suite）**：
+  - 新增专用集成测试 [tests/test_opencode_quota_and_deleted_separation.mjs](tests/test_opencode_quota_and_deleted_separation.mjs)，覆盖前端 JavaScript 语法校验、历史基线账号与活跃凭证准确分类、OpenCode 今日用量字段映射等契约，并纳入 `npm test` 自动闸门。
+
+## [v2.9.56] - 2026-10-17
+
+网关全链路优雅停机与在途流式推理请求连接排空（Graceful Shutdown & In-Flight Stream Draining）：
+
+- **在途长流式与 WebSocket 全链路零中断排空（Zero-Interruption In-Flight Request Draining）**：
+  - 彻底根治生产环境（如运维热更、节点重启、服务重载）执行 `systemctl restart gate` 时瞬时切断在途 LLM 推理长流式响应，导致客户端（如 Claude Desktop / CLI）遭遇 `Stream error: error decoding response body` 的痛点；
+  - 核心模块引入 [lib/core/graceful-shutdown.mjs](lib/core/graceful-shutdown.mjs)，接管 Node.js 原生 `SIGTERM` / `SIGINT` 终止信号；
+  - 信号到达时立即执行 `server.close()` 停止监听端口，并通过 `server.closeIdleConnections()` 极速释放闲置的 Keep-Alive 连接，杜绝空闲句柄挂起；
+  - 在途活跃 HTTP/SSE 长流式推理与 WebSocket 全双工通道继续正常交互与数据吐出，直至上游完成推理或客户端自然断开，实现“只出不进”优雅收尾；
+- **停机阶段瞬时拦截防御与连接隔离（503 Fast Reject & Auto Connection Close Injection）**：
+  - 停机期间在既有连接上新到达的业务请求一律直接返回 HTTP 503 `service_shutting_down`，附带 `Connection: close` 与 `Retry-After: 5`，避免客户端在即将消亡的节点上积压重试；
+  - 健康检查探针（`/healthz`、`/readyz`）同步返回 503 `shutting_down`，通知上游负载均衡网关（如 Nginx / HAProxy / SLB）即刻将该节点摘除；
+  - 在途流式请求写入响应头时自动拦截并注入 `Connection: close`，并在响应 `finish` 后主动释放底层 Socket，杜绝客户端重用旧通道；
+- **有界超时强制截断与用量一致性落盘保底（Bounded Timeout & Final Outbox Flush Guarantee）**：
+  - 支持通过环境变量 `GATE_SHUTDOWN_TIMEOUT_MS` 配置最大排空容忍时限（默认 60,000ms = 60s）；
+  - 配套更新 [gate.service](gate.service)，显式设置 `TimeoutStopSec=75` 与 `KillMode=control-group`，预留 15 秒充裕系统级缓冲；
+  - 排空完成（或超时截断）后，自动触发 `flushUsage()` 一致性刷盘，将最后一批在途完成 Token 完整写入 SQLite 持久化层，杜绝用量丢失；
+- **Prometheus 监控指标与全套自动化测试回归（Prometheus Metrics & Automated Regression Suite）**：
+  - `/metrics` 端点扩充 `gate_shutting_down`、`gate_in_flight_http_requests`、`gate_in_flight_ws_requests` 与 `gate_in_flight_requests_total` 实时排空监控指标；
+  - 新增专用集成测试套件 [tests/test_graceful_shutdown.mjs](tests/test_graceful_shutdown.mjs)，覆盖正常追踪、503 快速拒绝、长流式自然排空、超时截断保护与 `/metrics` 状态验证等全量用例，并纳入 `npm test` 自动闸门。
+
+运行总览实时流量新增多时间窗口自选切换（Aozora UI Multi-Window Switcher for Live Traffic & Overview）：
+
+- **多跨度时间窗口自由选择（Multi-Span Window Selection）**：
+  - 突破过去固定在 CPA 200 分钟（3 小时 20 分）的单一限制，新增 `3h20m`（默认）、`5h`、`1d`（24 小时）、`3d`（72 小时）、`7d`（7 天）共 5 档时间粒度；
+  - 自动根据选定跨度自适应分桶粒度：`3h20m` 与 `5h` 保持 10 分钟一桶，`1d` 采用 1 小时一桶，`3d` 采用 3 小时一桶，`7d` 采用 6 小时一桶，图表柱数恒定维持在 20～30 根黄金视觉区间；
+- **全链路动态分桶与快速聚合（Dynamic In-Memory & SQLite Aggregation Pipeline）**：
+  - 默认 `3h20m` 优先走内存槽位纳秒级 O(1) 累加与未落盘 Outbox/Pending 事件对齐，零数据库 I/O 损耗；
+  - 扩展时间窗口（`5h` / `1d` / `3d` / `7d`）基于 SQLite 既有 `idx_events_ts` 索引毫秒级范围聚合（[lib/db/sqlite.mjs](lib/db/sqlite.mjs)、[lib/analytics/live-traffic-tracker.mjs](lib/analytics/live-traffic-tracker.mjs) 与 [lib/upstream/runtime-stats.mjs](lib/upstream/runtime-stats.mjs)）；
+  - `/admin/api/runtime-facts` 接口支持 `?window=<id>` 查询，并在基础凭据事实缓存未失效时动态重算窗口 totals 与分桶，实现无感极速切换；
+- **Aozora UI 药丸切换组件与持久化（Aozora Pill Switcher with LocalStorage Persistence）**：
+  - 在运行总览「实时流量」卡片标题栏右侧加入 Aozora 蓝白药丸组件（[admin-overview.js](admin-overview.js)、[admin-overview.css](admin-overview.css)）；
+  - 切换时间窗口后自动同步更新 Hero 卡片指标、分桶颗粒度文案、横轴时间跨度、Tooltip 视窗标签与底层柱状图，并通过 `localStorage` 记住选择，刷新页面不丢失；
+- **端到端与全链路契约回归测试（End-to-End & Playwright Automation Suite）**：
+  - 在 [tests/test_cpa_management.mjs](tests/test_cpa_management.mjs) 中追加 5h 与 1d 动态分桶切片的 API 契约断言；
+  - 在 [tests/test_cpa_ui.py](tests/test_cpa_ui.py) 中追加浏览器端时间窗口切换、状态持久化与 Hero 文案联动的 Playwright 自动化测试。
+
+## [v2.9.54] - 2026-10-17
+
+请求流水新增模型名称后缀思考强度智能推断（Model Name Suffix Heuristic Inference for Reasoning Effort）：
+
+- **模型后缀启发式智能推断（Heuristic Suffix Inference for Discarded Parameters）**：
+  - 针对客户端（如 Claude CLI / OpenAI SDK 兼容适配器）调用非 OpenAI 原生模型（如 Gemini、DeepSeek、Claude 等）时，因客户端 SDK 参数白名单机制导致前端选择的思考强度（如 `Max`）未随 HTTP Body 序列化 `reasoning_effort` 的痛点；
+  - 在 `extractReasoningEffort`（[lib/proxy/token-estimator.mjs](lib/proxy/token-estimator.mjs)）中新增模型后缀智能推断机制，精准识别 `[-_:](high|medium|low|max)$` 后缀（如 `gemini-3.8-flash-high`、`gemini-2.5-flash-thinking-max`、`claude-3.7-sonnet:low`）；
+  - 显式入参（`reasoning_effort`、`thinking`、`thinking_config`）具备最高优先级，模型后缀作为无显式参数时的无害兜底；
+- **历史记录动态映射与零副作用保障（Safe Zero-Side-Effect & Dynamic Historical Backfill）**：
+  - 该推断仅在审计落盘与流水查询呈现层生效，绝对不篡改转发至上游 CPA 的请求体，规避任何上游 HTTP 400 校验异常；
+  - 在 [lib/analytics/audit-logs.mjs](lib/analytics/audit-logs.mjs) 的 `resolveEventReasoningEffort` 中对历史已落盘记录进行动态兜底，使得历史包含后缀的模型立即展示对应的紫色强度徽章，无需重写历史库表；
+- **自动化测试回归验证（Automated Regression Test Suite）**：
+  - 在 [tests/test_gate_features.mjs](tests/test_gate_features.mjs) 的测试 28 中追加针对各种分隔符（`-`、`_`、`:`）与显式入参优先级的完整自动化断言。
+- **运行总览多时间窗口聚合查询（Multi-Window Aggregation & Sharding for Runtime Facts）**：
+  - 扩展 `/admin/api/runtime-facts` 支持 `window` 参数（`3h20m`、`5h`、`1d`、`3d`、`7d`）（[lib/routes/admin-routes.mjs](lib/routes/admin-routes.mjs) 与 [lib/upstream/runtime-stats.mjs](lib/upstream/runtime-stats.mjs)）；
+  - 结合持久层 `request_events` 分桶索引（[lib/db/sqlite.mjs](lib/db/sqlite.mjs)）与本地内存双轨追踪（[lib/analytics/live-traffic-tracker.mjs](lib/analytics/live-traffic-tracker.mjs)），实现不同跨度的动态快速重算；
+  - 并在 [tests/test_cpa_management.mjs](tests/test_cpa_management.mjs) 中补充集成测试用例。
+
+## [v2.9.53] - 2026-10-17
+
+请求流水速率徽章移除 Emoji 并统一 Aozora 纯净视觉规范（Refine Generation Speed Badge Styling without Emojis）：
+
+- **视觉风格一致性优化（Unified Minimalist Badge Design）**：
+  - 移除请求流水「速率 (tok/s)」单元格中的闪电图标（`⚡`），统一保持纯粹数字与紧凑半透明单位标记（`${tpsNum} tok/s`）（[admin-logs.js](admin-logs.js)）；
+  - 保留速率档位色阶（极速绿、高速青、低速橙），视觉更整洁沉静，与全站 Aozora UI 保持无缝一致。
+
+## [v2.9.52] - 2026-10-17
+
+运行总览上游路由策略选择器全面升级为统一 Aozora UI 下拉组件（Unified Aozora CustomDropdown for Runtime Routing Strategy）：
+
+- **全站选择组件一致性闭环（100% Elimination of Primitive Native Selects）**：
+  - 将控制台「运行总览」（Runtime Overview）中最后一个原生的 HTML `<select id="ovw-routing-strategy">` 替换为统一的轻量青空规范组件 `CustomDropdown`（[admin-overview.js](admin-overview.js)）；
+  - 彻底淘汰浏览器原生弹窗样式，提供微浮动动画、自适应视口碰撞向上展开（`.dropup`）、点击外部自动收起及 `Escape`/`ArrowUp`/`ArrowDown` 完整键盘导航无障碍支持；
+- **双层架构确保自动化测试与事件同步（Dual-Layer Architecture & Full Test Compatibility）**：
+  - 在渲染现代 `.ovw-routing-dropdown` 容器的同时保留隐藏的 `<select id="ovw-routing-strategy" style="display:none;" aria-hidden="true">` 并双向绑定；
+  - 保证 Playwright 自动化测试脚本（[tests/test_cpa_ui.py](tests/test_cpa_ui.py)）与表单事件的完全向后兼容；
+- **青空微装饰样式微调（Aozora Control Styling）**：
+  - 在 [admin-overview.css](admin-overview.css) 中为 `.ovw-dropdown-wrap` 与 `.ovw-routing-dropdown` 添加紧凑对齐、自适应截断与层级（z-index）保护，与总览网格保持严丝合缝；
+- **界面版本标识同步（UI Version Tag Alignment）**：
+  - 将导航栏标题版本标识同步对齐至 v2.9.52（[admin.html](admin.html)）。
+
+## [v2.9.51] - 2026-10-17
+
+请求流水统计新增思考强度 (Reasoning Effort) 与生成速率 (tok/s) 字段（Audit Logs Reasoning Effort & Generation Speed Statistics）：
+
+- **思考强度智能解析与归一化（Multi-Protocol Reasoning Effort Ingestion）**：
+  - 新增 `extractReasoningEffort` 模块（[lib/proxy/token-estimator.mjs](lib/proxy/token-estimator.mjs)），无缝统一业界主流思考/推理配置协议：
+    - **OpenAI / Codex / o-series**：解析 `reasoning_effort`（`low` / `medium` / `high` / `max`）以及嵌套 `reasoning.effort`、`reasoningEffort`；
+    - **Anthropic Claude**：解析 `thinking.budget_tokens`（归一化为 `budget:2048` 等）与 `thinking.type`（如 `adaptive`），对 `disabled` 状态安全过滤；
+    - **Google Gemini**：解析 `thinking_config.thinking_budget`（归一化为 `budget:1024` 等）与 `thinking_config.mode`；
+  - 在转发链路（[lib/proxy/transport.mjs](lib/proxy/transport.mjs)）与网关拦截层（[server.mjs](server.mjs)）中自动提取请求体中的思考强度，并注入至审计记录流水。
+- **纯输出阶段生成速率计算（Accurate Pure Generation TPS Algorithm）**：
+  - 新增 `calculateTokensPerSec` 算法（[lib/proxy/token-estimator.mjs](lib/proxy/token-estimator.mjs)）：
+    - 对于流式请求，当具备有效首字延迟（TTFT）且生成耗时达标时，智能扣除首字等待延迟（`duration = latency - ttft`），精准计算模型纯输出吞吐速率；
+    - 对于非流式请求或异常时间窗口，平滑回退至总耗时计算，四舍五入保留 1 位小数；
+  - 在 [lib/core/outbox.mjs](lib/core/outbox.mjs) 的 `normalizeRequestEvent` 中自动计算并落盘。
+- **数据存储持久化与平滑迁移（Database Schema & Non-Destructive Alter Migrations）**：
+  - 在 [lib/db/sqlite.mjs](lib/db/sqlite.mjs) 中为 `request_events` 和 `usage_outbox` 表扩展 `reasoning_effort TEXT DEFAULT ''` 与 `tokens_per_sec REAL NOT NULL DEFAULT 0`；
+  - 在启动迁移数组 `alterMigrations` 中追加非破坏性 `ALTER TABLE` 语句，确保平滑热升级无需重建数据库；
+  - 在 [lib/analytics/audit-logs.mjs](lib/analytics/audit-logs.mjs) 中支持对历史遗留未记录速率的数据动态实时计算，保证历史流水无断层与空白展示；支持通过 `search` 模糊搜索匹配思考强度。
+- **Aozora UI 现代化流水道展示（Modern Frontend Table & Badges Integration）**：
+  - 在 [admin.html](admin.html) 与 [admin-logs.js](admin-logs.js) 中将请求流水表格扩展为 12 列，新增「思考强度」与「速率 (tok/s)」列；
+  - 在 [admin-style.css](admin-style.css) 中新增微透明 Aozora 紫色胶囊样式 `.chip-purple` 与闪电速率徽章样式 `.speed-badge`（包含绿色 ≥100 tok/s、青色 50~100 tok/s 等梯度色彩区分）。
+- **全链路契约回归与端到端测试（End-to-End Integration Test Suite）**：
+  - 在 [tests/test_gate_features.mjs](tests/test_gate_features.mjs) 中新增测试 28，覆盖协议提取、速率算法、存储持久化、动态补算与 DOM/样式契约全量断言。
+
+## [v2.9.50] - 2026-10-17
+
+OpenCode 免费模型推断优先级修正与防误判加固（Fix Provider Inference Order: Prioritize -free & OpenCode Over StepFun）：
+
+- **前端日志与服务端提供商推断口径修正（Prioritize -free in Provider Inference）**：
+  - **核心痛点解决**：此前在日志展示与注册表推断中，由于 `stepfun` 判定（`startsWith('step')`，`sort_order: 50`）排在 `opencode`（`includes('-free')`，`sort_order: 60`）之前，导致 OpenCode 平台专属的免费模型（如 `step-5-preview-free`）被错误识别为 StepFun 渠道，并在前端动态渲染为 "StepFun 阶跃星辰 渠道 d4555aac"；
+  - 在 [admin-logs.js](admin-logs.js) 的 `resolveEventProvider` 中，将 `opencode` / `-free` 的匹配规则前移至 `step` 规则之前，确保所有包含 `-free` 后缀的聚合免费模型均准确识别为 `opencode`；
+  - 在 [lib/core/provider-registry.mjs](lib/core/provider-registry.mjs) 中将 `opencode` 的内置 `sort_order` 从 60 调整为 45（优先于 `stepfun` 的 50），保证前后端推断口径严格一致；
+  - 在 [tests/test_gate_features.mjs](tests/test_gate_features.mjs) 中补充 `step-5-preview-free` 与 `step-5-preview` 的正反向推断断言，杜绝未来出现推断回退。
+
+## [v2.9.49] - 2026-10-17
+
+上游连接池复用与现代模型选择器（Upstream HTTP Keep-Alive Connection Pooling & Modern Aozora Model Picker）：
+
+- **上游长连接池模块化与全链路复用（Upstream HTTP Keep-Alive Agent）**：
+  - 新增专用 [lib/proxy/http-agent.mjs](lib/proxy/http-agent.mjs)，建立单例 `upstreamHttpAgent`（配置 `keepAlive: true, keepAliveMsecs: 15000, maxSockets: 256, maxFreeSockets: 64, timeout: 120000`）；
+  - 将模型数据转发链路（[lib/proxy/transport.mjs](lib/proxy/transport.mjs)）、原生管理反向代理链路（[lib/routes/upstream-proxy.mjs](lib/routes/upstream-proxy.mjs)）、高频多版本管理 API 查询（[lib/upstream/management.mjs](lib/upstream/management.mjs)）以及 Key 注册表同步（[lib/core/key-registry.mjs](lib/core/key-registry.mjs)）全面接入该连接池；
+  - 消除每次与上游 CPA（8315）交互时的 TCP 频繁握手与销毁开销，提升首字延迟（TTFT），减少系统 socket 句柄和 `TIME_WAIT` 堆积。
+- **现代 Aozora UI 极简模型搜索选择器（Modern Model Picker Dropdown Component）**：
+  - 彻底移除配置弹窗中圈出的粗糙手动输入框与“添加”按钮（[admin.html](admin.html)），淘汰浏览器原始原生 `<select>` 控件；
+  - 升级配置弹窗中的模型选择体验，引入纯 CSS/JS 现代毛玻璃青空风格下拉选择菜单（[admin-style.css](admin-style.css)、[admin.html](admin.html) 与 [admin-keys.js](admin-keys.js)）；
+  - 支持全量上游模型即时搜索过滤、一键多选添加/移除切换，并保留对未收录自定义模型 ID 的直接添加支持。
+
+## [v2.9.48] - 2026-10-17
+
+API 密钥模型权限胶囊展示归一化、上游模型实时拉取与配置弹窗精简（Model Permission Display Unification, Upstream Model Discovery & Key Modal Streamlining）：
+
+- **模型权限胶囊展示归一化（Normalize Model Permission Badges in API Keys Table）**：
+  - **核心痛点解决**：此前在 API 密钥列表中，当 Key 白名单配置为单个模型时，由于 JSON 序列化数组（`["gemini-3.8-flash-high"]`）与原生逗号/空格分隔字符串的解析分支不一致，导致同为单个模型时有的显示 `允许 1 个模型`，有的显示模型具体名称（如 `gemini-3.8-flash-high`），造成界面语义割裂；
+  - 在 [admin-keys.js](admin-keys.js) 中统一白名单解析逻辑：无论以 JSON 数组、JSON 字符串还是以文本逗号/空格分隔存储，提取到的模型列表在数量为 1 时一律直接显示该模型的具体名称；当模型数量大于 1 时统一展示 `允许 N 个模型` 并带完整悬浮提示（`title`）；未设置限制时统一展示 `全部模型 (*)`；
+  - 在 [admin-style.css](admin-style.css) 中对 `.model-perm-badge` 补充 `max-width: 240px; overflow: hidden; text-overflow: ellipsis;`，防止超长模型名称破坏表格排版。
+- **Key 规则配置弹窗移除冗余提示与陈旧预设（Purify Key Configuration Modal）**：
+  - 在 [admin.html](admin.html) 的“配置 Key 规则”弹窗（`#edit-modal`）中，彻底移除硬编码的模型组预设按钮行（`全部 (*)`、`Flash/Mini经济组`、`Claude专属组`、`推理旗舰组`、`清空`），杜绝因上游模型演进导致硬编码预设过期的问题；
+  - 彻底移除“启用每日额度硬顶管控”下方的次级辅助描述 `<div class="help-text">关闭时此 Key 不限制每日 Token 上限</div>`，使弹窗表单更加紧凑精炼。
+- **新增上游模型实时拉取与选择器（Upstream Model Discovery & Selection）**：
+  - 在 [admin.html](admin.html) 白名单标签栏下方新增模型拉取与选择交互组件（`<select id="edit-upstream-model-select">` 与 `<button id="btn-fetch-models">`）；
+  - 在 [admin-keys.js](admin-keys.js) 中接入 `/admin/api/cpa/models` 端点，管理员点击“拉取上游模型”即可实时查询上游 CPA / 模型系统目录中全部可用模型，并在下拉菜单中直接选择模型自动添加到白名单标签栏（支持去重、已添加标记与会话级内存缓存），同时完整保留自定义输入模型 ID 的回车添加能力。
+
+## [v2.9.47] - 2026-10-17
+
+架构治理与协同规约纯净化（Zero-Burden Infrastructure & Architecture Governance）：
+
+- **项目级协同规约彻底纯净化（Complete Removal of Project-Level Coordination Burden）**：
+  - 遵循 Agent-Nexus“零负担被动防护”铁律，彻底移除此前在 [AGENTS.md](AGENTS.md) 注入的 `<!-- NEXUS-COORDINATION-START -->` 规约块与本地 `.mcp.json` 引用，仓库恢复 100% 业务纯净无感态；
+  - 协同防护全面委托至宿主机全局 PreToolUse Hook 与中枢 Daemon，业务仓库无需承担任何配置负担或制度文本。
+
+## [v2.9.46] - 2026-10-17
+
+控制台顶部场景纯净化与版本标识对齐（Purify Top Workspace Scenic Header & Synchronize Global Version Badge）：
+
+- **顶部冗余字体彻底移除与场景通透化（Complete Removal of Redundant Top Intro Typography）**：
+  - **核心痛点解决**：此前各工作台页面顶部 `.page-intro` 容器内常驻展示大字号页面标题（`#page-title`，如“API 密钥”、“上游凭证”等）与副标题说明（`#page-description`，如“管理成员访问权限、速率限制与每日额度。”）。该文字与顶部导航栏面包屑（`工作台 / API 密钥`）及下方各卡片内部面板标题（`API 密钥与配额管控`）形成三重重复冗余，且巨大文字直接覆盖在青空樱花观景台原画之上，严重破坏了 Aozora UI 的通透美感与呼吸感；
+  - 在 [admin.html](admin.html) 中将 `.page-intro > div:first-child` 初始结构显式置为隐藏（`display:none`），同时保留内部 DOM 节点以保证 `getElementById` 赋值与自动化测试契约完全兼容；
+  - 在 [admin-style.css](admin-style.css) 中对 `.page-intro > div:first-child`、`.page-intro h2`、`.page-intro p`、`#page-title`、`#page-description` 设置全局 `display: none !important;`，桌面端与移动端媒体查询全覆盖；
+  - **顶部空白彻底折叠与卡片自然上移（Collapse Empty Top Spacing & Shift Workspace Cards Upward）**：针对文字移除后留下的 156px 空白占位问题，将非配额页面的 `.page-intro` 容器彻底折叠（`display: none !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important;`），配额页面仅紧凑保留操作按钮（“配额健康详情”、“刷新上游配额”）并自适应居右对齐，各页面业务卡片（如 Google 验证指标卡、API 密钥表格、请求流水等）自然上移贴合顶栏，彻底解决顶部大面积空白空洞感。
+- **侧边栏品牌版本标识同步对齐（Synchronize Sidebar Brand Version Badge）**：
+  - 修复 [admin.html](admin.html) 侧边栏品牌头部硬编码历史版本号 `v2.9.37` 的缺陷，与 [package.json](package.json) 权威版本对齐升级为 `v2.9.46`，彻底杜绝版本显示落后引发的部署陈旧疑虑。
+
+## [v2.9.45] - 2026-10-16
+
+实时流量图表重构为 Gate 本地权威双轨流，彻底免疫上游 CPA 容器重启导致的历史数据丢失（Refactor Live Traffic Chart to Gate-Authoritative Dual-Track Streams with Zero CPA Restart Vulnerability）：
+
+- **核心痛点与事故根因解决（Root Cause & Incident Resolution）**：
+  - **核心痛点解决**：此前运行总览管理控制台上的“LIVE TRAFFIC 实时流量”吞吐图直接依赖上游 CPA 的内存 `recent_requests` 桶（固定 20 桶 x 10 分钟 = 200 分钟窗口）。当生产机升级、重启或重建 CPA 容器时，CPA 内部内存桶瞬间归零，导致管理台近 200 分钟历史流量出现大面积空白断层；
+  - **事实真相还原**：经排查确认 Gate 的 SQLite 数据库（`gate.db`）完整记录了流经网关的全部数万笔真实请求，未丢失任何一笔数据，缺陷完全在于前端数据源绑定了易失的上游内存桶。
+- **双轨架构与零数据库 I/O 损耗设计（Dual-Track In-Memory / SQLite Architecture）**：
+  - **读热路径（Hot Path）**：在 [lib/analytics/live-traffic-tracker.mjs](lib/analytics/live-traffic-tracker.mjs) 中基于 10 分钟时间槽对齐（`Math.floor(ts / 600)`），由 `recordRequest`（[lib/core/outbox.mjs](lib/core/outbox.mjs)）在每笔请求完成时执行内存纳秒级 O(1) 累加，请求处理路径零数据库 I/O 损耗，彻底杜绝自发 DDoS；
+  - **冷启动持久化恢复（Cold Start Recovery）**：在服务启动初始化流程（[quota-manager.mjs](quota-manager.mjs)）中，基于 `idx_events_ts` 索引查询 `request_events` 近 200 分钟历史事件，并无缝叠加尚未落盘的 `usage_outbox` 与 `pendingEvents` 内存待办事件，进程重启后瞬间恢复完整的 200 分钟流量图；
+  - **低频定期对齐（Periodic Reconciliation）**：后台每 5 分钟定时执行一次轻量对齐（`reconcileLiveTraffic`），先执行 Outbox 刷盘再重新校验 SQLite 最新权威事实，彻底杜绝长期运行下的内存与数据库状态漂移；
+  - **上游解耦与权威判定（Decoupling & Authoritative Fallback）**：在 [lib/upstream/runtime-stats.mjs](lib/upstream/runtime-stats.mjs) 的 `buildTotals` 中，以 Gate 本地追踪为第一真相源（标记 `source: 'gate_local'`），CPA 容器重启导致其桶为空时，本地 20 桶依然完整保留，图表与总量指标自洽无损。
+- **全链路集成测试覆盖（Comprehensive Integration Test Coverage）**：
+  - 在 [tests/test_gate_features.mjs](tests/test_gate_features.mjs) 中新增“测试 27: 实时流量本地双轨追踪与 CPA 重启数据韧性”，全面覆盖纳秒级内存槽位对齐、冷启动 SQLite / Outbox 恢复、5 分钟低频对齐以及 CPA 容器重启清空场景，全套 27 项测试套件全部通过。
+
+## [v2.9.44] - 2026-10-16
+
+修复请求流水热更新下拉菜单穿透重叠与无损 DOM 状态保持（Fix Dropdown Menu Layer Stacking Context and Lossless State Preservation during Log Hot Updates）：
+
+- **CSS 层叠上下文隔离与 GPU 合成层穿透修复（Stacking Context Isolation & GPU Compositing Layer Fix）**：
+  - **核心痛点解决**：在请求流水开启全局实时轮询热更新时，新请求行入场动画（`live-row-enter`）包含 `translateZ(0)` 与 `will-change: transform`，会被浏览器引擎提升为独立 3D GPU 合成层；而筛选工具栏 `.logs-controls` 因声明了 `backdrop-filter: blur(8px)` 形成隔离层叠上下文却未设定绝对的 `z-index`，导致后续兄弟节点表格内容直接穿透覆盖在浮动的服务商下拉菜单之上；
+  - 在 [admin-style.css](admin-style.css) 中对 `.logs-controls` 显式声明 `position: relative; z-index: 10;`，当存在展开下拉菜单时提升至 `z-index: 50;`；
+  - 对表格滑动容器 `.table-scroll-container` 明确约束 `position: relative; z-index: 1;`，确保任何三维 GPU 合成层均无法越级穿透覆盖上层浮动菜单；
+  - 对激活展开的 `.dropdown.open` 赋予高优先级 `z-index: 100;`。
+- **自定义下拉组件无损差异比对与交互状态保护（Lossless Diffing & Scroll Preservation in CustomDropdown）**：
+  - 在 [admin.html](admin.html) 的 `CustomDropdown` 类中重构 `updateOptions(options, selectedValue)`：在热更新周期内比对新旧选项列表与选中值，若无变动则静默跳过渲染，彻底消除频繁销毁重建 DOM 导致的滚动条归零和闪烁；
+  - 若数据确实变化，在重新渲染前后记录并恢复 `.dropdown-menu` 内部 `scrollTop` 滚动进度；
+  - 展开与关闭时联动父级容器动态赋予/移除 `.has-open-dropdown` 类，实现兼容旧浏览器的双重层级保护。
+
+## [v2.9.43] - 2026-10-16
+
+侧边栏请求流水与故障中心徽标口径重构：由历史全量改为展示今日（Asia/Shanghai 当天）请求与故障计数（Refactor Sidebar Badges to Display Today's Requests and Errors Instead of All-Time Totals）：
+
+- **业务口径重构与精准下钻（Accurate Today's Metric Alignment）**：
+  - **核心痛点解决**：此前控制台侧边栏导航上的“请求流水”与“故障中心”徽标直接绑定查询表格的未过滤总条数，导致请求流水常年显示 `9999+`、故障中心长期显示累积的历史上千条故障总数，无法让管理员和成员直观感知今日系统的实时活跃度与健康状况；
+  - **今日口径锚定**：统一基于东八区（Asia/Shanghai）自然日零点（`00:00:00`）为基准时点，只统计并呈现从今日零点至当前时间的请求总数与故障总数。
+- **服务端高速统计与状态大盘下发（High-Performance Database Query & Backend API Integration）**：
+  - 在 [lib/analytics/audit-logs.mjs](lib/analytics/audit-logs.mjs) 中基于已有的 `request_events(ts)` 与 `error_events(ts)` 覆盖索引，新增 `getTodayStartTimestamp()`、`getTodayRequestsCount(keyId)` 与 `getTodayErrorsCount(keyId)` 高速只读查询，单次毫秒级返回，并在写请求落盘一致性刷新缓冲 `flushUsage()` 之后安全聚合；
+  - 在 `getPagedRequests` 与 `getPagedErrorEvents` 的服务端分页返回体中附带 `today_total`，确保流水与故障页刷新时即时校准今日指标；
+  - 在 [lib/analytics/status-summary.mjs](lib/analytics/status-summary.mjs)（`/admin/api/status-summary`）与 [lib/routes/member-routes.mjs](lib/routes/member-routes.mjs)（`/api/member/status-summary`）中全量输出 `today_requests` 与 `today_errors`（成员模式自动按凭据 `keyId` 严格隔离）。
+- **前端首屏水合、隔天自愈与表格筛选解耦（SWR Hydration, Day-Rollover Zeroing & Filter Decoupling）**：
+  - 在 [admin.html](admin.html) 中引入独立本地持久化键 `gate_cache_today_badges_v1`，携带东八区日期标记 `date: YYYY-MM-DD`。首屏水合立即恢复今日数字，若跨入新的一天则自动清零，杜绝白屏闪烁与昨日脏数据；
+  - 抽离出权威更新入口 `updateNavBadgeLogs(count)` 与 `updateNavBadgeErrors(count)`；
+  - 在 [admin-logs.js](admin-logs.js) 中彻底移除表格按条件筛选（如状态码、用户、服务商、分页）时对侧边栏导航徽标的错误篡改，导航徽标与表格底部局部翻页器（如 `第 1 / 4 页 (共 98 条)`）彻底解耦；
+  - 在 [admin-stats.js](admin-stats.js) 的 `fetchGateStatus()` 中监听心跳大盘下发的 `today_requests` 与 `today_errors` 实时对齐导航徽标。
+
+## [v2.9.42] - 2026-10-16
+
+管理台视觉纯净化：去除页面副标题顶部全大写英文字眉装饰（Remove Uppercase Eyebrow Badges from Page Intro Headers）：
+
+- **视觉规范降噪与审美对齐（Visual Noise Reduction & Clean Header Hierarchy）**：
+  - 彻底移除管理控制台各页面主标题（如“上游凭证”、“服务状态”、“请求流水”等）上方的全大写英文装饰字眉（如 `UPSTREAM OPERATIONS`、`SERVICE STATUS` 等）；
+  - 在 [admin.html](admin.html) 中移除初始 DOM 中的 `page-eyebrow` 标签，并调整 `updatePageContext()` 防御性更新逻辑；
+  - 在 [admin-style.css](admin-style.css) 中对 `.page-eyebrow` 设置全局不可见并规范标题外边距，使顶部樱花场景和标题层级更加清爽通透。
+
 ## [v2.9.41] - 2026-10-16
 
 凭据用量大盘卡片支持 WorkBuddy 资源包积分与 OpenRouter 今日请求次数实时水位展示（Render Real-Time Quota Bars for WorkBuddy Credits & OpenRouter Daily Requests in Upstream Auth Cards）：
 
+- **多 Agent 并发协同与工程记忆中枢接入（Agent-Nexus Integration & Engineering Governance）**：
+  - **环境识别与视界隔离**：基于项目根物理路径确立规范 Project ID（`efdbbb4db064cbdf`），支持跨 Git Worktree 共同根自动对齐；
+  - **项目级 MCP 无损智能注入**：在项目根 `.mcp.json` 中增量注入 `nexus` 节点，与既有 `aoci` 全局代码认知服务无损共存；
+  - **物理隔离与 Git 纯净边界治理**：在 `.gitignore` 中补充 `.nexus` 本地状态目录忽略规则，严格守住宿主机私有配置零污染远端仓库铁律；
+  - **协同纪律对齐**：在 [AGENTS.md](AGENTS.md) 注入 Onboarding 意图申报、命名资源锁（`tests`、`dev-server`、`build`）、跨工作树防撞与长期经验沉淀（`nexus_save_memory`）三原则。
 - **凭据大盘水位卡片多源异构统一呈现（Unified Quota Water Level across Heterogeneous Providers）**：
   - **核心痛点解决**：此前管理控制台用量大盘的凭据卡片视图（`upstream-stat-card`）硬编码依赖 `quota_5h`（仅限 Antigravity 与 Codex 滑动窗口），导致 WorkBuddy 凭据与 OpenRouter 凭据一律降级显示为“— 暂无实时配额水位 —”，无法直观感知额度余量；
   - **WorkBuddy 积分实时水位**：确立“WorkBuddy 的配额即资源包积分”的业务领域模型。卡片实时展示资源包可用剩余积分、百分比进度条（绿/黄/红三级警戒色），并在底部次行清晰标明总积分与已用积分；

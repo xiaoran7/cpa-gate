@@ -961,6 +961,7 @@ console.log('测试 14: 提供商注册表统一推断');
     ['claude-opus-4-6-thinking', 'Anthropic Claude'],
     ['claude-sonnet-4-6', 'Anthropic Claude'],
     ['step-5-preview', 'StepFun 阶跃星辰'],
+    ['step-5-preview-free', 'OpenCode Zen'],
     ['step-3.5-flash', 'StepFun 阶跃星辰'],
     ['gpt-5', 'OpenAI Codex'],
     ['gpt-4o', 'OpenAI Codex'],
@@ -1454,6 +1455,16 @@ console.log('测试 19: 请求流水与错误中心提供商推断兜底');
     'admin.html 中的 getProviderBrand 必须覆盖 stealth / deepseek / qwen 提供商'
   );
 
+  const resolveFnStart = adminLogsJs.indexOf('function resolveEventProvider(ev) {');
+  const resolveFnEnd = adminLogsJs.indexOf('function getAuthDisplayName(');
+  const resolveEventProviderFn = new Function('ev', `
+    ${adminLogsJs.slice(resolveFnStart, resolveFnEnd)}
+    return resolveEventProvider(ev);
+  `);
+  assert.equal(resolveEventProviderFn({ model: 'step-5-preview-free' }), 'opencode', 'step-5-preview-free 必须优先于 step 规则推断为 opencode');
+  assert.equal(resolveEventProviderFn({ model: 'step-5-preview' }), 'stepfun', '无 -free 的 step-5-preview 必须推断为 stepfun');
+  assert.equal(resolveEventProviderFn({ model: 'deepseek-v4.1-flash-free' }), 'opencode', 'deepseek-v4.1-flash-free 必须推断为 opencode');
+
   console.log('  ✓ admin.html 提供商推断契约与品牌标签覆盖完整');
   console.log('');
 }
@@ -1483,10 +1494,18 @@ console.log('测试 20: 客户端连接主动中断 (HTTP 499) 留痕与流式�
     'transport.mjs 必须使用 recordOnce 统一收敛 recordRequest 保证幂等'
   );
 
-  // 3) 验证 Anthropic SSE 流式 text delta 提交加固
+  // 3) 验证 Anthropic SSE 流式 text delta / thinking delta / partial_json 提交加固
   assert.ok(
     /payload\.delta\.text\.length\s*>\s*0\)\s*hasSemanticEvents\s*=\s*true/.test(transportSrc),
     'transport.mjs 必须在接收到 Anthropic delta.text 时将 hasSemanticEvents 置为 true'
+  );
+  assert.ok(
+    /payload\.delta\.thinking\.length\s*>\s*0\)\s*\{[\s\S]*?hasSemanticEvents\s*=\s*true/.test(transportSrc),
+    'transport.mjs 必须在接收到 Anthropic delta.thinking 时将 hasSemanticEvents 与 hasReasoningEvents 置为 true'
+  );
+  assert.ok(
+    /payload\.delta\.partial_json\.length\s*>\s*0\)\s*hasSemanticEvents\s*=\s*true/.test(transportSrc),
+    'transport.mjs 必须在接收到 Anthropic delta.partial_json 时将 hasSemanticEvents 置为 true'
   );
 
   // 4) 验证 server.mjs 熔断拦截点补齐流水审计
@@ -1948,6 +1967,443 @@ console.log('测试 25: 腾讯 WorkBuddy / CodeBuddy 上游提供商接入与全
     '前端脚本 fetchEventsData 中必须携带 provider 参数'
   );
   console.log('  ✓ 前端 DOM 组件、状态管理与胶囊筛选交互契约验证通过');
+  console.log('');
+}
+
+// -------------------------------------------------------------
+// 测试 27: 实时流量本地双轨追踪与 CPA 重启数据韧性 (v2.9.45)
+// 说明：验证 Gate 本地内存 O(1) 桶聚合、SQLite 与 Outbox 冷启动恢复、
+//       5 分钟低频对齐以及 CPA 容器重启时图表防大面积空白韧性。
+// -------------------------------------------------------------
+{
+  console.log('测试 27: 实时流量本地双轨追踪与 CPA 重启数据韧性 (v2.9.45)');
+  const {
+    recordLiveTraffic,
+    getLiveTrafficBuckets,
+    initLiveTrafficTracker,
+    reconcileLiveTraffic,
+    resetTrackerForTest
+  } = await import('../lib/analytics/live-traffic-tracker.mjs');
+  const { buildTotals } = await import('../lib/upstream/runtime-stats.mjs');
+  const { quotaDb } = await import('../lib/db/sqlite.mjs');
+
+  const baseSec = 1760623200 + 300; // 对应固定时间 2025-10-16 22:05:00 (Asia/Shanghai，当前 10 分钟槽内)
+
+  // 1) 内存纳秒级 O(1) 累加与 20 桶槽位对齐
+  resetTrackerForTest();
+  recordLiveTraffic(baseSec - 100, true);
+  recordLiveTraffic(baseSec - 90, true);
+  recordLiveTraffic(baseSec - 50, true);
+  recordLiveTraffic(baseSec - 20, false);
+
+  recordLiveTraffic(baseSec - 700, true);
+  recordLiveTraffic(baseSec - 650, true);
+  recordLiveTraffic(baseSec - 620, false);
+  recordLiveTraffic(baseSec - 610, false);
+
+  const buckets = getLiveTrafficBuckets(baseSec);
+  assert.equal(buckets.length, 20, '实时流量桶数量必须恒等于 20（每桶 10 分钟）');
+
+  const lastBucket = buckets[19];
+  assert.equal(lastBucket.success, 3, '最新桶成功数必须为 3');
+  assert.equal(lastBucket.failed, 1, '最新桶失败数必须为 1');
+  assert.ok(/^\d{2}:\d{2}-\d{2}:\d{2}$/.test(lastBucket.time), `桶标签时间格式必须为 HH:mm-HH:mm，实际为 ${lastBucket.time}`);
+
+  const prevBucket = buckets[18];
+  assert.equal(prevBucket.success, 2, '前一桶成功数必须为 2');
+  assert.equal(prevBucket.failed, 2, '前一桶失败数必须为 2');
+
+  const emptyBucket = buckets[0];
+  assert.equal(emptyBucket.success, 0, '无流量历史桶成功数为 0');
+  assert.equal(emptyBucket.failed, 0, '无流量历史桶失败数为 0');
+  console.log('  ✓ 内存槽位纳秒级 O(1) 累加与 20 桶时间对齐验证通过');
+
+  // 2) 冷启动从 SQLite request_events 与 Outbox 恢复数据
+  resetTrackerForTest();
+
+  const stmtEventInsert = quotaDb.prepare(`
+    INSERT INTO request_events (ts, key_id, model, status, prompt_tokens, completion_tokens, cached_tokens, total_tokens, latency_ms, ttft_ms, stream, estimated, error_type, auth_index)
+    VALUES (?, 1, 'claude-3-7-sonnet', ?, 10, 10, 0, 20, 100, 50, 0, 0, null, 'test-live-auth')
+  `);
+  const stmtOutboxInsert = quotaDb.prepare(`
+    INSERT INTO usage_outbox (ts, key_id, model, status, prompt_tokens, completion_tokens, cached_tokens, total_tokens, latency_ms, ttft_ms, stream, estimated, error_type, auth_index)
+    VALUES (?, 1, 'claude-3-7-sonnet', ?, 10, 10, 0, 20, 100, 50, 0, 0, null, 'test-live-auth')
+  `);
+
+  try {
+    // 写入 1800 秒前（倒数第 4 桶，索引 16）的 4 成功 1 失败到 request_events
+    for (let i = 0; i < 4; i++) stmtEventInsert.run(baseSec - 1800 + i * 10, 200);
+    stmtEventInsert.run(baseSec - 1800 + 45, 500);
+
+    // 写入 1200 秒前（倒数第 3 桶，索引 17）的 2 成功到 usage_outbox
+    stmtOutboxInsert.run(baseSec - 1200 + 10, 200);
+    stmtOutboxInsert.run(baseSec - 1200 + 20, 200);
+
+    initLiveTrafficTracker(baseSec);
+    const restoredBuckets = getLiveTrafficBuckets(baseSec);
+
+    assert.equal(restoredBuckets[16].success, 4, '冷启动恢复：request_events 成功数应为 4');
+    assert.equal(restoredBuckets[16].failed, 1, '冷启动恢复：request_events 失败数应为 1');
+    assert.equal(restoredBuckets[17].success, 2, '冷启动恢复：usage_outbox 叠加成功数应为 2');
+    assert.equal(restoredBuckets[17].failed, 0, '冷启动恢复：usage_outbox 叠加失败数应为 0');
+    console.log('  ✓ 冷启动从 SQLite 与 Outbox 完整恢复历史流量验证通过');
+
+    // 3) 定期低频核对 (Reconcile)
+    reconcileLiveTraffic(baseSec);
+    const reconciledBuckets = getLiveTrafficBuckets(baseSec);
+    assert.equal(reconciledBuckets[16].success, 4, '对齐后：第 16 桶成功数保持 4');
+    assert.equal(reconciledBuckets[16].failed, 1, '对齐后：第 16 桶失败数保持 1');
+    assert.equal(reconciledBuckets[17].success, 2, '对齐后：第 17 桶成功数保持 2');
+    console.log('  ✓ 后台 5 分钟低频对齐 (Reconciliation) 机制验证通过');
+
+    // 4) 模拟 CPA 升级/重启清空内存桶，Gate 本地权威数据保持图表不空白
+    const cpaCredentialsAfterRestart = [
+      {
+        auth_index: 'test-live-auth',
+        success: 50,
+        failed: 5,
+        disabled: false,
+        health: { state: 'healthy', blocked: false },
+        buckets: [] // CPA 重启后近期桶归零
+      }
+    ];
+
+    const totals = buildTotals(cpaCredentialsAfterRestart, { nowSec: baseSec });
+    assert.equal(totals.source, 'gate_local', '数据源应自动标记为 gate_local 权威源');
+    assert.equal(totals.scope, 'window', '作用域应依然为 window 窗口');
+    assert.equal(totals.success_count, 6, '窗口成功总数必须取 Gate 本地 6 次（4+2）');
+    assert.equal(totals.failure_count, 1, '窗口失败总数必须取 Gate 本地 1 次');
+    assert.equal(totals.total_requests, 7, '窗口总请求数必须取 Gate 本地 7 次');
+    assert.equal(totals.buckets.length, 20, '吞吐桶恒为 20 桶');
+    assert.equal(totals.buckets[16].success, 4, 'CPA 桶为空时，Gate 本地桶 16 依然保留 4 次成功');
+    assert.equal(totals.buckets[17].success, 2, 'CPA 桶为空时，Gate 本地桶 17 依然保留 2 次成功');
+    console.log('  ✓ 上游 CPA 重启/升级清空内存场景下 Gate 流量数据韧性与权威性保障验证通过');
+    console.log('');
+  } finally {
+    quotaDb.prepare('DELETE FROM request_events WHERE auth_index = ?').run('test-live-auth');
+    quotaDb.prepare('DELETE FROM usage_outbox WHERE auth_index = ?').run('test-live-auth');
+    resetTrackerForTest();
+  }
+}
+
+// -------------------------------------------------------------
+// 测试 28: 请求流水思考强度 (Reasoning Effort) 与速率 (tok/s) 全链路与契约验证 (v2.9.50)
+// -------------------------------------------------------------
+{
+  console.log('测试 28: 请求流水思考强度 (Reasoning Effort) 与速率 (tok/s) 全链路与契约验证 (v2.9.50)');
+  const { extractReasoningEffort, calculateTokensPerSec } = await import('../lib/proxy/token-estimator.mjs');
+  const { normalizeRequestEvent } = await import('../lib/core/outbox.mjs');
+  const auditLogs = await import('../lib/analytics/audit-logs.mjs');
+  const { quotaDb } = await import('../lib/db/sqlite.mjs');
+
+  // 1) 思考强度解析器 (extractReasoningEffort) 协议兼容性验证
+  assert.equal(extractReasoningEffort({ reasoning_effort: 'max' }), 'max', 'OpenAI/Codex reasoning_effort max 提取失败');
+  assert.equal(extractReasoningEffort({ reasoning_effort: 'HIGH' }), 'high', '大写转小写归一化失败');
+  assert.equal(extractReasoningEffort({ reasoning: { effort: 'medium' } }), 'medium', 'OpenAI 嵌套 reasoning.effort 提取失败');
+  assert.equal(extractReasoningEffort({ reasoningEffort: 'low' }), 'low', '驼峰 reasoningEffort 提取失败');
+
+  assert.equal(extractReasoningEffort({ thinking: { type: 'enabled', budget_tokens: 2048 } }), 'budget:2048', 'Anthropic thinking budget 提取失败');
+  assert.equal(extractReasoningEffort({ thinking: { type: 'adaptive' } }), 'adaptive', 'Anthropic thinking type 提取失败');
+  assert.equal(extractReasoningEffort({ thinking: { type: 'adaptive' }, output_config: { effort: 'max' } }), 'max', 'Anthropic output_config.effort 必须优先于 adaptive 类型');
+  assert.equal(extractReasoningEffort({ output_config: { effort: 'high' } }), 'high', 'Anthropic output_config.effort 提取失败');
+  assert.equal(extractReasoningEffort({ outputConfig: { effort: 'medium' } }), 'medium', 'Anthropic outputConfig 驼峰提取失败');
+  assert.equal(extractReasoningEffort({ effort: 'low' }), 'low', '顶层 effort 提取失败');
+  assert.equal(extractReasoningEffort({ thinking: { type: 'adaptive', effort: 'max' } }), 'max', 'Anthropic thinking.effort 提取失败');
+  assert.equal(extractReasoningEffort({ thinking: { type: 'disabled' } }), null, 'Anthropic disabled 应返回 null');
+
+  assert.equal(extractReasoningEffort({ thinking_config: { thinking_budget: 1024 } }), 'budget:1024', 'Gemini thinking_budget 提取失败');
+  assert.equal(extractReasoningEffort({ thinking_config: { mode: 'dynamic' } }), 'dynamic', 'Gemini thinking mode 提取失败');
+
+  // 模型名后缀智能推断
+  assert.equal(extractReasoningEffort({ model: 'gemini-3.8-flash-high' }), 'high', 'gemini-*-high 模型后缀推断失败');
+  assert.equal(extractReasoningEffort({ model: 'gemini-2.5-flash-thinking-max' }), 'max', '*-max 模型后缀推断失败');
+  assert.equal(extractReasoningEffort({ model: 'deepseek-r1-medium' }), 'medium', '*-medium 模型后缀推断失败');
+  assert.equal(extractReasoningEffort({ model: 'claude-3.7-sonnet:low' }), 'low', '*:low 模型后缀推断失败');
+  assert.equal(extractReasoningEffort({ model: 'gemini-3.8-flash-high', reasoning_effort: 'max' }), 'max', '显式入参必须优先于模型后缀');
+
+  assert.equal(extractReasoningEffort(null), null);
+  assert.equal(extractReasoningEffort({}), null);
+  assert.equal(extractReasoningEffort({ model: 'gpt-4o' }), null);
+  console.log('  ✓ 四大主流协议思考强度 (OpenAI / Anthropic / Gemini / 兼容规范) 提取与归一化验证通过');
+
+  // 2) 生成速率算法与流式首字扣除 (calculateTokensPerSec)
+  // 流式正常窗口：100 tokens, 1500ms 延迟, 500ms TTFT -> 实际纯生成 1000ms -> 100 tok/s
+  assert.equal(calculateTokensPerSec(100, 1500, 500, true), 100.0, '流式纯输出速率计算不符');
+  // 流式窗口过小 (<100ms) 兜底：10 tokens, 1050ms 延迟, 1000ms TTFT (差值 50ms) -> 回落总延迟 1050ms (0.0105k tok/s) -> 9.5 tok/s
+  assert.equal(calculateTokensPerSec(10, 1050, 1000, true), 9.5, '极小生成窗口兜底计算不符');
+  // 非流式窗口：150 tokens, 3000ms -> 50 tok/s
+  assert.equal(calculateTokensPerSec(150, 3000, 0, false), 50.0, '非流式平均速率计算不符');
+  // 零除与异常边界
+  assert.equal(calculateTokensPerSec(0, 1000), 0);
+  assert.equal(calculateTokensPerSec(100, 0), 0);
+  assert.equal(calculateTokensPerSec(-10, 1000), 0);
+  console.log('  ✓ Token 生成速率算法 (扣除首字延迟纯吞吐 + 极小窗口防抖 + 边界保护) 验证通过');
+
+  // 3) Outbox 归一化 (normalizeRequestEvent) 自动化赋值
+  const normalized = normalizeRequestEvent({
+    model: 'codex/gpt-6.1-sol',
+    promptTokens: 1000,
+    completionTokens: 216,
+    totalTokens: 1216,
+    latencyMs: 2500,
+    ttftMs: 500,
+    stream: true,
+    reasoningEffort: 'max'
+  });
+  assert.equal(normalized.reasoning_effort, 'max', 'normalized reasoning_effort 不符');
+  assert.equal(normalized.tokens_per_sec, 108.0, 'normalized 自动计算 tokens_per_sec 不符 (216 / 2.0s = 108)');
+  console.log('  ✓ Outbox 归一化自动计算 tok/s 与思考强度绑定验证通过');
+
+  // 4) 数据库持久化、分页查询与历史数据动态补全
+  const testAuth = 'test_audit_reasoning_tps_auth';
+  const stmtInsert = quotaDb.prepare(`
+    INSERT INTO request_events (ts, key_id, model, status, prompt_tokens, completion_tokens, cached_tokens, total_tokens, latency_ms, ttft_ms, stream, estimated, error_type, auth_index, reasoning_effort, tokens_per_sec)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const nowTs = Math.floor(Date.now() / 1000);
+  // 记录 A: 新增字段完整写入 (带思考强度 max 和速率 108.3)
+  stmtInsert.run(nowTs, 1, 'codex/gpt-6.1-sol', 200, 500, 108, 0, 608, 2000, 1000, 1, 0, null, testAuth, 'max', 108.3);
+  // 记录 B: 历史遗留记录 (reasoning_effort 为空，tokens_per_sec 为 0，期望接口查询时动态根据 latency/tokens 算出来)
+  stmtInsert.run(nowTs - 10, 1, 'claude-3-7-sonnet', 200, 300, 100, 0, 400, 2000, 0, 0, 0, null, testAuth, '', 0);
+
+  auditLogs.clearAuditLogsCache();
+
+  try {
+    const res = auditLogs.getPagedRequests({ page: 1, pageSize: 20 });
+    const evA = res.events.find(e => e.auth_index === testAuth && e.model === 'codex/gpt-6.1-sol');
+    assert.ok(evA, '必须查到新格式测试流水 A');
+    assert.equal(evA.reasoning_effort, 'max', '流水 A 思考强度应为 max');
+    assert.equal(evA.tokens_per_sec, 108.3, '流水 A 速率应保留数据库中的 108.3');
+
+    const evB = res.events.find(e => e.auth_index === testAuth && e.model === 'claude-3-7-sonnet');
+    assert.ok(evB, '必须查到历史遗留测试流水 B');
+    assert.equal(evB.reasoning_effort, '', '流水 B 思考强度应为空字符串');
+    assert.equal(evB.tokens_per_sec, 50.0, '流水 B 速率应由历史字段动态推算出 50.0 tok/s (100 tokens / 2.0s)');
+
+    // 关键词搜索支持 reasoning_effort 匹配
+    const searchRes = auditLogs.getPagedRequests({ page: 1, pageSize: 20, search: 'max' });
+    assert.ok(searchRes.events.some(e => e.auth_index === testAuth && e.reasoning_effort === 'max'), '搜索 "max" 必须命中带有 reasoning_effort 的流水');
+    console.log('  ✓ 数据库持久化、分页透传、历史数据动态兼容与思考强度关键词搜索验证通过');
+  } finally {
+    quotaDb.prepare('DELETE FROM request_events WHERE auth_index = ?').run(testAuth);
+    auditLogs.clearAuditLogsCache();
+  }
+
+  // 5) 前端表格头与脚本契约验证
+  const adminHtml = fs.readFileSync('admin.html', 'utf8');
+  const adminLogsJs = fs.readFileSync('admin-logs.js', 'utf8');
+  const adminStyleCss = fs.readFileSync('admin-style.css', 'utf8');
+
+  assert.ok(adminHtml.includes('<th>思考强度</th>'), 'admin.html 表头缺少「思考强度」列');
+  assert.ok(adminHtml.includes('<th>速率 (tok/s)</th>'), 'admin.html 表头缺少「速率 (tok/s)」列');
+  assert.ok(adminHtml.includes('colspan="12"'), 'admin.html 默认加载占位需拓展为 12 列');
+  assert.ok(adminLogsJs.includes('colspan="12"'), 'admin-logs.js 空数据占位需拓展为 12 列');
+
+  assert.ok(adminLogsJs.includes('ev.reasoning_effort'), 'admin-logs.js 需渲染 reasoning_effort');
+  assert.ok(adminLogsJs.includes('ev.tokens_per_sec'), 'admin-logs.js 需渲染 tokens_per_sec');
+  assert.ok(adminLogsJs.includes('speed-badge'), 'admin-logs.js 需应用 speed-badge 样式类');
+
+  assert.ok(adminStyleCss.includes('.chip-purple'), 'admin-style.css 缺少 .chip-purple 样式');
+  assert.ok(adminStyleCss.includes('.speed-badge'), 'admin-style.css 缺少 .speed-badge 样式');
+  console.log('  ✓ 前端 HTML/JS/CSS 契约 (表头定义、12列跨度、Aozora 紫色胶囊与闪电速率徽章) 验证通过');
+  console.log('');
+}
+
+// -------------------------------------------------------------
+// 测试 29: AI 提供商 Token 分布基于真实凭证权威聚合与防抢夺契约 (v2.9.61)
+// -------------------------------------------------------------
+{
+  console.log('测试 29: AI 提供商 Token 分布基于真实凭证权威聚合与防抢夺契约 (v2.9.61)');
+  const auditLogs = await import('../lib/analytics/audit-logs.mjs');
+  const { quotaDb } = await import('../lib/db/sqlite.mjs');
+  const { shanghaiDate } = await import('../lib/core/outbox.mjs');
+
+  const testWbAuth = 'test_wb_auth_token_attribution_01';
+  const testOpenCodeAuth = 'test_opencode_auth_token_attribution_01';
+
+  try {
+    // 1) 在 upstream_auth_baselines 播种权威上游凭据与账号归属
+    // WorkBuddy 凭据
+    quotaDb.prepare(`
+      INSERT OR REPLACE INTO upstream_auth_baselines (auth_index, provider, name)
+      VALUES (?, ?, ?)
+    `).run(testWbAuth, 'workbuddy', '测试 WorkBuddy 账号 01');
+
+    // OpenCode 凭据
+    quotaDb.prepare(`
+      INSERT OR REPLACE INTO upstream_auth_baselines (auth_index, provider, name)
+      VALUES (?, ?, ?)
+    `).run(testOpenCodeAuth, 'opencode', '测试 OpenCode 账号 01');
+
+    const nowTs = Math.floor(Date.now() / 1000);
+    const today = shanghaiDate();
+
+    // 2) 插入真实 request_events 模拟 WorkBuddy 执行带有 -free 的模型调用
+    // 重点：deepseek-v4.1-flash-free 含有 -free，旧实现会按正则被 OpenCode Zen 抢夺冒领！
+    const stmtInsertEvent = quotaDb.prepare(`
+      INSERT INTO request_events (ts, key_id, model, status, prompt_tokens, completion_tokens, cached_tokens, total_tokens, latency_ms, ttft_ms, stream, estimated, error_type, auth_index)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    // WorkBuddy 执行 2 笔请求，共 250,000 tokens
+    stmtInsertEvent.run(nowTs, 101, 'deepseek-v4.1-flash-free', 200, 100000, 50000, 20000, 150000, 1200, 300, 1, 0, null, testWbAuth);
+    stmtInsertEvent.run(nowTs - 60, 101, 'copilot.tencent/deepseek-r1', 200, 60000, 40000, 10000, 100000, 2000, 500, 1, 0, null, testWbAuth);
+
+    // OpenCode 执行 1 笔请求，共 30,000 tokens
+    stmtInsertEvent.run(nowTs - 120, 101, 'opencode/claude-3-5-sonnet', 200, 20000, 10000, 5000, 30000, 1500, 400, 1, 0, null, testOpenCodeAuth);
+
+    // 同步写入今日 usage_daily 保持 daily 与 events 一致
+    const stmtDaily = quotaDb.prepare(`
+      INSERT INTO usage_daily (date, key_id, model, requests, prompt_tokens, completion_tokens, cached_tokens, total_tokens, estimated_tokens, success_count, failure_count)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0)
+    `);
+    stmtDaily.run(today, 101, 'deepseek-v4.1-flash-free', 1, 100000, 50000, 20000, 150000, 1);
+    stmtDaily.run(today, 101, 'copilot.tencent/deepseek-r1', 1, 60000, 40000, 10000, 100000, 1);
+    stmtDaily.run(today, 101, 'opencode/claude-3-5-sonnet', 1, 20000, 10000, 5000, 30000, 1);
+
+    // 3) 调用 getUsageStats(7, 101)
+    const stats7 = auditLogs.getUsageStats(7, 101);
+    assert.ok(stats7 && Array.isArray(stats7.providers), 'getUsageStats 必须返回 providers 数组');
+
+    // 验证 WorkBuddy 统计准确无误
+    const wbProvider = stats7.providers.find(p => p.provider === 'workbuddy');
+    assert.ok(wbProvider, 'providers 中必须存在 workbuddy 提供商');
+    assert.equal(wbProvider.display_name, '腾讯 WorkBuddy', 'workbuddy display_name 必须为 腾讯 WorkBuddy');
+    assert.equal(wbProvider.requests, 2, 'WorkBuddy 必须为 2 次请求');
+    assert.equal(wbProvider.total_tokens, 250000, 'WorkBuddy 必须统计为 250,000 tokens');
+    assert.equal(wbProvider.models_count, 2, 'WorkBuddy 必须包含 2 个模型');
+
+    // 验证 OpenCode Zen 没有抢夺 WorkBuddy 的 deepseek-v4.1-flash-free
+    const ocProvider = stats7.providers.find(p => p.provider === 'opencode');
+    assert.ok(ocProvider, 'providers 中必须存在 opencode 提供商');
+    assert.equal(ocProvider.display_name, 'OpenCode Zen', 'opencode display_name 必须为 OpenCode Zen');
+    assert.equal(ocProvider.requests, 1, 'OpenCode Zen 必须只有其自身的 1 次请求');
+    assert.equal(ocProvider.total_tokens, 30000, 'OpenCode Zen 必须只有其自身的 30,000 tokens，严禁截胡 -free 模型');
+
+    // 验证 models 列表中的 provider 也正确被标记为 腾讯 WorkBuddy 而非 OpenCode Zen
+    const freeModel = stats7.models.find(m => m.model === 'deepseek-v4.1-flash-free');
+    assert.ok(freeModel, 'models 列表中必须包含 deepseek-v4.1-flash-free');
+    assert.equal(freeModel.provider, '腾讯 WorkBuddy', 'deepseek-v4.1-flash-free 模型归属必须为 腾讯 WorkBuddy，不得误判为 OpenCode Zen');
+
+    // 4) 验证对账补差机制 (Reconciliation): 当 models 总量大于 request_events 时，差额平滑补齐且总量绝对一致
+    const statsAll = auditLogs.getUsageStats('all', 101);
+    const sumProviderTokens = statsAll.providers.reduce((sum, p) => sum + p.total_tokens, 0);
+    const sumModelTokens = statsAll.models.reduce((sum, m) => sum + m.total_tokens, 0);
+    assert.equal(sumProviderTokens, sumModelTokens, 'providers 聚合总 tokens 必须与 models 总 tokens 100% 吻合对齐');
+
+    console.log('  ✓ WorkBuddy 上游凭证权威解析与 -free 免费模型防抢夺验证通过');
+    console.log('  ✓ 提供商 Token 聚合与 models 对账补齐 (Reconciliation) 验证通过');
+    console.log('');
+  } finally {
+    quotaDb.prepare('DELETE FROM request_events WHERE auth_index IN (?, ?)').run(testWbAuth, testOpenCodeAuth);
+    quotaDb.prepare('DELETE FROM upstream_auth_baselines WHERE auth_index IN (?, ?)').run(testWbAuth, testOpenCodeAuth);
+    quotaDb.prepare('DELETE FROM usage_daily WHERE key_id = 101').run();
+  }
+}
+
+// -------------------------------------------------------------
+// 测试 30: 运行总览多时间窗口分桶东八区自然日对齐与全链路防缓存契约 (v2.9.61)
+// -------------------------------------------------------------
+{
+  console.log('测试 30: 运行总览多时间窗口分桶东八区自然日对齐与全链路防缓存契约 (v2.9.61)');
+  const {
+    getTrafficBucketsForWindow,
+    formatWindowBucketTime,
+    CHINA_TZ_OFFSET_SECONDS
+  } = await import('../lib/analytics/live-traffic-tracker.mjs');
+  const { CHINA_TZ_OFFSET_SECONDS: CONFIG_CHINA_TZ } = await import('../lib/config.mjs');
+  const { stmtEventsWindowAggregate, quotaDb } = await import('../lib/db/sqlite.mjs');
+
+  // 0) 时区常量集中管理：lib/config.mjs 与 live-traffic-tracker.mjs 单点真理源契约
+  assert.equal(CONFIG_CHINA_TZ, 28800, 'lib/config.mjs 必须集中定义 CHINA_TZ_OFFSET_SECONDS 为 28800 秒');
+  assert.equal(CHINA_TZ_OFFSET_SECONDS, CONFIG_CHINA_TZ, 'live-traffic-tracker.mjs 导出的时区偏移必须与 lib/config.mjs 严格一致');
+  console.log('  ✓ 全局时区常量集中管理与单点真理源契约验证通过');
+
+  // 1) 格式化函数针对天级分桶返回清晰 "MM-DD"
+  const dayStart = 1792195200; // 某秒级时间戳
+  const dayEnd = dayStart + 86400;
+  const dayFmt = formatWindowBucketTime(dayStart, dayEnd, 1440);
+  assert.match(dayFmt, /^\d{2}-\d{2}$/, '天级桶 (bucketMinutes >= 1440) 必须输出纯月日格式 MM-DD');
+
+  // 2) 30d 窗口必须精准对齐东八区（Asia/Shanghai）自然日 00:00:00 - 24:00:00
+  const buckets30d = getTrafficBucketsForWindow('30d');
+  assert.equal(buckets30d.length, 30, '30d 必须固定返回 30 桶');
+  for (const b of buckets30d) {
+    assert.equal(b.end - b.start, 86400, '30d 单桶跨度必须精准为 86,400 秒 (24 小时)');
+    // 关键：在东八区时区下，桶的起始秒数加上 28800 秒偏移后必须能被 86400 整除（即自然日 00:00:00）
+    assert.equal(
+      (b.start + CHINA_TZ_OFFSET_SECONDS) % 86400,
+      0,
+      `桶起始时间戳 ${b.start} 必须对齐东八区自然日 00:00:00`
+    );
+    assert.match(b.time, /^\d{2}-\d{2}$/, `天级桶标签必须为 MM-DD 格式，收到: ${b.time}`);
+  }
+
+  // 3) 1d 窗口必须精准对齐每小时整点
+  const buckets1d = getTrafficBucketsForWindow('1d');
+  assert.equal(buckets1d.length, 24, '1d 必须固定返回 24 桶');
+  for (const b of buckets1d) {
+    assert.equal(b.end - b.start, 3600, '1d 单桶跨度必须为 3600 秒 (1 小时)');
+    assert.equal((b.start + CHINA_TZ_OFFSET_SECONDS) % 3600, 0, '1d 桶必须对齐整点小时');
+  }
+
+  // 4) SQLite 模除截断时区偏移聚合验证：验证同一北京自然日的凌晨与午后事件落在同一 slot_start
+  const testAuth = 'test_tz_align_auth_30';
+  // 选定一个北京时间 2026-10-17 00:00:00 的绝对秒数
+  // UTC 2026-10-16 16:00:00 -> 1792166400 (北京时间 2026-10-17 00:00:00)
+  const cstMidnight = 1792166400;
+  // 凌晨 02:30 (北京时间) -> cstMidnight + 9000
+  const earlyMorningTs = cstMidnight + 9000;
+  // 下午 15:30 (北京时间) -> cstMidnight + 55800
+  const afternoonTs = cstMidnight + 55800;
+
+  try {
+    const stmtInsert = quotaDb.prepare(`
+      INSERT INTO request_events (ts, key_id, model, status, prompt_tokens, completion_tokens, cached_tokens, total_tokens, latency_ms, ttft_ms, stream, estimated, error_type, auth_index)
+      VALUES (?, 1, 'test-tz-model', 200, 10, 10, 0, 20, 100, 50, 0, 0, null, ?)
+    `);
+    stmtInsert.run(earlyMorningTs, testAuth);
+    stmtInsert.run(afternoonTs, testAuth);
+
+    const rows = stmtEventsWindowAggregate.all(
+      CHINA_TZ_OFFSET_SECONDS,
+      CHINA_TZ_OFFSET_SECONDS,
+      86400,
+      CHINA_TZ_OFFSET_SECONDS,
+      cstMidnight - 86400,
+      cstMidnight + 86400 * 2
+    );
+
+    const targetRow = rows.find(r => Number(r.slot_start) === cstMidnight);
+    assert.ok(targetRow, 'SQLite 时区聚合必须产出北京时间零点对应的 slot_start');
+    assert.ok(Number(targetRow.success) >= 2, '北京时间 00:00 到 24:00 之间的事件必须归入同一个 slot_start');
+    console.log('  ✓ 东八区自然日 00:00 - 24:00 分桶与 SQLite 时区感知模除聚合验证通过');
+  } finally {
+    quotaDb.prepare('DELETE FROM request_events WHERE auth_index = ?').run(testAuth);
+  }
+
+  // 5) 前端静态资源防缓存与 HTTP 响应头契约
+  const adminHtml = fs.readFileSync('admin.html', 'utf8');
+  const pkgVersion = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
+  assert.ok(adminHtml.includes(`overview.js?v=${pkgVersion}`), 'admin.html 必须包含带版本的 overview.js');
+  assert.ok(adminHtml.includes(`style.css?v=${pkgVersion}`), 'admin.html 必须包含带版本的 style.css');
+  assert.ok(adminHtml.includes(`overview.css?v=${pkgVersion}`), 'admin.html 必须包含带版本的 overview.css');
+
+  const staticRoutes = fs.readFileSync('lib/routes/static-routes.mjs', 'utf8');
+  assert.ok(staticRoutes.includes('no-cache, must-revalidate'), 'static-routes.mjs 必须配置 no-cache, must-revalidate 响应头');
+
+  console.log('  ✓ 前端静态资源防缓存版本注入与 no-cache, must-revalidate 契约验证通过');
+
+  // 6) 移动端小屏 X 轴刻度稀疏化自适应防挤契约
+  const overviewJs = fs.readFileSync('admin-overview.js', 'utf8');
+  assert.ok(overviewJs.includes('ovw-chart-xaxis'), 'admin-overview.js 必须为 X 轴文本注入独立类名 ovw-chart-xaxis');
+  assert.ok(overviewJs.includes('ovw-xaxis-sparse-hide'), 'admin-overview.js 必须对非首尾偶数位置注入 ovw-xaxis-sparse-hide 稀疏类名');
+
+  const overviewCss = fs.readFileSync('admin-overview.css', 'utf8');
+  assert.ok(overviewCss.includes('@media (max-width: 480px)'), 'admin-overview.css 必须包含针对小屏的媒体查询规则');
+  assert.ok(overviewCss.includes('.ovw-xaxis-sparse-hide'), 'admin-overview.css 必须包含 .ovw-xaxis-sparse-hide 隐藏规则');
+  console.log('  ✓ 移动端小屏 X 轴刻度自适应稀疏防挤契约验证通过');
   console.log('');
 }
 

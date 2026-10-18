@@ -55,13 +55,20 @@
 
         let modelHtml = '<span class="model-perm-badge all" title="允许访问所有已接入模型"><span class="perm-dot all"></span>全部模型 (*)</span>';
         if (k.model_whitelist) {
+          let list = [];
           try {
-            const list = JSON.parse(k.model_whitelist);
-            if (Array.isArray(list) && list.length > 0) {
-              modelHtml = `<span class="model-perm-badge limited" title="${escapeHtml(list.join(', '))}"><span class="perm-dot limited"></span>允许 ${list.length} 个模型</span>`;
-            }
+            const parsed = JSON.parse(k.model_whitelist);
+            if (Array.isArray(parsed)) list = parsed.map(s => String(s).trim()).filter(Boolean);
+            else if (typeof parsed === 'string' && parsed.trim()) list = [parsed.trim()];
           } catch(e) {
-            modelHtml = `<span class="model-perm-badge limited" title="${escapeHtml(k.model_whitelist)}"><span class="perm-dot limited"></span>${escapeHtml(k.model_whitelist)}</span>`;
+            if (typeof k.model_whitelist === 'string') {
+              list = k.model_whitelist.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+            }
+          }
+          if (list.length === 1) {
+            modelHtml = `<span class="model-perm-badge limited" title="${escapeHtml(list[0])}"><span class="perm-dot limited"></span>${escapeHtml(list[0])}</span>`;
+          } else if (list.length > 1) {
+            modelHtml = `<span class="model-perm-badge limited" title="${escapeHtml(list.join(', '))}"><span class="perm-dot limited"></span>允许 ${list.length} 个模型</span>`;
           }
         }
 
@@ -223,11 +230,19 @@
         currentSelectedModels = item.model_whitelist ? [item.model_whitelist] : [];
       }
       renderModelTags();
+      // 打开 Modal 时重置并准备好上游模型下拉组件
+      resetModelPicker();
+      if (!cachedUpstreamModelsList) {
+        fetchUpstreamModelsForPicker(false);
+      } else {
+        renderModelPickerList();
+      }
       openModal('edit-modal');
     }
 
     function renderModelTags() {
       const box = document.getElementById('edit-tags-box');
+      if (!box) return;
       if (currentSelectedModels.length === 0) {
         box.innerHTML = '<span class="tag-empty">未设置限制（全量模型均允许 *）</span>';
         return;
@@ -241,19 +256,8 @@
     function removeModel(idx) {
       currentSelectedModels.splice(idx, 1);
       renderModelTags();
+      renderModelPickerList();
     }
-    function addModelFromInput() {
-      const input = document.getElementById('edit-model-input');
-      const val = input.value.trim().toLowerCase();
-      if (val && !currentSelectedModels.includes(val)) {
-        currentSelectedModels.push(val);
-        input.value = '';
-        renderModelTags();
-      }
-    }
-    document.getElementById('edit-model-input')?.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); addModelFromInput(); }
-    });
 
     function setPreset(type) {
       if (type === 'all') currentSelectedModels = [];
@@ -261,11 +265,213 @@
       else if (type === 'claude') currentSelectedModels = ['claude-3-7-sonnet', 'claude-3-5-sonnet', 'claude-3-5-haiku'];
       else if (type === 'reasoning') currentSelectedModels = ['deepseek-reasoner', 'o1', 'o3-mini', 'claude-3-7-sonnet'];
       renderModelTags();
+      renderModelPickerList();
     }
     function clearModels() {
       currentSelectedModels = [];
       renderModelTags();
+      renderModelPickerList();
     }
+
+    // ---- 现代 Aozora UI 模型搜索与选择下拉交互 ----
+    let cachedUpstreamModelsList = null;
+    let isFetchingUpstreamModels = false;
+
+    function toggleModelPickerDropdown() {
+      const container = document.getElementById('model-picker-container');
+      if (!container) return;
+      const isOpen = container.classList.contains('open');
+      if (isOpen) {
+        closeModelPickerDropdown();
+      } else {
+        openModelPickerDropdown();
+      }
+    }
+
+    function openModelPickerDropdown() {
+      const container = document.getElementById('model-picker-container');
+      if (!container) return;
+      container.classList.add('open');
+      renderModelPickerList();
+      const searchInput = document.getElementById('model-picker-search');
+      if (searchInput) {
+        setTimeout(() => searchInput.focus(), 60);
+      }
+      if (!cachedUpstreamModelsList && !isFetchingUpstreamModels) {
+        fetchUpstreamModelsForPicker(false);
+      }
+    }
+
+    function closeModelPickerDropdown() {
+      const container = document.getElementById('model-picker-container');
+      if (container) container.classList.remove('open');
+    }
+
+    function resetModelPicker() {
+      closeModelPickerDropdown();
+      const searchInput = document.getElementById('model-picker-search');
+      if (searchInput) searchInput.value = '';
+      const clearBtn = document.getElementById('model-picker-clear-btn');
+      if (clearBtn) clearBtn.style.display = 'none';
+      const label = document.getElementById('model-picker-label');
+      if (label) {
+        label.innerText = cachedUpstreamModelsList && cachedUpstreamModelsList.length > 0
+          ? `点击搜索或选择上游模型 (已接入 ${cachedUpstreamModelsList.length} 个)...`
+          : '点击搜索或选择上游模型添加...';
+      }
+    }
+
+    async function fetchUpstreamModelsForPicker(showSuccessToast = true) {
+      if (isFetchingUpstreamModels) return;
+      const btn = document.getElementById('btn-fetch-models');
+      const listEl = document.getElementById('model-picker-list');
+      const label = document.getElementById('model-picker-label');
+
+      isFetchingUpstreamModels = true;
+      if (btn) {
+        btn.classList.add('loading');
+        btn.disabled = true;
+      }
+      if (label && (!cachedUpstreamModelsList || cachedUpstreamModelsList.length === 0)) {
+        label.innerText = '正在同步上游模型清单...';
+      }
+      if (listEl && (!cachedUpstreamModelsList || cachedUpstreamModelsList.length === 0)) {
+        listEl.innerHTML = '<div class="model-picker-empty">正在拉取上游模型...</div>';
+      }
+
+      try {
+        const res = await fetch('/admin/api/cpa/models', { headers: getAuthHeaders() });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        const rawList = Array.isArray(data.models) ? data.models : (Array.isArray(data.data) ? data.data : []);
+        const modelIds = rawList.map(m => typeof m === 'string' ? m : (m.id || m.name)).filter(Boolean);
+        const uniqueModels = [...new Set(modelIds)].sort();
+
+        cachedUpstreamModelsList = uniqueModels;
+        if (label) {
+          label.innerText = `点击搜索或选择上游模型 (已接入 ${uniqueModels.length} 个)...`;
+        }
+        renderModelPickerList();
+        if (showSuccessToast) {
+          showToast(`成功同步 ${uniqueModels.length} 个上游模型`, 'success');
+        }
+      } catch (err) {
+        console.warn('Fetch upstream models failed:', err);
+        if (listEl && (!cachedUpstreamModelsList || cachedUpstreamModelsList.length === 0)) {
+          listEl.innerHTML = `<div class="model-picker-empty" style="color:var(--danger);">同步失败: ${escapeHtml(err.message)}</div>`;
+        }
+        showToast('同步上游模型失败: ' + err.message, 'error');
+      } finally {
+        isFetchingUpstreamModels = false;
+        if (btn) {
+          btn.classList.remove('loading');
+          btn.disabled = false;
+        }
+      }
+    }
+
+    function renderModelPickerList(filterText = '') {
+      const listEl = document.getElementById('model-picker-list');
+      if (!listEl) return;
+      const query = (filterText || '').trim().toLowerCase();
+
+      if (!cachedUpstreamModelsList) {
+        listEl.innerHTML = '<div class="model-picker-empty">正在加载模型清单...</div>';
+        return;
+      }
+
+      if (cachedUpstreamModelsList.length === 0) {
+        listEl.innerHTML = '<div class="model-picker-empty">上游暂无可用模型</div>';
+        return;
+      }
+
+      let matched = cachedUpstreamModelsList;
+      if (query) {
+        matched = cachedUpstreamModelsList.filter(m => m.toLowerCase().includes(query));
+      }
+
+      let html = '';
+      if (matched.length === 0) {
+        html += `<div class="model-picker-empty">无匹配上游模型</div>`;
+      } else {
+        matched.forEach(m => {
+          const isAdded = currentSelectedModels.includes(m.toLowerCase());
+          html += `
+            <div class="model-picker-item ${isAdded ? 'is-selected' : ''}" onclick="selectModelFromPicker('${escapeHtml(m)}')">
+              <div class="model-picker-item-left">
+                <span class="perm-dot ${isAdded ? 'limited' : 'all'}"></span>
+                <span class="model-picker-item-name" title="${escapeHtml(m)}">${escapeHtml(m)}</span>
+              </div>
+              <div class="model-picker-item-right">
+                ${isAdded ? '<span class="model-picker-badge-added">已在白名单</span>' : '<span class="model-picker-badge-add">+ 添加</span>'}
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      // 如果用户输入了自定义模型ID，且上游列表中未精确匹配，支持一键添加自定义模型
+      if (query && !cachedUpstreamModelsList.some(m => m.toLowerCase() === query)) {
+        html += `
+          <div class="model-picker-custom-add" onclick="selectModelFromPicker('${escapeHtml(query)}')">
+            <svg style="width:13px; height:13px; flex-shrink:0;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"></path></svg>
+            <span>添加自定义模型 <strong>${escapeHtml(query)}</strong></span>
+          </div>
+        `;
+      }
+
+      listEl.innerHTML = html;
+    }
+
+    function filterUpstreamModels(val) {
+      const clearBtn = document.getElementById('model-picker-clear-btn');
+      if (clearBtn) {
+        clearBtn.style.display = val ? 'inline-block' : 'none';
+      }
+      renderModelPickerList(val);
+    }
+
+    function clearModelPickerSearch(e) {
+      if (e) e.stopPropagation();
+      const searchInput = document.getElementById('model-picker-search');
+      if (searchInput) {
+        searchInput.value = '';
+        searchInput.focus();
+      }
+      const clearBtn = document.getElementById('model-picker-clear-btn');
+      if (clearBtn) clearBtn.style.display = 'none';
+      renderModelPickerList('');
+    }
+
+    function selectModelFromPicker(modelName) {
+      const val = String(modelName || '').trim().toLowerCase();
+      if (!val) return;
+      if (!currentSelectedModels.includes(val)) {
+        currentSelectedModels.push(val);
+        renderModelTags();
+        showToast(`已添加模型: ${val}`, 'info');
+      } else {
+        // 已存在时点击则移除（切换行为）
+        const idx = currentSelectedModels.indexOf(val);
+        if (idx !== -1) {
+          currentSelectedModels.splice(idx, 1);
+          renderModelTags();
+          showToast(`已移除模型: ${val}`, 'info');
+        }
+      }
+      renderModelPickerList(document.getElementById('model-picker-search')?.value || '');
+    }
+
+    // 全局点击遮罩外关闭下拉
+    document.addEventListener('click', (e) => {
+      const container = document.getElementById('model-picker-container');
+      if (container && !container.contains(e.target)) {
+        closeModelPickerDropdown();
+      }
+    });
 
     async function saveKeyRule() {
       if (!currentKeyId) return;

@@ -6,7 +6,23 @@
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-  const state = { facts: null, config: null, loading: false, lastError: null, pollMs: 0 };
+  const DEFAULT_WINDOW = '3h20m';
+  const getSavedWindow = () => {
+    try {
+      const saved = localStorage.getItem('gate_ovw_window');
+      if (['3h20m', '5h', '1d', '3d', '7d', '30d'].includes(saved)) return saved;
+    } catch (_) {}
+    return DEFAULT_WINDOW;
+  };
+
+  const state = {
+    facts: null,
+    config: null,
+    loading: false,
+    lastError: null,
+    pollMs: 0,
+    window: getSavedWindow()
+  };
 
   function authHeaders() {
     const secret = typeof getAdminSecret === 'function' ? getAdminSecret() : '';
@@ -34,7 +50,18 @@
     if (m < 60) return `近 ${m} 分钟`;
     const hours = Math.floor(m / 60);
     const rest = m % 60;
+    if (hours >= 24 && rest === 0 && hours % 24 === 0) {
+      return `近 ${hours / 24} 天`;
+    }
     return rest ? `近 ${hours} 小时 ${rest} 分` : `近 ${hours} 小时`;
+  }
+
+  function fmtBucketSpan(minutes) {
+    const m = Number(minutes) || 10;
+    if (m < 60) return `每桶 ${m} 分钟`;
+    const hours = Math.floor(m / 60);
+    const rest = m % 60;
+    return rest ? `每桶 ${hours} 小时 ${rest} 分` : `每桶 ${hours} 小时`;
   }
 
   // 判定口径与 CPA 面板一致：无流量单独成态，不按 0% 失败率误判为告警。
@@ -93,7 +120,11 @@
 
   function bucketTooltipHtml(bucket, facts) {
     const sum = (bucket.success || 0) + (bucket.failed || 0);
-    const timeLabel = escapeHtml(bucket.time || '10 分钟时段');
+    const bucketMins = facts?.bucket_minutes || facts?.totals?.bucket_minutes || 10;
+    let timeLabel = escapeHtml(bucket.time || '10 分钟时段');
+    if (bucketMins >= 1440) {
+      timeLabel = `${escapeHtml(bucket.time)} 全天`;
+    }
     if (sum === 0) {
       return `<div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:3px;">${timeLabel}</div><div style="color:#64748b;font-size:11.5px;">该时段无请求流量</div>`;
     }
@@ -155,10 +186,12 @@
       `;
     }
 
+    const windowTag = bucketMins < 60 ? `${bucketMins}m window` : (bucketMins >= 1440 ? `${bucketMins / 1440}d window` : `${bucketMins / 60}h window`);
+
     return `
       <div style="font-size:12.5px;font-weight:700;margin-bottom:5px;color:#0f172a;display:flex;align-items:center;justify-content:space-between;">
         <span>${timeLabel}</span>
-        <span style="font-size:10.5px;color:#64748b;font-weight:400;font-family:var(--mono, monospace);">10m window</span>
+        <span style="font-size:10.5px;color:#64748b;font-weight:400;font-family:var(--mono, monospace);">${windowTag}</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;margin-bottom:4px;padding-bottom:5px;border-bottom:1px solid #f1f5f9;">
         <span>成功 <b style="color:#059669;">${fmtInt(bucket.success)}</b></span>
@@ -231,22 +264,80 @@
               <text class="ovw-chart-axis" x="${padL - 8}" y="${(y + 3.5).toFixed(1)}" text-anchor="end">${fmtInt(Math.round(v))}</text>`;
     }).join('');
 
-    // 桶标签取区间起点（例如 19:20-19:30 → 19:20）
-    const xLabels = [0, Math.floor(buckets.length / 2), buckets.length - 1]
-      .filter((v, i, arr) => arr.indexOf(v) === i)
-      .map(i => {
-        const label = (buckets[i].time || '').split('-')[0] || '';
-        return `<text class="ovw-chart-axis" x="${(padL + i * slot + slot / 2).toFixed(1)}" y="${height - 7}" text-anchor="middle">${escapeHtml(label)}</text>`;
-      })
-      .join('');
+    const bucketMinutes = facts?.bucket_minutes || totals?.bucket_minutes || 10;
+    const bucketSpanText = fmtBucketSpan(bucketMinutes);
 
-    holder.innerHTML = `<svg class="ovw-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="以 10 分钟为粒度的吞吐">
+    // 动态生成均匀美观的 X 轴刻度点（5 ~ 8 个标签，避免拥挤，杜绝单调 3 点）
+    const len = buckets.length;
+    let labelIndices = [];
+    if (len <= 10) {
+      labelIndices = Array.from({ length: len }, (_, i) => i);
+    } else if (len === 20) { // 3h20m (每10分钟)
+      labelIndices = [0, 5, 10, 15, 19];
+    } else if (len === 24) { // 1d (每小时) 或 3d (每3小时)
+      labelIndices = [0, 4, 8, 12, 16, 20, 23];
+    } else if (len === 28) { // 7d (每天4桶，每6小时)
+      labelIndices = [0, 4, 8, 12, 16, 20, 24, 27];
+    } else if (len === 30) { // 5h (每10分钟) 或 30d (每天1桶)
+      labelIndices = [0, 5, 10, 15, 20, 25, 29];
+    } else {
+      const step = Math.max(1, Math.floor(len / 6));
+      for (let i = 0; i < len; i += step) labelIndices.push(i);
+      if (labelIndices[labelIndices.length - 1] !== len - 1) labelIndices.push(len - 1);
+    }
+
+    const xLabels = labelIndices.map((idx, pos) => {
+      const fullTime = buckets[idx]?.time || '';
+      let startLabel = '';
+      if (bucketMinutes >= 1440) {
+        // 每日桶：直接显示月日（如 "09-18", "10-17"）
+        const m = fullTime.match(/^(\d{2}-\d{2})/);
+        startLabel = m ? m[1] : fullTime.split(' ')[0] || fullTime;
+      } else if (bucketMinutes >= 60) {
+        // 小时级桶（如 1d, 3d, 7d）
+        if (bucketMinutes === 60) {
+          // 1d: 提取纯时分 "HH:mm"
+          const m = fullTime.match(/\b(\d{2}:\d{2})\b/);
+          startLabel = m ? m[1] : fullTime.split('-')[0] || '';
+        } else if (bucketMinutes === 360) {
+          // 7d: 提取日期 "MM-DD"
+          const m = fullTime.match(/^(\d{2}-\d{2})/);
+          startLabel = m ? m[1] : fullTime.split(' ')[0] || '';
+        } else {
+          // 3d 等多小时级: 提取 "MM-DD HH:mm" 或 "MM-DD"
+          const m = fullTime.match(/^(\d{2}-\d{2}\s+\d{2}:\d{2})/);
+          startLabel = m ? m[1] : fullTime.split('-')[0] || '';
+        }
+      } else {
+        // 分钟级桶 (<60m): 提取起始时分 "HH:mm"
+        const m = fullTime.match(/^(\d{2}:\d{2})/);
+        startLabel = m ? m[1] : fullTime.split('-')[0] || '';
+      }
+
+      let anchor = 'middle';
+      let xPos = padL + idx * slot + slot / 2;
+      if (pos === 0) {
+        anchor = 'start';
+        xPos = padL;
+      } else if (pos === labelIndices.length - 1) {
+        anchor = 'end';
+        xPos = width - padR;
+      }
+
+      // 超窄移动端防挤：首尾刻度始终保留，中间奇数位置标签标记类名并在小屏媒体查询下隐藏
+      const isSparseHide = pos % 2 === 1 && pos !== labelIndices.length - 1;
+      const sparseClass = isSparseHide ? ' ovw-xaxis-sparse-hide' : '';
+
+      return `<text class="ovw-chart-axis ovw-chart-xaxis${sparseClass}" x="${xPos.toFixed(1)}" y="${height - 7}" text-anchor="${anchor}">${escapeHtml(startLabel)}</text>`;
+    }).join('');
+
+    holder.innerHTML = `<svg class="ovw-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="以${bucketSpanText}为粒度的吞吐">
       ${ticks}${bars}${xLabels}
     </svg>
     <div class="ovw-chart-legend">
       <span><i class="ovw-swatch is-success"></i> 成功</span>
       <span><i class="ovw-swatch is-failure"></i> 失败</span>
-      <span style="margin-left:auto">每 10 分钟一桶 · 悬停查看构成 · 点击直接跳转流水排查</span>
+      <span style="margin-left:auto">${bucketSpanText}一桶 · 悬停查看构成 · 点击直接跳转流水排查</span>
     </div>`;
 
     const tip = getOvwTooltip();
@@ -323,12 +414,15 @@
       node.className = 'ovw-verdict' + (verdict.key === 'good' ? '' : ` is-${verdict.key}`);
       node.innerHTML = `<span class="dot"></span><span>${escapeHtml(verdict.label)}</span>`;
     }
+    const bucketMinutes = facts?.bucket_minutes || totals?.bucket_minutes || 10;
+    const bucketSpanText = fmtBucketSpan(bucketMinutes);
+
     setText('ovw-hero-value', fmtInt(totals?.total_requests));
     setText('ovw-hero-label', '已处理请求');
     setText('ovw-hero-meta', totals
       ? (totals.scope === 'cumulative'
         ? `累计计数 · 滚动窗口 ${fmtWindow(totals.window_minutes)}内无流量`
-        : `滚动窗口 ${fmtWindow(totals.window_minutes)} · 每桶 10 分钟`)
+        : `滚动窗口 ${fmtWindow(totals.window_minutes)} · ${bucketSpanText}`)
       : '等待 CPA 运行时数据');
     setText('ovw-split-success', fmtInt(totals?.success_count));
     setText('ovw-split-failed', fmtInt(totals?.failure_count));
@@ -503,7 +597,11 @@
       const options = ROUTING_STRATEGIES
         .map(s => `<option value="${escapeHtml(s.value)}"${s.value === r.strategy ? ' selected' : ''}>${escapeHtml(s.label)}</option>`)
         .join('');
-      routingCells = ['路由策略', `<select class="ovw-control" id="ovw-routing-strategy" aria-label="路由策略">${options}</select>`];
+      routingCells = ['路由策略', `
+        <div class="ovw-dropdown-wrap">
+          <div class="dropdown ovw-routing-dropdown" id="ovw-routing-dropdown" aria-label="路由策略"></div>
+          <select id="ovw-routing-strategy" style="display:none;" aria-hidden="true">${options}</select>
+        </div>`];
     }
 
     const rows = [
@@ -530,6 +628,25 @@
 
     holder.innerHTML = rows.map(([label, value]) =>
       `<div class="ovw-runtime-row"><span class="ovw-runtime-label">${escapeHtml(label)}</span>${value}</div>`).join('');
+
+    // 初始化/同步 Aozora UI 统一 CustomDropdown 组件
+    if (window.CustomDropdown && $('ovw-routing-dropdown')) {
+      const inst = new window.CustomDropdown({
+        containerId: 'ovw-routing-dropdown',
+        options: ROUTING_STRATEGIES,
+        value: r.strategy || 'round-robin',
+        menuClass: 'menu-right',
+        onChange: async val => {
+          const hiddenSelect = $('ovw-routing-strategy');
+          if (hiddenSelect) hiddenSelect.value = val;
+          const ok = await saveRouting({ strategy: val });
+          if (ok) renderRuntime();
+        }
+      });
+      if (window.dropdownInstances) {
+        window.dropdownInstances['ovw-routing-dropdown'] = inst;
+      }
+    }
   }
 
   // 事件委托挂在 workspace 上：控件随 renderRuntime 重建，绑在控件本身会丢
@@ -587,11 +704,47 @@
     }
   }
 
+  function renderWindowSwitcher() {
+    const holder = $('ovw-window-switcher');
+    if (!holder) return;
+    const available = state.facts?.available_windows || [
+      { id: '3h20m', short_label: '3h20m', label: '近 3 小时 20 分' },
+      { id: '5h', short_label: '5h', label: '近 5 小时' },
+      { id: '1d', short_label: '1d', label: '近 1 天' },
+      { id: '3d', short_label: '3d', label: '近 3 天' },
+      { id: '7d', short_label: '7d', label: '近 7 天' },
+      { id: '30d', short_label: '30d', label: '近 30 天' }
+    ];
+
+    holder.innerHTML = available.map(w => {
+      const isActive = (state.window || DEFAULT_WINDOW) === w.id;
+      return `<button type="button" class="ovw-window-btn ${isActive ? 'active' : ''}" data-window-id="${escapeHtml(w.id)}" title="${escapeHtml(w.label || w.id)}">${escapeHtml(w.short_label || w.id)}</button>`;
+    }).join('');
+
+    holder.querySelectorAll('.ovw-window-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.dataset.windowId;
+        if (!targetId || targetId === state.window) return;
+        state.window = targetId;
+        try {
+          localStorage.setItem('gate_ovw_window', targetId);
+        } catch (_) {}
+        renderWindowSwitcher();
+        fetchRuntimeFacts(true);
+      });
+    });
+  }
+
   function renderAll() {
     renderBanner();
     renderSourceTag();
+    renderWindowSwitcher();
     renderHero(state.facts);
     renderStats(state.facts);
+    // 动态更新实时流量描述
+    const bucketMins = state.facts?.bucket_minutes || state.facts?.totals?.bucket_minutes || 10;
+    setText('ovw-chart-desc', `以 ${fmtBucketSpan(bucketMins).replace('每桶 ', '')}为粒度的吞吐，悬停任一柱可查看该时段精确构成。`);
+
     // 热更新悬停保护：若用户正在查看吞吐图柱子的 Tooltip，推迟吞吐图 SVG 重建，避免悬停被打断闪烁
     const tip = getOvwTooltip();
     const isTipActive = tip && tip.classList.contains('is-visible');
@@ -611,7 +764,8 @@
     state.loading = true;
     try {
       if (!state.config) fetchRuntimeConfig();
-      const url = '/admin/api/runtime-facts' + (force ? '?refresh=1' : '');
+      const currentWin = encodeURIComponent(state.window || DEFAULT_WINDOW);
+      const url = `/admin/api/runtime-facts?window=${currentWin}` + (force ? '&refresh=1' : '');
       const res = await fetch(url, { headers: authHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       state.facts = await res.json();
@@ -686,12 +840,13 @@
   </div>
 
   <div class="ovw-panel">
-    <div class="ovw-panel-head">
+    <div class="ovw-panel-head" style="align-items:center;">
       <div>
         <div class="ovw-eyebrow">Live traffic</div>
         <h3 class="ovw-title">实时流量</h3>
-        <p class="ovw-desc">以 10 分钟为粒度的吞吐，悬停任一柱可查看该时段精确构成。</p>
+        <p class="ovw-desc" id="ovw-chart-desc">以 10 分钟为粒度的吞吐，悬停任一柱可查看该时段精确构成。</p>
       </div>
+      <div class="ovw-window-switcher" id="ovw-window-switcher" role="tablist" aria-label="时间窗口切换"></div>
     </div>
     <div id="ovw-chart-holder"></div>
   </div>

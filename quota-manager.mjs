@@ -7,16 +7,26 @@ import { reloadPreloadedToday, replayOutboxIntoMemory, flushUsage } from './lib/
 import { initModelPrices } from './lib/core/pricing.mjs';
 import { initProviderRegistry } from './lib/core/provider-registry.mjs';
 import { syncUpstreamQuotas } from './lib/upstream/sync.mjs';
+import {
+  initLiveTrafficTracker,
+  startLiveTrafficReconciler,
+  stopLiveTrafficReconciler,
+  recordLiveTraffic,
+  getLiveTrafficBuckets,
+  reconcileLiveTraffic
+} from './lib/analytics/live-traffic-tracker.mjs';
 
 // 验证必要配置
 validateConfig();
 
-// 启动初始化流程：Keeper 迁移 -> 规则加载 -> 内存映射重建 -> 今日用量预热 -> Outbox 回放 -> 模型定价初始化 -> 提供商注册表初始化 -> CPA 同步
+// 启动初始化流程：Keeper 迁移 -> 规则加载 -> 内存映射重建 -> 今日用量预热 -> Outbox 回放 -> 实时流量冷启动 -> 模型定价初始化 -> 提供商注册表初始化 -> CPA 同步
 migrateFromKeeperIfNeeded();
 loadQuotaRules();
 rebuildMemoryFromKeys();
 reloadPreloadedToday();
 replayOutboxIntoMemory();
+initLiveTrafficTracker();
+startLiveTrafficReconciler();
 initModelPrices();
 initProviderRegistry();
 syncCpaKeys();
@@ -108,7 +118,10 @@ export {
   getPagedRequests,
   recordErrorEvent,
   getRecentErrorEvents,
-  getPagedErrorEvents
+  getPagedErrorEvents,
+  getTodayStartTimestamp,
+  getTodayRequestsCount,
+  getTodayErrorsCount
 } from './lib/analytics/audit-logs.mjs';
 
 export {
@@ -125,3 +138,12 @@ export {
   getTodayDetailsForKey,
   getAllTimeDetailsForKey
 } from './lib/analytics/quota-health.mjs';
+
+export {
+  recordLiveTraffic,
+  getLiveTrafficBuckets,
+  initLiveTrafficTracker,
+  reconcileLiveTraffic,
+  startLiveTrafficReconciler,
+  stopLiveTrafficReconciler
+} from './lib/analytics/live-traffic-tracker.mjs';

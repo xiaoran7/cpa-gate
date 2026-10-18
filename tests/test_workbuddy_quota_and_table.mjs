@@ -152,4 +152,191 @@ console.log('\n测试 4: 凭据卡片大盘 WorkBuddy 积分与 OpenRouter 今�
   console.log('  ✓ 凭据卡片大盘 WorkBuddy 积分与 OpenRouter 今日请求次数全链路契约验证通过');
 }
 
+// 测试 5: WorkBuddy 积分到期截至时间解析与 UI 展示契约
+console.log('\n测试 5: WorkBuddy 积分到期截至时间解析与 UI 展示契约');
+{
+  // 5.1: 验证 parseWorkBuddyGroups 提取单个周期包的 CycleEndTime 与 DeductionEndTime
+  const mockPkgWithExp = {
+    Packages: [
+      {
+        PackageName: 'TCACA 积分资源包',
+        CycleTotalCapacity: 250,
+        CycleRemainCapacity: 250,
+        CycleUsedCapacity: 0,
+        CycleEndTime: '2026-10-26 16:16:46',
+        DeductionEndTime: 1793002606000
+      }
+    ]
+  };
+
+  const groups = parseWorkBuddyGroups(mockPkgWithExp);
+  assert.equal(groups.length, 1);
+  const b = groups[0].buckets[0];
+  assert.equal(b.expires_at, '2026-10-26 16:16:46', '应提取 CycleEndTime 为 expires_at');
+  assert.ok(b.reset_time.includes('2026-10-26T08:16:46'), '应从 DeductionEndTime 转换为 ISO 格式 reset_time');
+  assert.equal(b.reset_countdown, '截至 10-26 16:16', '应根据 expires_at 格式化倒计时文本');
+  console.log('  ✓ parseWorkBuddyGroups 周期包 CycleEndTime 与 DeductionEndTime 提取验证通过');
+
+  // 5.2: 验证 status-summary.mjs 包含 WorkBuddy 到期时间导出
+  const summaryModule = fs.readFileSync(path.join(__dirname, '../lib/analytics/status-summary.mjs'), 'utf8');
+  assert.ok(summaryModule.includes('expires_at: expiresAt'), 'status-summary 需导出 expires_at');
+  assert.ok(summaryModule.includes('runs_out_points: runsOutPoints'), 'status-summary 需导出 runs_out_points');
+  assert.ok(summaryModule.includes('reset_time: resetTime'), 'status-summary 需导出 reset_time');
+  assert.ok(summaryModule.includes('acc.groups.flatMap'), 'status-summary 需支持多组全量 bucket 兜底提取');
+  console.log('  ✓ status-summary.mjs 到期时间字段导出契约验证通过');
+
+  // 5.3: 验证 admin-quotas.js 中 getWorkBuddyExpirationInfo 与三种视图中的渲染
+  const quotasJs = fs.readFileSync(path.join(__dirname, '../admin-quotas.js'), 'utf8');
+  assert.ok(quotasJs.includes('function getWorkBuddyExpirationInfo(acc)'), '需包含 getWorkBuddyExpirationInfo 辅助函数');
+  assert.ok(quotasJs.includes('expInfo.hasMultiplePackages ? `分批到期'), '紧凑表格行中需包含分批到期与单批截至到期分支');
+  assert.ok(quotasJs.includes('⏱️ ${expInfo.hasMultiplePackages ? `积分分批到期'), '卡片视图中需包含积分分批到期与积分截至到期分支');
+  assert.ok(quotasJs.includes('截至: ${expInfo.hasMultiplePackages ? \'首批 \' : \'\'}<b>${escapeHtml(expInfo.shortText)}</b>'), '大卡总览中需包含首批到期时间与分批提示');
+
+  // 5.4: 提取 getWorkBuddyExpirationInfo 在 Node 沙箱中执行逻辑测试
+  const sandbox = {
+    Date,
+    Number,
+    String,
+    Math,
+    Array,
+    isNaN
+  };
+  const fnMatch = quotasJs.match(/function getWorkBuddyExpirationInfo\(acc\) \{([\s\S]*?)\n    \}/);
+  assert.ok(fnMatch, '必须能成功提取 getWorkBuddyExpirationInfo 函数体');
+  const helperFn = new Function('acc', fnMatch[1]);
+
+  const testAcc = {
+    expires_at: '2026-10-26 16:16:46',
+    reset_time: '2026-10-26T08:16:46.000Z',
+    runs_out_points: 250
+  };
+  const expInfo = helperFn(testAcc);
+  assert.equal(expInfo.hasExpiration, true);
+  assert.equal(expInfo.shortText, '10月26日 16:16');
+  assert.equal(expInfo.fullText, '2026-10-26 16:16:46');
+  assert.ok(expInfo.tooltip.includes('北京时间'));
+  assert.ok(expInfo.tooltip.includes('250 积分'));
+  assert.equal(expInfo.runsOutPoints, 250);
+
+  // 验证多资源包分批到期场景（正是用户关心的各包到期时间不同）
+  const multiPkgAcc = {
+    expiration_packages: [
+      {
+        package_code: 'TCACA_006',
+        package_name: '标准基础月度积分包',
+        remain_points: 250,
+        total_points: 250,
+        expires_at: '2026-10-26 16:16:46',
+        reset_time: '2026-10-26T08:16:46.000Z'
+      },
+      {
+        package_code: 'TCACA_035',
+        package_name: '免费开发者体验额度',
+        remain_points: 100,
+        total_points: 100,
+        expires_at: '2026-10-29 21:20:00',
+        reset_time: '2026-10-29T13:20:00.000Z'
+      }
+    ],
+    remaining_credits: 350,
+    total_credits: 350
+  };
+  const multiInfo = helperFn(multiPkgAcc);
+  assert.equal(multiInfo.hasExpiration, true);
+  assert.equal(multiInfo.hasMultiplePackages, true);
+  assert.equal(multiInfo.packageCount, 2);
+  assert.equal(multiInfo.shortText, '10月26日 16:16');
+  assert.equal(multiInfo.runsOutPoints, 250);
+  assert.ok(multiInfo.tooltip.includes('分批到期'));
+  assert.ok(multiInfo.tooltip.includes('共 2 批次'));
+  assert.ok(multiInfo.tooltip.includes('标准基础月度积分包'));
+  assert.ok(multiInfo.tooltip.includes('免费开发者体验额度'));
+  assert.ok(multiInfo.tooltip.includes('2026-10-29 21:20:00'));
+  assert.equal(multiInfo.packages[1].shortText, '10月29日 21:20');
+
+  // 验证已到期场景
+  const expiredAcc = {
+    expires_at: '2020-01-01 00:00:00',
+    reset_time: '2020-01-01T00:00:00.000Z'
+  };
+  const expiredInfo = helperFn(expiredAcc);
+  assert.equal(expiredInfo.countdown, '已到期');
+  assert.equal(expiredInfo.color, '#ef4444');
+
+  // 验证无任何到期时间场景（防误标 hasExpiration: true）
+  const noExpAcc = {
+    expiration_packages: [{
+      package_code: 'TCACA_no_exp',
+      package_name: '未公布包',
+      remain_points: 100,
+      total_points: 100,
+      expires_at: '',
+      reset_time: null
+    }]
+  };
+  const noExpInfo = helperFn(noExpAcc);
+  assert.equal(noExpInfo.hasExpiration, false, '无到期包必须返回 hasExpiration: false');
+  assert.equal(noExpInfo.hasMultiplePackages, false);
+  assert.equal(noExpInfo.shortText, '未公布到期时间');
+  assert.equal(noExpInfo.color, 'var(--text-dim)');
+
+  console.log('  ✓ getWorkBuddyExpirationInfo 单包、多包分批与无到期日沙箱逻辑测试全部通过');
+
+  // 5.5: 验证 queryWorkBuddyFreePackages 独立提取与多包到期时间升序排列
+  const syncModule = await import('../lib/upstream/sync.mjs');
+  assert.equal(typeof syncModule.queryWorkBuddyFreePackages, 'function', '必须导出 queryWorkBuddyFreePackages 函数');
+  assert.equal(typeof syncModule.normalizeCstTimeString, 'function', '必须导出 normalizeCstTimeString 函数');
+  assert.equal(typeof syncModule.parseCstDateToTimestamp, 'function', '必须导出 parseCstDateToTimestamp 函数');
+
+  // 验证东八区时间解析跨格式一致性（含 T 无时区与带空格格式均解析为同一北京时间戳）
+  const tsSpace = syncModule.parseCstDateToTimestamp('2026-10-26 16:16:46');
+  const tsIsoNoTz = syncModule.parseCstDateToTimestamp('2026-10-26T16:16:46');
+  const tsIsoUtc = syncModule.parseCstDateToTimestamp('2026-10-26T08:16:46.000Z');
+  assert.equal(tsSpace, 1793002606000, '北京时间空格格式应正确解析');
+  assert.equal(tsIsoNoTz, 1793002606000, '含 T 无时区格式应归一化为东八区解析');
+  assert.equal(tsIsoUtc, 1793002606000, '带 Z 标准 UTC 时间戳应原样保留解析');
+
+  const emptyRes = await syncModule.queryWorkBuddyFreePackages(null, 'test', 'http://localhost', 'test', []);
+  assert.equal(emptyRes, null, '空包列表必须返回 null');
+
+  const mockCpa = async (method, path, opts) => {
+    return {
+      status_code: 200,
+      body: JSON.stringify({
+        data: {
+          Accounts: [
+            {
+              PackageCode: 'TCACA_test_02',
+              CycleEndTime: '2026-10-29 21:20:00',
+              DeductionEndTime: 1793270400000,
+              CycleCapacityRemain: null, // 测试 null 空值回退到 CapacityRemain
+              CapacityRemain: 100
+            },
+            {
+              PackageCode: 'TCACA_test_01',
+              CycleEndTime: '2026-10-26 16:16:46',
+              DeductionEndTime: 1793002606000,
+              CycleCapacityRemain: 250
+            }
+          ]
+        }
+      })
+    };
+  };
+  const mockPkgs = [
+    { PackageCode: 'TCACA_test_01', PackageName: '基础包', CycleRemainCapacity: 250, CycleTotalCapacity: 250 },
+    { PackageCode: 'TCACA_test_02', PackageName: '体验包', CycleRemainCapacity: 100, CycleTotalCapacity: 100 }
+  ];
+  const parsedFree = await syncModule.queryWorkBuddyFreePackages(mockCpa, 'test', 'http://localhost', 'test', mockPkgs);
+  assert.ok(parsedFree, '必须成功解析 mockFreePackages');
+  assert.equal(parsedFree.expiresAt, '2026-10-26 16:16:46', '最早到期时间必须对齐到首批');
+  assert.equal(parsedFree.runsOutPoints, 250);
+  assert.ok(parsedFree.runsOutAt.startsWith('2026-10-26'));
+  assert.equal(parsedFree.packages.length, 2, '必须返回全部资源包列表');
+  assert.equal(parsedFree.packages[0].package_code, 'TCACA_test_01', '必须按到期时间升序排列');
+  assert.equal(parsedFree.packages[1].package_code, 'TCACA_test_02');
+  assert.equal(parsedFree.packages[1].remain_points, 100, 'CycleCapacityRemain 为 null 时必须成功回退至 CapacityRemain');
+  console.log('  ✓ queryWorkBuddyFreePackages 单元测试、空值回退与多包升序排列测试通过');
+}
+
 console.log('\n=== 全部 WorkBuddy 与 Key 表格测试通过！===');
