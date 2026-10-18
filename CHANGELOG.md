@@ -9,7 +9,7 @@
   2. **管理台 500 与静态资源 404 修复**：此前 `admin.html`、`admin-*.js/css`、`gate-assets/` 只从 `GATE_DIR`（默认 `./data`）解析，而全新 clone 的 `./data` 只有 SQLite，导致 `/admin` 返回 500、外置脚本全部 404。新增 `STATIC_DIR`（默认解析到安装根目录，可用 `GATE_STATIC_DIR` 覆盖），并保留「资源放在 `GATE_DIR` 下」的旧部署形态回退；
   3. **管理台静态副本路径修正**：`lib/routes/upstream-proxy.mjs` 改用 `APP_ROOT` 解析 `static/management.html`，不再依赖进程 `cwd`，并回退到 `GATE_DIR/static/`；
   4. **回归测试**：新增 `tests/test_static_assets_layout.mjs`，覆盖 14 个静态路径在空 `GATE_DIR` 下的解析、旧部署回退、单次 404 安全性与 `.env` 优先级，并纳入 `npm test`；
-  5. **真实凭据泄漏治理**：`tests/test_opencode_quota_and_deleted_separation.mjs` 曾把一组**真实 OpenRouter Key** 当作样例数据写死（v2.9.58 引入），准备推送公开仓库时被 GitHub Push Protection 拦截。现已替换为全 0 占位串，并新增 `tests/test_repo_hygiene.mjs` 扫描全部被 Git 跟踪的文件（OpenRouter / AI / OpenAI / Google / GitHub / Slack / 私钥形态，自动放行占位串），纳入 `npm test` 作为推送前闸门。
+  5. **真实凭据泄漏治理**：`tests/test_opencode_quota_and_deleted_separation.mjs` 曾把一组**真实 OpenRouter Key** 当作样例数据写死（v2.9.58 引入），准备推送公开仓库时被 GitHub Push Protection 拦截。现已替换为 `sk-or-v1-PLACEHOLDER-NOT-A-REAL-KEY-DO-NOT-USE` 明示占位串（全 0 形态仍会被密钥扫描器命中，故不用），并新增 `tests/test_repo_hygiene.mjs` 扫描全部被 Git 跟踪的文件（OpenRouter / AI / OpenAI / Google / GitHub / Slack / 私钥形态，自动放行占位串），纳入 `npm test` 作为推送前闸门；该 Key 只进入过私有 History（`aafd272`），公开仓库历史从未包含，仍建议在 OpenRouter 控制台轮换。
 - **重试策略可配置化（Configurable Retry Policy）**：
   1. 新增 `GATE_MAX_ATTEMPTS`，默认仍为 `1`（不重试），取值夹紧到 1–5，非法值安全回落；保留「默认不放大上游负载」的生产默认值；
   2. 开启后第 3 次尝试才会下发 continuation healing payload，与 `llms-full.txt` 描述一致；README 同步把「3-Attempt Safe Retry」改为「opt-in」的准确表述。
