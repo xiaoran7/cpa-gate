@@ -6,13 +6,13 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Gate — LLM API Gateway</title>
 <link href="/admin/assets/gate-sakura-mark-128.png" rel="icon" type="image/png"/>
-<link rel="stylesheet" href="/admin/style.css?v=2.10.4"/>
-  <script src="/admin/quotas.js?v=2.10.4"></script>
-  <script src="/admin/keys.js?v=2.10.4"></script>
-  <script src="/admin/stats.js?v=2.10.4"></script>
-  <script src="/admin/logs.js?v=2.10.4"></script>
-<link rel="stylesheet" href="/admin/cpa-management.css?v=2.10.4"/>
-<link rel="stylesheet" href="/admin/overview.css?v=2.10.4"/>
+<link rel="stylesheet" href="/admin/style.css?v=2.10.5"/>
+  <script src="/admin/quotas.js?v=2.10.5"></script>
+  <script src="/admin/keys.js?v=2.10.5"></script>
+  <script src="/admin/stats.js?v=2.10.5"></script>
+  <script src="/admin/logs.js?v=2.10.5"></script>
+<link rel="stylesheet" href="/admin/cpa-management.css?v=2.10.5"/>
+<link rel="stylesheet" href="/admin/overview.css?v=2.10.5"/>
 </head>
 <body>
 <div class="container app-shell">
@@ -23,7 +23,7 @@
 <img alt="" src="/admin/assets/gate-sakura-mark-128.webp" width="39" height="39"/>
 </div>
 <div class="title-group">
-<h1>Gate <span class="version-tag">v2.10.4</span></h1>
+<h1>Gate <span class="version-tag">v2.10.5</span></h1>
 <div class="title-desc">LLM Gateway</div>
 </div>
 </div>
@@ -2042,7 +2042,7 @@
         const days = Math.floor(hours / 24);
         if (days >= 365) {
           const years = Math.floor(days / 365);
-          if (years >= 3) return `长期有效 (${years}年后)`;
+          if (years >= 3) return '长期有效';
           const remMonths = Math.floor((days % 365) / 30);
           return remMonths >= 1 ? `${years}年${remMonths}个月后` : `${years}年后`;
         }
@@ -2849,7 +2849,7 @@
     });
   
 </script>
-  <script src="/admin/cpa-management.js?v=2.10.4"></script>
-  <script src="/admin/overview.js?v=2.10.4"></script>
+  <script src="/admin/cpa-management.js?v=2.10.5"></script>
+  <script src="/admin/overview.js?v=2.10.5"></script>
 </body>
 </html>

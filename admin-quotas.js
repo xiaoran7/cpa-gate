@@ -996,6 +996,10 @@
 
         let countdown = '';
         let color = 'var(--text-muted)';
+        let isLongTerm = false;
+        const pkgRawName = p.package_name || p.name || '';
+        const isFreeOrTrialName = /free plan|体验|免费/i.test(pkgRawName);
+
         if (targetTs) {
           const diff = targetTs - now;
           if (diff <= 0) {
@@ -1003,28 +1007,37 @@
             color = '#ef4444';
           } else {
             const hours = Math.floor(diff / (1000 * 3600));
-            if (hours < 24) {
+            const days = Math.floor(hours / 24);
+            // 识别远期基础包（如腾讯 2035 年代表永久有效的 Free Plan Subscription 或体验版）
+            if (days >= 365 * 3 || (isFreeOrTrialName && days >= 365)) {
+              isLongTerm = true;
+              shortText = '长期有效';
+              countdown = '';
+              color = '#10b981';
+            } else if (hours < 24) {
               countdown = `${Math.max(1, hours)}小时后`;
               color = '#ef4444';
             } else if (hours < 72) {
-              const days = Math.floor(hours / 24);
               countdown = `${days}天后`;
               color = '#f59e0b';
             } else {
-              const days = Math.floor(hours / 24);
               if (days < 365) {
                 countdown = `${days}天后`;
               } else {
                 const years = Math.floor(days / 365);
-                if (years >= 3) {
-                  countdown = `长期有效 · ${years}年后`;
-                } else {
-                  const remMonths = Math.floor((days % 365) / 30);
-                  countdown = remMonths >= 1 ? `${years}年${remMonths}个月后` : `${years}年后`;
-                }
+                const remMonths = Math.floor((days % 365) / 30);
+                countdown = remMonths >= 1 ? `${years}年${remMonths}个月后` : `${years}年后`;
               }
               color = 'var(--text-muted)';
             }
+          }
+        } else if (p.expires_at) {
+          const m = String(p.expires_at).trim().match(/^(\d{4})/);
+          if (m && (Number(m[1]) >= currentCstYear + 3 || (isFreeOrTrialName && Number(m[1]) > currentCstYear))) {
+            isLongTerm = true;
+            shortText = '长期有效';
+            countdown = '';
+            color = '#10b981';
           }
         }
 
@@ -1037,7 +1050,8 @@
           shortText,
           fullText,
           countdown,
-          color
+          color,
+          isLongTerm
         });
       }
 
@@ -1071,6 +1085,7 @@
 
       const earliest = formattedPackages[0];
       const hasMultiplePackages = formattedPackages.length > 1;
+      const isAllLongTerm = hasAnyExpiration && formattedPackages.every(p => p.isLongTerm);
 
       let tooltip = '';
       if (!hasMultiplePackages) {
@@ -1078,25 +1093,30 @@
         if (earliest.points > 0) {
           tooltip += ` · 可用: ${earliest.points} 积分`;
         }
+        if (earliest.isLongTerm) {
+          tooltip += ' · 长期有效';
+        }
       } else {
         tooltip = `积分按资源包分批到期 (北京时间 · 共 ${formattedPackages.length} 批次):\n` +
           formattedPackages.map((p, idx) =>
-            `第 ${idx + 1} 批 [${p.name}]: ${p.points} 积分 · 截至 ${p.fullText}${p.countdown ? ` (${p.countdown})` : ''}`
+            `第 ${idx + 1} 批 [${p.name}]: ${p.points} 积分 · 截至 ${p.fullText}${p.countdown ? ` (${p.countdown})` : (p.isLongTerm ? ' (长期有效)' : '')}`
           ).join('\n');
       }
 
       return {
         hasExpiration: true,
         targetTs: earliest.targetTs,
-        shortText: earliest.shortText,
+        shortText: isAllLongTerm ? '长期有效' : earliest.shortText,
         fullText: earliest.fullText,
-        countdown: earliest.countdown,
-        color: earliest.color,
+        countdown: isAllLongTerm ? '' : earliest.countdown,
+        color: isAllLongTerm ? '#10b981' : earliest.color,
         tooltip,
         runsOutPoints: earliest.points,
         packages: formattedPackages,
         hasMultiplePackages,
-        packageCount: formattedPackages.length
+        packageCount: formattedPackages.length,
+        isAllLongTerm,
+        isLongTerm: earliest.isLongTerm
       };
     }
 
@@ -1274,9 +1294,9 @@
                     <span>已用: ${usedCredits.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2})}</span>
                   </div>
                   <div style="display:flex; justify-content:space-between; align-items:center; font-size:9.5px; color:var(--text-dim); font-family:var(--mono); margin-top:1px; padding-top:2px; border-top:1px dashed var(--border-subtle, rgba(0,0,0,0.06));" title="${escapeHtml(expInfo.tooltip)}">
-                    <span>${expInfo.hasMultiplePackages ? `分批到期 <span style="font-size:9px; opacity:0.8;">(${expInfo.packageCount}批)</span>` : '截至到期'}</span>
+                    <span>${expInfo.isAllLongTerm ? '积分额度' : (expInfo.hasMultiplePackages ? `分批到期 <span style="font-size:9px; opacity:0.8;">(${expInfo.packageCount}批)</span>` : '截至到期')}</span>
                     <span style="color:${expInfo.color}; font-weight:600;">
-                      ${expInfo.hasMultiplePackages ? '首批 ' : ''}${escapeHtml(expInfo.shortText)}${expInfo.countdown ? ` <span style="font-size:9px; font-weight:normal; opacity:0.85;">(${escapeHtml(expInfo.countdown)})</span>` : ''}
+                      ${expInfo.hasMultiplePackages && !expInfo.isAllLongTerm ? '首批 ' : ''}${escapeHtml(expInfo.shortText)}${expInfo.countdown ? ` <span style="font-size:9px; font-weight:normal; opacity:0.85;">(${escapeHtml(expInfo.countdown)})</span>` : ''}
                     </span>
                   </div>
                 </div>
@@ -1621,17 +1641,17 @@
                     </div>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border-subtle, rgba(0,0,0,0.06)); font-size:11px;">
                       <span style="color:var(--text-muted); display:inline-flex; align-items:center; gap:4px;">
-                        <span>⏱️ ${expInfo.hasMultiplePackages ? `积分分批到期 <span style="font-size:10px; opacity:0.8;">(共 ${expInfo.packageCount} 批)</span>` : '积分截至到期'}</span>
+                        <span>⏱️ ${expInfo.isAllLongTerm ? '积分额度' : (expInfo.hasMultiplePackages ? `积分分批到期 <span style="font-size:10px; opacity:0.8;">(共 ${expInfo.packageCount} 批)</span>` : '积分截至到期')}</span>
                       </span>
                       <span style="font-family:var(--mono); font-weight:600; color:${expInfo.color};" title="${escapeHtml(expInfo.tooltip)}">
-                        ${expInfo.hasMultiplePackages ? '首批 ' : ''}${escapeHtml(expInfo.fullText || expInfo.shortText)}${expInfo.countdown ? ` <span style="font-weight:normal; font-size:10px; opacity:0.85;">(${escapeHtml(expInfo.countdown)})</span>` : ''}
+                        ${expInfo.hasMultiplePackages && !expInfo.isAllLongTerm ? '首批 ' : ''}${escapeHtml(expInfo.shortText)}${expInfo.countdown ? ` <span style="font-weight:normal; font-size:10px; opacity:0.85;">(${escapeHtml(expInfo.countdown)})</span>` : ''}
                       </span>
                     </div>
                     ${expInfo.hasMultiplePackages ? `
                       <div style="margin-top:8px; display:flex; flex-direction:column; gap:5px; padding:8px 10px; background:var(--bg-subtle, rgba(0,0,0,0.02)); border-radius:6px; border:1px solid var(--border-subtle, rgba(0,0,0,0.06)); font-size:10.5px; font-family:var(--mono);">
                         ${expInfo.packages.map((pkg, pIdx) => `
                           <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;" title="资源包 [${escapeHtml(pkg.name)}]: 可用 ${pkg.points} 积分，截至 ${escapeHtml(pkg.fullText || pkg.shortText)}">
-                            <span style="color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:55%;">
+                            <span style="color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:${pkg.isLongTerm ? '72%' : '55%'};">
                               <b style="color:var(--text-dim); font-weight:600;">${pIdx + 1}.</b> ${escapeHtml(pkg.name)} <span style="font-weight:600; color:var(--text-main);">${pkg.points} 积分</span>
                             </span>
                             <span style="color:${pkg.color}; font-weight:500; flex-shrink:0;">
@@ -1918,7 +1938,7 @@
                 <div class="quota-weekly-row" style="display:flex; justify-content:space-between; align-items:center;">
                   <span>总额: <b>${totalFormatted}</b> 积分 · 已用: <b>${usedFormatted}</b></span>
                   <span style="color:${expInfo.color}; font-size:11px;" title="${escapeHtml(expInfo.tooltip)}">
-                    截至: ${expInfo.hasMultiplePackages ? '首批 ' : ''}<b>${escapeHtml(expInfo.shortText)}</b>${expInfo.countdown ? ` (${escapeHtml(expInfo.countdown)})` : ''}${expInfo.hasMultiplePackages ? ` <span style="font-size:9.5px; opacity:0.8;">(共${expInfo.packageCount}批)</span>` : ''}
+                    ${expInfo.isAllLongTerm ? '' : (expInfo.hasMultiplePackages ? '首批截至: ' : '截至: ')}<b>${escapeHtml(expInfo.shortText)}</b>${expInfo.countdown ? ` (${escapeHtml(expInfo.countdown)})` : ''}${expInfo.hasMultiplePackages && !expInfo.isAllLongTerm ? ` <span style="font-size:9.5px; opacity:0.8;">(共${expInfo.packageCount}批)</span>` : ''}
                   </span>
                 </div>
               `;

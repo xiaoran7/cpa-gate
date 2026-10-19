@@ -188,9 +188,10 @@ console.log('\n测试 5: WorkBuddy 积分到期截至时间解析与 UI 展示�
   // 5.3: 验证 admin-quotas.js 中 getWorkBuddyExpirationInfo 与三种视图中的渲染
   const quotasJs = fs.readFileSync(path.join(__dirname, '../admin-quotas.js'), 'utf8');
   assert.ok(quotasJs.includes('function getWorkBuddyExpirationInfo(acc)'), '需包含 getWorkBuddyExpirationInfo 辅助函数');
-  assert.ok(quotasJs.includes('expInfo.hasMultiplePackages ? `分批到期'), '紧凑表格行中需包含分批到期与单批截至到期分支');
-  assert.ok(quotasJs.includes('⏱️ ${expInfo.hasMultiplePackages ? `积分分批到期'), '卡片视图中需包含积分分批到期与积分截至到期分支');
-  assert.ok(quotasJs.includes('截至: ${expInfo.hasMultiplePackages ? \'首批 \' : \'\'}<b>${escapeHtml(expInfo.shortText)}</b>'), '大卡总览中需包含首批到期时间与分批提示');
+  assert.ok(quotasJs.includes('expInfo.isAllLongTerm ? \'积分额度\' : (expInfo.hasMultiplePackages ? `分批到期'), '紧凑表格行中需包含长期额度、分批到期与单批截至到期分支');
+  assert.ok(quotasJs.includes('expInfo.isAllLongTerm ? \'积分额度\' : (expInfo.hasMultiplePackages ? `积分分批到期'), '卡片视图中需包含长期额度、积分分批到期与积分截至到期分支');
+  assert.ok(quotasJs.includes('expInfo.isAllLongTerm ? \'\' : (expInfo.hasMultiplePackages ? \'首批截至: \' : \'截至: \')'), '大卡总览中需包含长期有效与首批/截至到期展示');
+  assert.ok(quotasJs.includes('pkg.isLongTerm ? \'72%\' : \'55%\''), '必须根据是否长期有效动态扩展包名最大宽度以防截断');
 
   // 5.4: 提取 getWorkBuddyExpirationInfo 在 Node 沙箱中执行逻辑测试
   const sandbox = {
@@ -263,7 +264,7 @@ console.log('\n测试 5: WorkBuddy 积分到期截至时间解析与 UI 展示�
   assert.equal(expiredInfo.countdown, '已到期');
   assert.equal(expiredInfo.color, '#ef4444');
 
-  // 验证跨年与远期包（如 2035 年 3010 天后的 Free Plan 基础包）的人性化年份与长期有效倒计时
+  // 验证跨年与远期包（如 2035 年 3010 天后的 Free Plan 基础包）的语义净化（方案 A：长期有效）
   const distantAcc = {
     expires_at: '2035-01-15 20:57:00',
     reset_time: '2035-01-15T12:57:00.000Z',
@@ -271,9 +272,54 @@ console.log('\n测试 5: WorkBuddy 积分到期截至时间解析与 UI 展示�
   };
   const distantInfo = helperFn(distantAcc);
   assert.equal(distantInfo.hasExpiration, true);
-  assert.equal(distantInfo.shortText, '2035年1月15日 20:57', '跨年远期必须显式输出年份，严禁丢弃年份误导为近期');
-  assert.ok(distantInfo.countdown.includes('8年后'), '跨度超过 3000 天必须以年或长期有效输出，严禁无脑输出 3000天后');
-  assert.ok(distantInfo.countdown.includes('长期有效'), '超过 3 年的远期基础包应标记为长期有效');
+  assert.equal(distantInfo.shortText, '长期有效', '远期基础包应直接净化为「长期有效」，彻底消除 3010天后的荒谬感');
+  assert.equal(distantInfo.countdown, '', '长期有效包倒计时文本应置空，无需冗余括号');
+  assert.equal(distantInfo.color, '#10b981', '长期有效应显示为健康翡翠绿');
+  assert.equal(distantInfo.isLongTerm, true, 'isLongTerm 标记应为 true');
+  assert.equal(distantInfo.isAllLongTerm, true, '单包长期时 isAllLongTerm 必须为 true');
+  assert.equal(distantInfo.fullText, '2035-01-15 20:57:00', 'fullText 仍需保留精确物理时间戳以供 tooltip 与核查');
+  assert.ok(distantInfo.tooltip.includes('长期有效'), 'tooltip 需包含长期有效说明');
+  assert.ok(distantInfo.tooltip.includes('2035-01-15 20:57:00'), 'tooltip 需包含完整到期时刻');
+
+  // 验证跨年非远期包（如次年到期的常规包），必须保留显式年份
+  const nextYearAcc = {
+    expires_at: '2027-02-15 10:00:00',
+    reset_time: '2027-02-15T02:00:00.000Z',
+    runs_out_points: 50
+  };
+  const nextYearInfo = helperFn(nextYearAcc);
+  assert.equal(nextYearInfo.hasExpiration, true);
+  assert.equal(nextYearInfo.shortText, '2027年2月15日 10:00', '普通跨年包必须显式输出年份');
+  assert.equal(nextYearInfo.isLongTerm, false);
+  assert.equal(nextYearInfo.isAllLongTerm, false);
+
+  // 验证短期包与 Free Plan 长期基础包混合场景：首批必须取真正紧迫的短期包，不被长期包误导
+  const mixedAcc = {
+    expiration_packages: [
+      {
+        package_code: 'TCACA_urgent',
+        package_name: '即将到期积分包',
+        remain_points: 250,
+        total_points: 250,
+        expires_at: '2026-10-26 16:16:46',
+        reset_time: '2026-10-26T08:16:46.000Z'
+      },
+      {
+        package_code: 'TCACA_free',
+        package_name: 'Free Plan Subscription',
+        remain_points: 100,
+        total_points: 100,
+        expires_at: '2035-01-15 20:57:00',
+        reset_time: '2035-01-15T12:57:00.000Z'
+      }
+    ]
+  };
+  const mixedInfo = helperFn(mixedAcc);
+  assert.equal(mixedInfo.hasMultiplePackages, true);
+  assert.equal(mixedInfo.isAllLongTerm, false, '混合包时 isAllLongTerm 必须为 false');
+  assert.equal(mixedInfo.shortText, '10月26日 16:16', '首批必须取真正紧迫的短期包');
+  assert.equal(mixedInfo.packages[1].shortText, '长期有效', 'Free Plan 包在列表中应展示长期有效');
+  assert.equal(mixedInfo.packages[1].isLongTerm, true);
 
   // 验证无任何到期时间场景（防误标 hasExpiration: true）
   const noExpAcc = {
