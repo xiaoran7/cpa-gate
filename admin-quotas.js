@@ -962,6 +962,7 @@
 
         let shortText = '';
         let fullText = p.expires_at || '';
+        const currentCstYear = new Date(now + 8 * 3600 * 1000).getUTCFullYear();
         if (targetTs) {
           // 全局东八区单点真理源：统一转为东八区（UTC+8 北京时间）并使用 UTC getter 提取，避免多时区偏移
           const cstDate = new Date(targetTs + 8 * 3600 * 1000);
@@ -970,13 +971,24 @@
           const dd = cstDate.getUTCDate();
           const hh = String(cstDate.getUTCHours()).padStart(2, '0');
           const min = String(cstDate.getUTCMinutes()).padStart(2, '0');
-          shortText = `${mm}月${dd}日 ${hh}:${min}`;
+          if (yyyy !== currentCstYear) {
+            shortText = `${yyyy}年${mm}月${dd}日 ${hh}:${min}`;
+          } else {
+            shortText = `${mm}月${dd}日 ${hh}:${min}`;
+          }
           if (!fullText) {
             const ss = String(cstDate.getUTCSeconds()).padStart(2, '0');
             fullText = `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')} ${hh}:${min}:${ss}`;
           }
         } else if (p.expires_at) {
-          shortText = String(p.expires_at).slice(5, 16).replace('T', ' ');
+          const s = String(p.expires_at).trim();
+          const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+          if (m && Number(m[1]) !== currentCstYear) {
+            const tm = s.slice(11, 16);
+            shortText = `${m[1]}年${Number(m[2])}月${Number(m[3])}日${tm ? ' ' + tm : ''}`.trim();
+          } else {
+            shortText = s.slice(5, 16).replace('T', ' ');
+          }
         } else {
           shortText = '未知到期日';
           fullText = '未知到期日';
@@ -1000,7 +1012,17 @@
               color = '#f59e0b';
             } else {
               const days = Math.floor(hours / 24);
-              countdown = `${days}天后`;
+              if (days < 365) {
+                countdown = `${days}天后`;
+              } else {
+                const years = Math.floor(days / 365);
+                if (years >= 3) {
+                  countdown = `长期有效 · ${years}年后`;
+                } else {
+                  const remMonths = Math.floor((days % 365) / 30);
+                  countdown = remMonths >= 1 ? `${years}年${remMonths}个月后` : `${years}年后`;
+                }
+              }
               color = 'var(--text-muted)';
             }
           }

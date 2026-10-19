@@ -6,13 +6,13 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Gate — LLM API Gateway</title>
 <link href="/admin/assets/gate-sakura-mark-128.png" rel="icon" type="image/png"/>
-<link rel="stylesheet" href="/admin/style.css?v=2.10.3"/>
-  <script src="/admin/quotas.js?v=2.10.3"></script>
-  <script src="/admin/keys.js?v=2.10.3"></script>
-  <script src="/admin/stats.js?v=2.10.3"></script>
-  <script src="/admin/logs.js?v=2.10.3"></script>
-<link rel="stylesheet" href="/admin/cpa-management.css?v=2.10.3"/>
-<link rel="stylesheet" href="/admin/overview.css?v=2.10.3"/>
+<link rel="stylesheet" href="/admin/style.css?v=2.10.4"/>
+  <script src="/admin/quotas.js?v=2.10.4"></script>
+  <script src="/admin/keys.js?v=2.10.4"></script>
+  <script src="/admin/stats.js?v=2.10.4"></script>
+  <script src="/admin/logs.js?v=2.10.4"></script>
+<link rel="stylesheet" href="/admin/cpa-management.css?v=2.10.4"/>
+<link rel="stylesheet" href="/admin/overview.css?v=2.10.4"/>
 </head>
 <body>
 <div class="container app-shell">
@@ -23,7 +23,7 @@
 <img alt="" src="/admin/assets/gate-sakura-mark-128.webp" width="39" height="39"/>
 </div>
 <div class="title-group">
-<h1>Gate <span class="version-tag">v2.10.3</span></h1>
+<h1>Gate <span class="version-tag">v2.10.4</span></h1>
 <div class="title-desc">LLM Gateway</div>
 </div>
 </div>
@@ -2016,12 +2016,16 @@
       if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1) + ' s';
       return String(Math.round(n)) + ' ms';
     }
-    // 绝对刷新时刻（客户端本地时区）：9月13日 18:05
+    // 绝对刷新时刻（客户端本地时区）：9月13日 18:05（若跨年则带年份）
     function formatResetAbs(iso) {
       const t = new Date(iso);
       if (!iso || isNaN(t.getTime())) return '';
       const hh = String(t.getHours()).padStart(2, '0');
       const mm = String(t.getMinutes()).padStart(2, '0');
+      const now = new Date();
+      if (t.getFullYear() !== now.getFullYear()) {
+        return `${t.getFullYear()}年${t.getMonth() + 1}月${t.getDate()}日 ${hh}:${mm}`;
+      }
       return `${t.getMonth() + 1}月${t.getDate()}日 ${hh}:${mm}`;
     }
     // 客户端实时重置倒计时计算
@@ -2036,6 +2040,12 @@
       const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       if (hours > 24) {
         const days = Math.floor(hours / 24);
+        if (days >= 365) {
+          const years = Math.floor(days / 365);
+          if (years >= 3) return `长期有效 (${years}年后)`;
+          const remMonths = Math.floor((days % 365) / 30);
+          return remMonths >= 1 ? `${years}年${remMonths}个月后` : `${years}年后`;
+        }
         const remHours = hours % 24;
         return `${days}天${remHours}小时`;
       }
@@ -2839,7 +2849,7 @@
     });
   
 </script>
-  <script src="/admin/cpa-management.js?v=2.10.3"></script>
-  <script src="/admin/overview.js?v=2.10.3"></script>
+  <script src="/admin/cpa-management.js?v=2.10.4"></script>
+  <script src="/admin/overview.js?v=2.10.4"></script>
 </body>
 </html>

@@ -263,6 +263,18 @@ console.log('\n测试 5: WorkBuddy 积分到期截至时间解析与 UI 展示�
   assert.equal(expiredInfo.countdown, '已到期');
   assert.equal(expiredInfo.color, '#ef4444');
 
+  // 验证跨年与远期包（如 2035 年 3010 天后的 Free Plan 基础包）的人性化年份与长期有效倒计时
+  const distantAcc = {
+    expires_at: '2035-01-15 20:57:00',
+    reset_time: '2035-01-15T12:57:00.000Z',
+    runs_out_points: 100
+  };
+  const distantInfo = helperFn(distantAcc);
+  assert.equal(distantInfo.hasExpiration, true);
+  assert.equal(distantInfo.shortText, '2035年1月15日 20:57', '跨年远期必须显式输出年份，严禁丢弃年份误导为近期');
+  assert.ok(distantInfo.countdown.includes('8年后'), '跨度超过 3000 天必须以年或长期有效输出，严禁无脑输出 3000天后');
+  assert.ok(distantInfo.countdown.includes('长期有效'), '超过 3 年的远期基础包应标记为长期有效');
+
   // 验证无任何到期时间场景（防误标 hasExpiration: true）
   const noExpAcc = {
     expiration_packages: [{
