@@ -6,13 +6,13 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Gate — LLM API Gateway</title>
 <link href="/admin/assets/gate-sakura-mark-128.png" rel="icon" type="image/png"/>
-<link rel="stylesheet" href="/admin/style.css?v=2.10.2"/>
-  <script src="/admin/quotas.js?v=2.10.2"></script>
-  <script src="/admin/keys.js?v=2.10.2"></script>
-  <script src="/admin/stats.js?v=2.10.2"></script>
-  <script src="/admin/logs.js?v=2.10.2"></script>
-<link rel="stylesheet" href="/admin/cpa-management.css?v=2.10.2"/>
-<link rel="stylesheet" href="/admin/overview.css?v=2.10.2"/>
+<link rel="stylesheet" href="/admin/style.css?v=2.10.3"/>
+  <script src="/admin/quotas.js?v=2.10.3"></script>
+  <script src="/admin/keys.js?v=2.10.3"></script>
+  <script src="/admin/stats.js?v=2.10.3"></script>
+  <script src="/admin/logs.js?v=2.10.3"></script>
+<link rel="stylesheet" href="/admin/cpa-management.css?v=2.10.3"/>
+<link rel="stylesheet" href="/admin/overview.css?v=2.10.3"/>
 </head>
 <body>
 <div class="container app-shell">
@@ -23,7 +23,7 @@
 <img alt="" src="/admin/assets/gate-sakura-mark-128.webp" width="39" height="39"/>
 </div>
 <div class="title-group">
-<h1>Gate <span class="version-tag">v2.10.2</span></h1>
+<h1>Gate <span class="version-tag">v2.10.3</span></h1>
 <div class="title-desc">LLM Gateway</div>
 </div>
 </div>
@@ -975,6 +975,7 @@
 <div class="form-group" style="display:flex; justify-content:space-between; align-items:center;">
 <div>
 <div style="font-size:12.5px; font-weight:500; color:var(--text-main);">启用每日额度硬顶管控</div>
+<div style="font-size:11px; color:var(--text-dim); margin-top:2px;">开启后当今日 Token 达到每日限额时将严格返回 429 阻断超额请求；输入每日限额时将自动开启</div>
 </div>
 <label class="switch-toggle">
 <input id="edit-enabled" type="checkbox"/>
@@ -2838,7 +2839,7 @@
     });
   
 </script>
-  <script src="/admin/cpa-management.js?v=2.10.2"></script>
-  <script src="/admin/overview.js?v=2.10.2"></script>
+  <script src="/admin/cpa-management.js?v=2.10.3"></script>
+  <script src="/admin/overview.js?v=2.10.3"></script>
 </body>
 </html>

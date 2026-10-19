@@ -3,6 +3,34 @@
  * 包含 API Key CRUD (创建/轮换/别名/删除/模型权限) 及模型定价规则配置与渲染
  */
 
+    // 安全解析模型白名单（兼容 JSON 数组字符串、逗号/空格分隔字符串以及数组形态）
+    function parseModelList(raw) {
+      if (!raw) return [];
+      if (Array.isArray(raw)) {
+        const res = [];
+        raw.forEach(item => {
+          if (typeof item === 'string') {
+            item.split(/[\s,]+/).map(s => s.trim().toLowerCase()).filter(Boolean).forEach(m => {
+              if (!res.includes(m)) res.push(m);
+            });
+          }
+        });
+        return res;
+      }
+      if (typeof raw === 'string') {
+        const trimmed = raw.trim();
+        if (!trimmed || trimmed === '*' || trimmed === '["*"]') return [];
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed) || typeof parsed === 'string') {
+            return parseModelList(parsed);
+          }
+        } catch (e) {}
+        return trimmed.split(/[\s,]+/).map(s => s.trim().toLowerCase()).filter(Boolean).filter((m, idx, arr) => arr.indexOf(m) === idx);
+      }
+      return [];
+    }
+
     // 2. 获取 Key 列表 (带 SWR 缓存与即时持久化)
     async function fetchKeysData(force = false) {
       if (!force && cachedKeys.length > 0 && (Date.now() - cachedKeysLoadedAt) < 10000) {
@@ -55,16 +83,7 @@
 
         let modelHtml = '<span class="model-perm-badge all" title="允许访问所有已接入模型"><span class="perm-dot all"></span>全部模型 (*)</span>';
         if (k.model_whitelist) {
-          let list = [];
-          try {
-            const parsed = JSON.parse(k.model_whitelist);
-            if (Array.isArray(parsed)) list = parsed.map(s => String(s).trim()).filter(Boolean);
-            else if (typeof parsed === 'string' && parsed.trim()) list = [parsed.trim()];
-          } catch(e) {
-            if (typeof k.model_whitelist === 'string') {
-              list = k.model_whitelist.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
-            }
-          }
+          const list = parseModelList(k.model_whitelist);
           if (list.length === 1) {
             modelHtml = `<span class="model-perm-badge limited" title="${escapeHtml(list[0])}"><span class="perm-dot limited"></span>${escapeHtml(list[0])}</span>`;
           } else if (list.length > 1) {
@@ -98,6 +117,11 @@
         const pctNum = hardLimit > 0 ? Math.max(0, Math.min(100, Math.round(ratio * 100))) : 0;
         const limitTag = hardLimit > 0 ? `<span style="color:${pctNum >= 85 ? 'var(--warning)' : 'var(--text-dim)'};">${pctNum}%</span>` : '<span style="color:var(--text-dim); opacity:0.8;">不限</span>';
 
+        const limitDisplay = k.daily_limit > 0
+          ? (k.enabled ? formatTokens(k.daily_limit) : `<span class="cell-unlimited" style="color:var(--text-dim);" title="已设置每日限额，但未开启硬顶管控开关">${formatTokens(k.daily_limit)} (未启用)</span>`)
+          : '<span class="cell-unlimited">不限</span>';
+        const rpmDisplay = k.rpm_limit > 0 ? `${k.rpm_limit} RPM` : '<span class="cell-unlimited">不限</span>';
+
         html += `<tr>
           <td>
             <div class="key-display-row">
@@ -127,8 +151,8 @@
           </td>
           <td class="num">${cacheRate}</td>
           <td class="num" style="color:#34d399; font-weight:500;">${formatCost(k.cost_usd)}</td>
-          <td class="num">${k.enabled && k.daily_limit > 0 ? formatTokens(k.daily_limit) : '<span class="cell-unlimited">不限</span>'}</td>
-          <td class="num">${k.enabled && k.rpm_limit > 0 ? k.rpm_limit : '<span class="cell-unlimited">不限</span>'}</td>
+          <td class="num">${limitDisplay}</td>
+          <td class="num">${rpmDisplay}</td>
           <td>${statusChip}</td>
           <td style="text-align: right;">
             <div class="btn-action-group">
@@ -219,16 +243,12 @@
         }).catch(() => {});
       }
       document.getElementById('edit-alias').value = item.key_alias || '';
-      document.getElementById('edit-enabled').checked = item.enabled;
+      document.getElementById('edit-enabled').checked = Boolean(item.enabled);
       document.getElementById('edit-limit').value = item.daily_limit || '';
       document.getElementById('edit-ratio').value = item.hard_ratio || 1.2;
       document.getElementById('edit-rpm').value = item.rpm_limit || '';
 
-      try {
-        currentSelectedModels = item.model_whitelist ? JSON.parse(item.model_whitelist) : [];
-      } catch(e) {
-        currentSelectedModels = item.model_whitelist ? [item.model_whitelist] : [];
-      }
+      currentSelectedModels = parseModelList(item.model_whitelist);
       renderModelTags();
       // 打开 Modal 时重置并准备好上游模型下拉组件
       resetModelPicker();
@@ -473,13 +493,31 @@
       }
     });
 
+    // 输入每日限额时智能自动勾选启用硬顶开关
+    document.getElementById('edit-limit')?.addEventListener('input', (e) => {
+      const val = Number(e.target.value) || 0;
+      if (val > 0) {
+        const toggle = document.getElementById('edit-enabled');
+        if (toggle && !toggle.checked) {
+          toggle.checked = true;
+        }
+      }
+    });
+
     async function saveKeyRule() {
       if (!currentKeyId) return;
       const alias = document.getElementById('edit-alias').value.trim();
-      const enabled = document.getElementById('edit-enabled').checked;
+      let enabled = document.getElementById('edit-enabled').checked;
       const limit = Number(document.getElementById('edit-limit').value) || 0;
       const ratio = Number(document.getElementById('edit-ratio').value) || 1.2;
       const rpm = Number(document.getElementById('edit-rpm').value) || 0;
+
+      // 联动保护：如果输入了每日限额 > 0，但未勾选启用开关，智能自动开启并同步 UI
+      if (limit > 0 && !enabled) {
+        enabled = true;
+        const toggle = document.getElementById('edit-enabled');
+        if (toggle) toggle.checked = true;
+      }
 
       try {
         const resAlias = await fetch(`/admin/api/keys/${currentKeyId}/alias`, {

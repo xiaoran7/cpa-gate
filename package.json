@@ -1,6 +1,6 @@
 {
   "name": "cpa-gate",
-  "version": "2.10.2",
+  "version": "2.10.3",
   "description": "High-Performance Resilient LLM API Gateway & Reverse Proxy for CLIProxyAPI",
   "main": "server.mjs",
   "type": "module",
@@ -52,7 +52,7 @@
   ],
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --env-file-if-exists=.env.test -e \"process.env.GATE_MGMT_SECRET=process.env.GATE_MGMT_SECRET||'test-secret-12345678901234567890'; Promise.all([import('./tests/test_gate_features.mjs')]).catch(e => { console.error(e); process.exit(1); }) \" && node -e \"process.env.GATE_MGMT_SECRET=process.env.GATE_MGMT_SECRET||'test-secret-12345678901234567890'; import('./tests/test_gate_pagination.mjs')\" && node tests/test_gate_validation_url.mjs && node tests/test_gate_caching.mjs && node tests/test_cpa_management.mjs && node -e \"process.env.GATE_MGMT_SECRET=process.env.GATE_MGMT_SECRET||'test-secret-12345678901234567890'; import('./tests/test_compression_websocket.mjs')\" && node tests/test_openrouter_quota.mjs && node tests/test_workbuddy_quota_and_table.mjs && node tests/test_antigravity_quota_multi_endpoint.mjs && node tests/test_graceful_shutdown.mjs && node tests/test_opencode_quota_and_deleted_separation.mjs && node tests/test_static_assets_layout.mjs && node tests/test_repo_hygiene.mjs",
+    "test": "node --env-file-if-exists=.env.test -e \"process.env.GATE_MGMT_SECRET=process.env.GATE_MGMT_SECRET||'test-secret-12345678901234567890'; Promise.all([import('./tests/test_gate_features.mjs')]).catch(e => { console.error(e); process.exit(1); }) \" && node -e \"process.env.GATE_MGMT_SECRET=process.env.GATE_MGMT_SECRET||'test-secret-12345678901234567890'; import('./tests/test_gate_pagination.mjs')\" && node tests/test_gate_validation_url.mjs && node tests/test_gate_caching.mjs && node tests/test_cpa_management.mjs && node -e \"process.env.GATE_MGMT_SECRET=process.env.GATE_MGMT_SECRET||'test-secret-12345678901234567890'; import('./tests/test_compression_websocket.mjs')\" && node tests/test_openrouter_quota.mjs && node tests/test_workbuddy_quota_and_table.mjs && node tests/test_antigravity_quota_multi_endpoint.mjs && node tests/test_graceful_shutdown.mjs && node tests/test_opencode_quota_and_deleted_separation.mjs && node tests/test_static_assets_layout.mjs && node tests/test_repo_hygiene.mjs && node tests/test_key_model_and_quota_restrictions.mjs",
     "test:management:ui": "node tests/test_cpa_management.mjs --browser"
   },
   "dependencies": {

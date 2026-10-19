@@ -130,12 +130,12 @@ async function requestHandler(req, res) {
   }
 
   // 5. 热路径限速检查（Key 级 RPM 滑动窗口，先于配额）
-  const rpmCheck = checkRateLimit(req.headers['authorization']);
+  const rpmCheck = checkRateLimit(req);
   if (!rpmCheck.allowed) {
     console.warn('[Gate] Request blocked by rate limit: ' + rpmCheck.reason);
     metric('gate_rejections_total', { reason: 'rate_limited' });
     recordRequest({
-      keyId: resolveKeyId(req.headers['authorization']),
+      keyId: resolveKeyId(req),
       model: null,
       status: 429,
       totalTokens: 0,
@@ -155,11 +155,11 @@ async function requestHandler(req, res) {
   }
 
   // 6. 热路径配额检查 (极速内存比对，阻断超额 Key)
-  const quotaCheck = checkQuota(req.headers['authorization']);
+  const quotaCheck = checkQuota(req);
   if (!quotaCheck.allowed) {
     console.warn('[Gate] Request blocked by daily quota: ' + quotaCheck.reason);
     recordRequest({
-      keyId: resolveKeyId(req.headers['authorization']),
+      keyId: resolveKeyId(req),
       model: null,
       status: 429,
       totalTokens: 0,
@@ -195,7 +195,7 @@ async function requestHandler(req, res) {
     metric('gate_rejections_total', { reason: 'upstream_circuit_open' });
     notifyEvent('upstream_circuit_open', `port:${upstreamPort}`, `Gate 上游熔断打开（端口 ${upstreamPort}，连续失败 ${UPSTREAM_FAILURE_THRESHOLD} 次），请求返回 503，冷却 ${Math.round(UPSTREAM_COOLDOWN_MS / 1000)}s`).catch(() => {});
     recordRequest({
-      keyId: resolveKeyId(req.headers['authorization']),
+      keyId: resolveKeyId(req),
       model: null,
       status: 503,
       totalTokens: 0,
@@ -234,7 +234,7 @@ async function requestHandler(req, res) {
           try {
             const json = JSON.parse(rawBody.toString('utf8'));
             if (Array.isArray(json.data)) {
-              json.data = filterModelsForKey(req.headers['authorization'], json.data);
+              json.data = filterModelsForKey(req, json.data);
               const filteredBuf = Buffer.from(JSON.stringify(json), 'utf8');
               const sanitizedHeaders = sanitizeResponseHeaders(proxyRes.headers);
               sanitizedHeaders['content-length'] = filteredBuf.length;
@@ -310,13 +310,22 @@ async function requestHandler(req, res) {
     } catch (e) {}
 
     // 热路径模型白名单检查：校验请求的 model 是否在 Key 的允许集合内
-    if (parsedBody && parsedBody.model) {
-      const modelCheck = checkModelAllowed(req.headers['authorization'], parsedBody.model);
+    // 兼容 OpenAI / Anthropic (parsedBody.model) 与 Google Gemini REST 路径 (/v1beta/models/{model}:{action})
+    let requestedModel = parsedBody && typeof parsedBody.model === 'string' ? parsedBody.model : null;
+    if (!requestedModel && typeof urlPath === 'string') {
+      const geminiMatch = urlPath.match(/\/models\/([^/:]+)(?::[a-zA-Z]+)?/);
+      if (geminiMatch) {
+        requestedModel = geminiMatch[1];
+      }
+    }
+
+    if (requestedModel) {
+      const modelCheck = checkModelAllowed(req, requestedModel);
       if (!modelCheck.allowed) {
         console.warn(`[Gate] Model access forbidden: ${modelCheck.reason}`);
         recordRequest({
-          keyId: resolveKeyId(req.headers['authorization']),
-          model: parsedBody.model,
+          keyId: resolveKeyId(req),
+          model: requestedModel,
           status: 403,
           totalTokens: 0,
           latencyMs: 0,
@@ -342,8 +351,8 @@ async function requestHandler(req, res) {
     if (expireTime && Date.now() < expireTime) {
       console.warn(`[Gate] Fast circuit-breaker 502 for deadlocked fingerprint: ${fingerprint.slice(0, 12)}...`);
       recordRequest({
-        keyId: resolveKeyId(req.headers['authorization']),
-        model: parsedBody?.model || null,
+        keyId: resolveKeyId(req),
+        model: requestedModel || parsedBody?.model || null,
         status: 502,
         totalTokens: 0,
         latencyMs: 0,
@@ -365,7 +374,7 @@ async function requestHandler(req, res) {
     const retryEligible = isRequestRetryEligible(parsedBody);
     const abortController = new AbortController();
     const startTime = Date.now();
-    const hotKeyId = resolveKeyId(req.headers['authorization']);
+    const hotKeyId = resolveKeyId(req);
 
     res.on('close', () => {
       if (!res.writableEnded) {

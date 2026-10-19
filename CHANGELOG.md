@@ -1,5 +1,22 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.10.3] - 2026-10-19
+
+API Key 模型白名单与每日限额配置持久化与加载修复、多协议凭证穿透与网关热路径真实限制强化：
+
+- **API Key 模型白名单与每日限额配置持久化与回显加载修复（API Key Model Whitelist & Quota Hydration Fix）**：
+  1. **后端模型白名单标准化存储**：在 `lib/core/engine.mjs` 中新增 `normalizeModelWhitelist` 与 `parseModelWhitelist`，对接收到的数组、JSON 串、逗号分割字符串统一标准化；存入 SQLite 时序列化为标准 JSON 数组字符串或空字符串，彻底解决 `updateQuotaRule` 原逻辑强制 `String(model_whitelist)` 导致数组被强转为逗号连接字符串而破坏 JSON 格式的问题；
+  2. **前端多格式解析与下拉匹配**：在 `admin-keys.js` 中新增 `parseModelList(raw)`，兼容历史逗号串与标准 JSON 数组，保证解析后的每一项均为独立无逗号的纯净小写模型名，解决编辑弹窗打不开或无法高亮勾选已有模型项的问题；
+  3. **限额输入联动与开启开关防丢**：修复输入每日限额（Token）但未手动勾选「硬限额」开关时保存导致限额失效并在表格显示为「不限」的问题；前端在输入每日限额时自动联动勾选启用硬限额，保存时若限额 > 0 且未启用则自动激活；在密钥列表中对未启用的限额明确标注为 `${limit} (未启用)` 并显示 RPM 限制，防止误解。
+- **多协议凭证穿透与网关热路径真实限制强化（Multi-Protocol Key Resolution & Traffic Enforcement）**：
+  1. **多协议凭证提取**：在 `lib/core/key-registry.mjs` 中重构 `extractRawKey` 与 `resolveKeyId`，支持直接传入 `IncomingMessage` 请求对象，统一解析 `Authorization: Bearer`、Anthropic 原生 `x-api-key`、Azure `api-key`、Google Gemini `x-goog-api-key` 以及 Gemini REST URL `?key=` 参数；
+  2. **热路径全局传递**：在 `server.mjs` 中将各热路径限速（RPM）、每日配额检查（`checkQuota`）、模型过滤（`filterModelsForKey`）与模型白名单检查（`checkModelAllowed`）统一传入 `req` 对象，彻底堵住了非 Bearer 请求头（如 Claude 原生客户端、Gemini REST 客户端）绕过限流限额与模型限制的漏洞；
+  3. **智能模型匹配引擎**：在 `lib/core/engine.mjs` 中实现 `isModelPermitted`，支持精确匹配、大小写不敏感、厂商前缀剥离（如 `anthropic/claude-3-7-sonnet`）、通配符匹配（如 `gpt-4o*`）以及版本日期后缀匹配（如 `claude-3-7-sonnet-20250219`、`@20250219`）；
+  4. **Gemini REST 端点模型提取**：在 `server.mjs` 中针对 POST 请求支持从 URL 路径 `/\/models\/([^/:]+)/` 提取模型名称进行热路径拦截。
+- **自动化测试套件扩展与验证（Automated Testing Suite）**：
+  1. **专用端到端测试**：新增 `tests/test_key_model_and_quota_restrictions.mjs`，包含多协议 Key 提取、模型归一化、智能模型匹配、SQLite 持久化与重启一致性、热路径 403 阻断与 429 RPM 滑动窗口拦截、前端解析 7 大测试项；
+  2. **测试全量通过**：纳入 `npm test`，全量 14 个测试套件 100% 通过。
+
 ## [v2.10.2] - 2026-10-19
 
 上游 CPA 管理控制台同步与跨仓库静态资源一致性闭环：
