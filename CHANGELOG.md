@@ -1,5 +1,16 @@
 # Gate (formerly CPA Stream Guard) Changelog
 
+## [v2.10.2] - 2026-10-19
+
+上游 CPA 管理控制台同步与跨仓库静态资源一致性闭环：
+
+- **上游 CPA 管理控制台原生同步（Upstream CPAMC Management Sync）**：
+  1. **响应解包与状态挂载防御**：从 `cliproxyapi` 源头同步最新 `static/management.html`（MD5 `17164d99ee3b5da5a5b5fa3be5926a07`），彻底解决 WorkBuddy 签到/补偿套件在 Axios 解包后的防御性访问缺陷（`p(e?.data || e)`）；
+  2. **自动拉取与凭证状态恢复**：修复前端抽屉打开时由于解包失败将状态重置为 `undefined`，导致今日日期卡在 "正在拉取..." 且纳管账号总数显示为 0 的顽疾；
+- **跨仓库静态资源交付防倒灌治理（Cross-Repository Static Delivery Hardening）**：
+  1. **宿主仓库基准对齐**：根除源头仓库单向临时向生产机修补导致的托管版本脱节隐患；
+  2. **打包版本升级与静态版本号递增**：版本升级至 `v2.10.2`，更新 `package.json`、`package-lock.json` 与 `admin.html` 静态资源缓存控制版本，全量 31 项自动化测试 100% 通过。
+
 ## [v2.10.1] - 2026-10-19
 
 上游 CPA 凭证别名 (Nickname/DisplayName) 权威解析与全链路流水穿透、审计搜索与前端 .json 防泄露治理：
