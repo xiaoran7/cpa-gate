@@ -2,6 +2,9 @@
 
 All notable changes to `cpa-gate` are documented in this file.
 
+## [v2.10.6] - 2026-10-20
+- **上游 CPA 控制台同步与 Qoder 双域支持**：从 `cliproxyapi` 同步最新 `static/management.html`（MD5 `56e6d6a4e9a62ea055dd6a5f2743117e`），新增 Qoder 国际版 (`qoder`) 与国内版 (`qoder-cn`) OAuth 登录卡片、标签过滤、SVG 图标与账号别名规范支持。
+
 ## [v2.10.5] - 2026-10-19
 - **WorkBuddy 远期基础包语义净化**：针对腾讯 API 为免费/体验包返回的远期哨兵时间（`>= 3` 年，如 `2035-01-15`）或包名含 `Free Plan`/`体验`/`免费` 且 `> 1` 年的资源包，解决此前展示机械天数倒计时的问题，在 `getWorkBuddyExpirationInfo` 与 `sync.mjs` 中统一净化为翡翠绿 `"长期有效"`（`#10b981`），Tooltip 保留完整物理时间戳；混合账号的"首批到期"严格锚定短期包。
 - **资源包排版防截断与验证**：远期包左侧包名最大宽度由 `55%` 放宽至 `72%`，解决 `Free Plan Subscription` 截断问题；新增长期包与混合包单测，`npm test` 14 个测试套件全部通过。
