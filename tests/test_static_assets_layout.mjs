@@ -56,12 +56,15 @@ console.log('测试 1: 默认布局下静态资源从安装根目录命中');
     ['/admin/keys.js', [200]],
     ['/admin/stats.js', [200]],
     ['/admin/logs.js', [200]],
+    ['/admin/i18n.js', [200]],
     ['/admin/overview.js', [200]],
     ['/admin/overview.css', [200]],
     ['/admin/cpa-management.js', [200]],
     ['/admin/cpa-management.css', [200]],
     ['/admin/assets/sakura-gate-v2.webp', [200]],
-    ['/admin/assets/gate-sakura-mark-128.png', [200]]
+    ['/admin/assets/gate-sakura-mark-128.png', [200]],
+    ['/admin/assets/qoder-light.png', [200]],
+    ['/admin/assets/qoder.svg', [200]]
   ];
   for (const [target, expected] of cases) {
     // 与 server.mjs 的接线方式一致：GUARD_DIR 是数据目录，STATIC_DIR 是安装根目录。

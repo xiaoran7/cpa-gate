@@ -159,7 +159,7 @@ console.log('测试 4: 前端 admin.html 内联 JavaScript 语法验证 (防语�
   console.log('  ✓ admin.html 内联脚本编译解析无语法错误 (通过 AST/vm.Script 校验)');
 
   // 外置前端脚本同样进这道门禁：v2.4.10 的白屏事故正是前端脚本语法断裂导致的。
-  for (const asset of ['admin-cpa.js', 'admin-overview.js', 'admin-logs.js', 'admin-quotas.js', 'admin-keys.js', 'admin-stats.js']) {
+  for (const asset of ['admin-cpa.js', 'admin-overview.js', 'admin-logs.js', 'admin-quotas.js', 'admin-keys.js', 'admin-stats.js', 'admin-i18n.js']) {
     const source = fs.readFileSync(new URL(`../${asset}`, import.meta.url), 'utf8');
     new vm.Script(source, { filename: asset });
     console.log(`  ✓ ${asset} 编译解析无语法错误`);
@@ -171,6 +171,7 @@ console.log('测试 4: 前端 admin.html 内联 JavaScript 语法验证 (防语�
   assert.ok(html.includes('/admin/keys.js'), 'admin.html 未引入 /admin/keys.js');
   assert.ok(html.includes('/admin/stats.js'), 'admin.html 未引入 /admin/stats.js');
   assert.ok(html.includes('/admin/logs.js'), 'admin.html 未引入 /admin/logs.js');
+  assert.ok(html.includes('/admin/i18n.js'), 'admin.html 未引入 /admin/i18n.js');
   assert.ok(html.includes('/admin/overview.js'), 'admin.html 未引入 /admin/overview.js');
   assert.ok(html.includes('/admin/overview.css'), 'admin.html 未引入 /admin/overview.css');
 
@@ -1183,6 +1184,7 @@ console.log('测试 17: CPA 日志加载游标不得置 0，超限错误必须�
   // 全部日志。生产 CPA 日志已积累 320MB（31 个轮转文件 311M + main.log 2.9M），
   // 全量请求必然被 Gate 的 8MB 上限拦掉。
   const cpaSrc = fs.readFileSync('admin-cpa.js', 'utf8');
+  const i18nSrc = fs.readFileSync('admin-i18n.js', 'utf8');
 
   // 1) 游标初始值必须是当前秒，不能是 0
   const initMatch = cpaSrc.match(/logAfter:\s*([^,]+),/);
@@ -1323,7 +1325,7 @@ console.log('测试 17: CPA 日志加载游标不得置 0，超限错误必须�
     '必须提供常驻的截断提示条，筛选滚动后用户仍看得到'
   );
   assert.ok(
-    /已达 8MB 上限被截断/.test(cpaSrc),
+    /logsTruncatedBanner/.test(cpaSrc) && /已达 8MB 上限被截断/.test(i18nSrc),
     '截断提示必须说明原因并引导改选更短时间范围'
   );
   console.log('  ✓ truncated 标志从 management 透传到前端，并提供常驻提示条');
@@ -2195,8 +2197,8 @@ console.log('测试 25: 腾讯 WorkBuddy / CodeBuddy 上游提供商接入与全
   const adminLogsJs = fs.readFileSync('admin-logs.js', 'utf8');
   const adminStyleCss = fs.readFileSync('admin-style.css', 'utf8');
 
-  assert.ok(adminHtml.includes('<th>思考强度</th>'), 'admin.html 表头缺少「思考强度」列');
-  assert.ok(adminHtml.includes('<th>速率 (tok/s)</th>'), 'admin.html 表头缺少「速率 (tok/s)」列');
+  assert.ok(/<th[^>]*>思考强度<\/th>/.test(adminHtml), 'admin.html 表头缺少「思考强度」列');
+  assert.ok(/<th[^>]*>速率 \(tok\/s\)<\/th>/.test(adminHtml), 'admin.html 表头缺少「速率 (tok/s)」列');
   assert.ok(adminHtml.includes('colspan="12"'), 'admin.html 默认加载占位需拓展为 12 列');
   assert.ok(adminLogsJs.includes('colspan="12"'), 'admin-logs.js 空数据占位需拓展为 12 列');
 

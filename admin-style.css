@@ -478,6 +478,11 @@
       color: #0d7a42;
       border: 1px solid rgba(13, 122, 66, 0.25);
     }
+    .provider-icon-qoder {
+      background: #fff7ed;
+      color: #ff6a00;
+      border: 1px solid rgba(255, 106, 0, 0.25);
+    }
     .provider-icon-gate {
       background: linear-gradient(135deg, #38bdf8, #6366f1);
       color: #fff;

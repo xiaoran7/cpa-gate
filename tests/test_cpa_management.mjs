@@ -367,6 +367,7 @@ try {
     assert.deepEqual(capture('/admin/keys.js'), [404], '外置密钥脚本缺失应返回单个 404');
     assert.deepEqual(capture('/admin/stats.js'), [404], '外置统计脚本缺失应返回单个 404');
     assert.deepEqual(capture('/admin/logs.js'), [404], '外置流水脚本缺失应返回单个 404');
+    assert.deepEqual(capture('/admin/i18n.js'), [404], '外置 i18n 脚本缺失应返回单个 404');
     assert.deepEqual(capture('/admin/assets/sakura-observatory-v3.webp'), [404], '图片资源缺失应返回单个 404');
     // 映射里不存在的路径应放行给后续路由，而不是在这里 404
     assert.deepEqual(capture('/admin/does-not-exist.js'), [], '未登记的路径应交还主路由处理');

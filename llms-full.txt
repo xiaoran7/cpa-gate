@@ -94,7 +94,7 @@ Every usage event is synchronously inserted into `usage_outbox` before in-memory
 - **Credential-First Attribution**: `getUsageStats()` aggregates provider token share by joining `request_events.auth_index` (plus outbox events) against active CPA credentials and `upstream_auth_baselines`, preventing `-free` models served by WorkBuddy from being misattributed to OpenCode Zen.
 - **Nickname Hierarchy (`resolveAuthAccountDisplayName`)**: `nickname` -> non-region parenthetical alias in `label` -> non-generic `email` -> custom `label` -> `.json`-stripped `filename` -> 16-char `auth_index`. Group health (`deriveGroupHealth`) evaluates the last 60m separately from 7d availability.
 
-## 13. Testing (`npm test` — 14 Suites)
+## 13. Testing (`npm test` — 15 Suites)
 
 All suites run in isolated temporary SQLite directories via `tests/_isolated-db.mjs`:
 1. `test_gate_features.mjs` — Core proxy, outbox, attribution, CST bucketing, nickname penetration, cache busting.
@@ -111,26 +111,39 @@ All suites run in isolated temporary SQLite directories via `tests/_isolated-db.
 12. `test_static_assets_layout.mjs` — `STATIC_DIR` resolution, `GATE_DIR` fallback, `.env` precedence.
 13. `test_repo_hygiene.mjs` — Tracked-file secret scanner gate.
 14. `test_key_model_and_quota_restrictions.mjs` — Multi-protocol key extraction, smart model matching, quota persistence, hot-path 403/429 enforcement.
+15. `test_i18n.mjs` — Console zh/en bilingual gate: dictionary completeness, `t()` fallback, `<html lang>` sync, `data-i18n` coverage, no Chinese in `===` comparisons, no hardcoded `zh-CN` display locale, no residual Chinese literals.
 
-## 14. Known constraints and trade-offs
+## 14. Console internationalization (zh/en)
+
+The `/admin` dashboard ships a bilingual UI with no build step. `admin-i18n.js` holds a single dictionary of `{ zh, en }` entries and exposes a global `t(key, vars?)` helper.
+
+- **Runtime API**: `window.t(key, vars?)`, `window.setLocale(lang)`, `window.toggleLocale()`, `window.onLocaleChange(fn)`, `window.onLocaleRebuild(fn)`, `window.GATE_LOCALE` (`'zh' | 'en'`), `window.LOCALE` (`'zh-CN' | 'en-US'` for `Intl` / `toLocaleString`).
+- **Locale resolution order**: `localStorage['gate_lang']` -> `navigator.language` -> default `zh`.
+- **Static markup**: `data-i18n` sets `textContent`; `data-i18n-title` / `data-i18n-placeholder` / `data-i18n-aria-label` set the matching attribute.
+- **Dynamic markup**: rendered strings go through `t()` at render time. `pageMeta` stores dictionary *keys* (not translated text) so runtime writes from `admin-overview.js` stay locale-aware; `relocalizeDynamicUI()` re-renders the active tab from the in-memory `cached*` caches without a network round trip.
+- **Re-render on switch**: `setLocale()` applies static attributes, then fires `onLocaleRebuild` callbacks (used by the self-mounting `admin-overview.js`) and `onLocaleChange` listeners (used by `relocalizeDynamicUI()`).
+- **Hard rules enforced by `test_i18n.mjs`**: no Chinese string literal may take part in an `===` / `!==` comparison (compare the underlying data key instead); no display locale may be hardcoded as `zh-CN` (use `LOCALE`); no Chinese string literal may survive in render code (exempt lines are marked `i18n-exempt`). The `en-CA` locale in `admin-stats.js` is a *date-key generator*, not a display locale, and is intentionally left alone.
+- **Docs**: every file under `docs/` carries an English section followed by `<a id="中文版"></a>` and the Chinese section, with a `[English](#top) | [中文](#中文版)` switcher at the top.
+
+## 15. Known constraints and trade-offs
 
 - Quotas are enforced per key per `Asia/Shanghai` calendar day; RPM windows live in memory.
 - `GATE_MAX_ATTEMPTS` defaults to `1` to avoid amplifying upstream load; tool-calling requests with non-`function` tools never retry.
 - Vanilla JS dashboard requires no build step; cpa-gate never stores upstream OAuth tokens.
 
-## 15. Upstream lineage and attribution
+## 16. Upstream lineage and attribution
 
 - **CLIProxyAPI** (`https://github.com/router-for-me/CLIProxyAPI`, MIT) — Credential pool, OAuth lifecycle, provider routing.
 - **CLI Proxy API Management Center** (`https://github.com/router-for-me/Cli-Proxy-API-Management-Center`, MIT) — Single-file management UI at `static/management.html` served behind `/admin/upstream/*`.
 
-## 16. FAQ
+## 17. FAQ
 
 - **Does cpa-gate work without CPA?** No, it proxies data/management traffic to CPA on `GATE_UPSTREAM_HOST:GATE_UPSTREAM_PORT`.
 - **Why is rate limiting applied before quota?** So a retry storm gets throttled with `429` at the RPM layer instead of burning the key's entire daily token budget.
 - **Why are retries off by default (`GATE_MAX_ATTEMPTS=1`)?** Default retries triple upstream load during transient flaps and trip circuit breakers faster; enable `2..5` when needed.
 - **How are tokens attributed to providers?** Via the 16-hex `auth_index` in CPA's `X-Cpa-Trace-Id`, not by guessing from model names.
 
-## 17. Troubleshooting table
+## 18. Troubleshooting table
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -139,7 +152,8 @@ All suites run in isolated temporary SQLite directories via `tests/_isolated-db.
 | `503 upstream_circuit_open` | Consecutive upstream 5xx hit threshold | Wait `GATE_UPSTREAM_COOLDOWN_MS` or fix upstream |
 | `403 management_access_forbidden` | Direct call to `/v0/management/*` | Use `/admin/upstream/*` after logging into `/admin` |
 | `502 upstream_empty_response` | Empty completion cached for 30s | Modify prompt or wait 30s |
+| Console shows a raw key like `nav.quotas` | A dictionary entry is missing | Add the `{ zh, en }` pair to `admin-i18n.js`; `test_i18n.mjs` fails on unregistered keys |
 
-## 18. Versioning
+## 19. Versioning
 
 Follows `MAJOR.MINOR.PATCH`. `package.json`, the `admin.html` version badge, and `?v=` query strings on `admin-*.js/css` are bumped in lockstep and verified by `test_gate_features.mjs`.

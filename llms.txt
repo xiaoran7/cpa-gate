@@ -24,6 +24,8 @@ npm start              # Dashboard: http://127.0.0.1:8317/admin
 
 ## Documentation & specs
 
-- [llms-full.txt](https://github.com/xiaoran7/cpa-gate/blob/main/llms-full.txt): Full 18-section architecture, guard chain, SQLite schema, HTTP API, FAQ, and 14-suite test matrix.
+- [llms-full.txt](https://github.com/xiaoran7/cpa-gate/blob/main/llms-full.txt): Full 19-section architecture, guard chain, SQLite schema, HTTP API, FAQ, and 15-suite test matrix.
 - [docs/cpa-upstream.md](https://github.com/xiaoran7/cpa-gate/blob/main/docs/cpa-upstream.md): Port topology, CPA management API contract, nickname hierarchy, and IP-ban defense.
 - [docs/workbuddy-integration.md](https://github.com/xiaoran7/cpa-gate/blob/main/docs/workbuddy-integration.md): Tencent WorkBuddy / CodeBuddy metering contract and multi-package / long-term expiration rules.
+
+Every file under `docs/` is bilingual — English section first, then an `<a id="中文版"></a>` anchor and the Chinese section — so both audiences can read the same file without a separate English tree. The `/admin` console is likewise bilingual (zh/en) via a single `admin-i18n.js` dictionary and a global `t()` helper, with no build step.

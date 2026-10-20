@@ -1,4 +1,50 @@
-# CPA 上游集成规范 (CPA Upstream Integration)
+# CPA Upstream Integration
+
+Records the port topology, management API contract and anti-ban mechanisms governing how Gate cooperates with the upstream CLIProxyAPI (CPA).
+
+[English](#top) | [中文](#中文版)
+
+## 1. Port topology
+
+| Listen address | Service | Role |
+|---|---|---|
+| `127.0.0.1:8315` | CLIProxyAPI | Upstream instance (defaults for `GATE_UPSTREAM_*` / `GATE_MGMT_*`) |
+| `127.0.0.1:8316` | Gate | Reverse-proxy (Nginx / OpenResty) entry point |
+| `127.0.0.1:8317` | Gate | Local / Tailnet direct entry point |
+
+> The health probes are `/healthz` (liveness) and `/readyz` (readiness — requires CPA sync and outbox flush within 30s); `/health` returns 404.
+
+## 2. Management API contract and credential safety
+
+Gate accesses CPA's `/v0/management/*` and `/v8/management/*` through the `GATE_MGMT_SECRET` environment variable.
+
+- **Never read the hashed key from CPA's config file**: on startup CPA replaces `remote-management.secret-key` in place with a `$2b$10$...` bcrypt hash, so requesting with the hash directly triggers a 401; `GATE_MGMT_SECRET` must hold the plaintext secret.
+- **Core endpoints**:
+  - Credential and key lists: `GET /v0/management/auth-files`, `GET /v0/management/api-keys`
+  - Hot-update of credential fields: `PATCH /v0/management/auth-files/fields` (body: `{ name, priority, weight, note, nickname, label, proxy_url, disabled, disable_cooling }`)
+  - Scheduling defaults: when CPA has no explicit `priority` set, it schedules on `0` by default; `GATE_DEFAULT_AUTH_PRIORITY` is aligned to `0` (weight defaults to `1`).
+- **Credential alias priority**: `resolveAuthAccountDisplayName` falls back in order: `nickname` → non-regional words inside `label` parentheses → non-generic `email` → custom `label` → filename with `.json` stripped → the 16-digit `auth_index`.
+
+## 3. Brute-force protection and IP-ban isolation
+
+CPA applies an in-memory IP ban (about 30 minutes, `IP banned due to too many failed attempts`) to repeated 401 management probes. Because Gate and CPA both live on `127.0.0.1`, an external unauthorized probe would get Gate's background sync banned along with it.
+
+**Gate's defenses**:
+1. **Controlled reverse proxy for `/admin/upstream/*`**: the frontend holds only `GATE_ADMIN_SECRET`; the Gate server injects `GATE_MGMT_SECRET` in memory when forwarding, so the master secret never reaches the browser.
+2. **Direct-access interception**: any non-admin request to `/v0/management/*`, `/v8/management/*` or `/management.html` is rejected with 403 at Gate's outer layer.
+3. **Cross-repo static sync**: the source of `static/management.html` lives in `Project/cliproxyapi`; after editing, sync it into this repo and verify the MD5 matches, then run `systemctl restart gate` after deployment.
+4. **Ban lifting**: CPA's ban lives only in memory — restarting the CPA process/container clears it.
+
+## 4. Autonomous metering for special upstreams
+
+- **Tencent WorkBuddy / CodeBuddy**: see [workbuddy-integration.md](workbuddy-integration.md).
+- **Google Antigravity**:
+  - **UA threshold**: `retrieveUserQuotaSummary` requires client version `>= 1.2.0` (older versions only return the Claude/GPT groups). Gate uniformly uses `antigravity/cli/1.3.6 (aidev_client; os_type=darwin; arch=arm64)`.
+  - **Multi-endpoint failover**: it polls `daily-cloudcode-pa.googleapis.com`, `cloudcode-pa.googleapis.com` and `daily-cloudcode-pa.sandbox.googleapis.com` in order, adopting a response only when it contains the complete Gemini model set.
+
+<a id="中文版"></a>
+
+# CPA 上游集成规范
 
 记录 Gate 与上游 CLIProxyAPI (CPA) 协同的端口拓扑、管理 API 契约与防封禁机制。
 

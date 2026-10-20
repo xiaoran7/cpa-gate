@@ -93,7 +93,7 @@
     function render() {
       const opts = optionsOverride || Array.from(select.options).map(o => ({ value: o.value, label: o.textContent }));
       const current = opts.find(o => String(o.value) === String(select.value)) || opts[0];
-      const label = current ? current.label : '请选择';
+      const label = current ? current.label : t('cpa.pleaseSelectLabel');
       entry.container.innerHTML = `
         <button type="button" class="dropdown-trigger" aria-label="${escape(label)}" aria-expanded="${entry.isOpen}" aria-haspopup="listbox">
           <span class="dropdown-label">${escape(label)}</span>
@@ -120,46 +120,46 @@
   }
 
   const settings = [
-    ['request-retry', '请求重试次数', 'number'], ['max-retry-interval', '最大重试间隔（秒）', 'number'],
-    ['proxy-url', '全局代理地址', 'text'], ['request-log', '请求日志', 'boolean'],
-    ['logging-to-file', '写入文件日志', 'boolean'], ['ws-auth', 'WebSocket 鉴权', 'boolean'],
-    ['usage-statistics-enabled', '用量统计', 'boolean'],
-    ['quota-exceeded/switch-project', '配额耗尽时切换项目', 'boolean'],
-    ['quota-exceeded/switch-preview-model', '配额耗尽时切换预览模型', 'boolean'],
-    ['error-logs-max-files', '错误日志保留文件数', 'number']
+    ['request-retry', t('cpa.settingRequestRetry'), 'number'], ['max-retry-interval', t('cpa.settingMaxRetryInterval'), 'number'],
+    ['proxy-url', t('cpa.settingProxyUrl'), 'text'], ['request-log', t('cpa.settingRequestLog'), 'boolean'],
+    ['logging-to-file', t('cpa.settingLoggingToFile'), 'boolean'], ['ws-auth', t('cpa.settingWsAuth'), 'boolean'],
+    ['usage-statistics-enabled', t('cpa.settingUsageStatistics'), 'boolean'],
+    ['quota-exceeded/switch-project', t('cpa.settingQuotaSwitchProject'), 'boolean'],
+    ['quota-exceeded/switch-preview-model', t('cpa.settingQuotaSwitchPreviewModel'), 'boolean'],
+    ['error-logs-max-files', t('cpa.settingErrorLogsMaxFiles'), 'number']
   ];
   const configPage = $('tab-page-cpa-config');
   if (configPage) configPage.innerHTML = `
-    <section class="cpa-panel" id="cpa-routing-panel"><h3>路由调度与会话粘性策略 (Routing & Load Balancing)</h3><p>控制上游凭据池分发算法与会话亲和性。支持轮询、加权轮询、填充优先、临期优先 (Smart) 与步调均衡 (Pace)。保存后直接热写回配置。</p>
+    <section class="cpa-panel" id="cpa-routing-panel"><h3>${t('cpa.routingTitle')}</h3><p>${t('cpa.routingDesc')}</p>
       <div class="cpa-grid">
         <div class="cpa-field">
-          <label for="cpa-routing-strategy">分发算法 (Strategy)</label>
+          <label for="cpa-routing-strategy">${t('cpa.routingStrategyLabel')}</label>
           <select id="cpa-routing-strategy">
-            <option value="round-robin">轮询 (Round Robin)</option>
-            <option value="weighted-round-robin">加权轮询 (Weighted Round Robin)</option>
-            <option value="fill-first">填充优先 (Fill First)</option>
-            <option value="smart">临期优先 (Smart Quota)</option>
-            <option value="pace">步调均衡 (Pace Quota)</option>
+            <option value="round-robin">${t('cpa.strategyRoundRobin')}</option>
+            <option value="weighted-round-robin">${t('cpa.strategyWeightedRoundRobin')}</option>
+            <option value="fill-first">${t('cpa.strategyFillFirst')}</option>
+            <option value="smart">${t('cpa.strategySmartQuota')}</option>
+            <option value="pace">${t('cpa.strategyPaceQuota')}</option>
           </select>
         </div>
         <div class="cpa-field cpa-field-checkbox" style="align-self:end;margin-bottom:10px;">
-          <label><input type="checkbox" id="cpa-routing-affinity"/> 启用会话粘性路由 (Session Affinity)</label>
+          <label><input type="checkbox" id="cpa-routing-affinity"/> ${t('cpa.routingAffinityLabel')}</label>
         </div>
       </div>
       <div class="cpa-grid">
         <div class="cpa-field">
-          <label for="cpa-routing-ttl">会话粘性 TTL (秒，留空表示关闭)</label>
-          <input type="number" id="cpa-routing-ttl" min="0" placeholder="例如 3600"/>
+          <label for="cpa-routing-ttl">${t('cpa.routingTtlLabel')}</label>
+          <input type="number" id="cpa-routing-ttl" min="0" placeholder="${t('cpa.ttlPlaceholderExample')}"/>
         </div>
         <div class="cpa-actions" style="align-self:end;margin-bottom:8px;">
-          ${button('routing-load', '刷新路由配置')}
-          ${button('routing-save', '保存路由配置', 'btn btn-primary btn-sm')}
+          ${button('routing-load', t('cpa.refreshRoutingConfig'))}
+          ${button('routing-save', t('cpa.saveRoutingConfig'), 'btn btn-primary btn-sm')}
         </div>
       </div>
       <div class="cpa-status" id="cpa-routing-status"></div>
     </section>
-    <section class="cpa-panel"><h3>常用设置</h3><p>修改后由 CPA 写回配置并热加载。</p>
-      <div class="cpa-actions">${button('settings-load', '刷新设置')}${button('version-check', '检查 CPA 新版本')}</div><div class="cpa-status" id="cpa-version-status"></div>
+    <section class="cpa-panel"><h3>${t('cpa.commonSettingsTitle')}</h3><p>${t('cpa.commonSettingsDesc')}</p>
+      <div class="cpa-actions">${button('settings-load', t('cpa.refreshSettings'))}${button('version-check', t('cpa.checkNewVersion'))}</div><div class="cpa-status" id="cpa-version-status"></div>
       <div id="cpa-settings-rows">${settings.map(([key, label, type]) => `
         <div class="cpa-setting-row" data-cpa-setting="${key}">
           <label>${label}</label>
@@ -167,10 +167,10 @@
             <label class="cpa-toggle-wrapper">
               <input class="cpa-setting-value cpa-toggle-input" type="checkbox"/>
               <span class="cpa-toggle-track"><span class="cpa-toggle-thumb"></span></span>
-              <span class="cpa-toggle-state-text">关闭</span>
+              <span class="cpa-toggle-state-text">${t('cpa.closeLabel')}</span>
             </label>
           ` : `<input class="cpa-setting-value" type="${type}"/>`}
-          ${button('setting-save', '保存')}
+          ${button('setting-save', t('cpa.saveButton'))}
         </div>
       `).join('')}</div>
       <div class="cpa-status" id="cpa-settings-status"></div>
@@ -178,8 +178,8 @@
     <section class="cpa-panel">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
         <div>
-          <h3>可用模型</h3>
-          <p style="margin-bottom:0;">按选定的 API Key 查询经过 Gate 实际可访问的模型，支持快速过滤与复制 ID。</p>
+          <h3>${t('cpa.availableModelsTitle')}</h3>
+          <p style="margin-bottom:0;">${t('cpa.availableModelsDesc')}</p>
         </div>
         <div id="cpa-key-models-count" style="font-size:12px;color:#50708d;font-weight:600;align-self:center;"></div>
       </div>
@@ -189,25 +189,25 @@
           <select id="cpa-model-key"></select>
         </div>
         <div class="cpa-field" style="flex:1.2;min-width:240px;margin:0;">
-          <label for="cpa-key-models-search">过滤模型</label>
-          <input type="search" id="cpa-key-models-search" placeholder="输入模型名称或提供商过滤..."/>
+          <label for="cpa-key-models-search">${t('cpa.modelFilterLabel')}</label>
+          <input type="search" id="cpa-key-models-search" placeholder="${t('cpa.modelSearchPlaceholder')}"/>
         </div>
         <div class="cpa-actions" style="margin:0;padding-bottom:1px;">
-          ${button('models-load-keys', '刷新 Key')}
-          ${button('models-load', '重新查询', 'btn btn-primary btn-sm')}
+          ${button('models-load-keys', t('cpa.refreshKeys'))}
+          ${button('models-load', t('cpa.requeryModels'), 'btn btn-primary btn-sm')}
         </div>
       </div>
       <div class="cpa-scroll-table-wrap">
         <table class="cpa-table">
           <thead>
             <tr>
-              <th style="min-width:220px;">模型 ID</th>
-              <th style="width:140px;">提供商</th>
-              <th style="width:120px;text-align:right;">操作</th>
+              <th style="min-width:220px;">${t('cpa.modelId')}</th>
+              <th style="width:140px;">${t('quotas.providerColumn')}</th>
+              <th style="width:120px;text-align:right;">${t('cpa.actionsColumnLabel')}</th>
             </tr>
           </thead>
           <tbody id="cpa-model-rows">
-            <tr><td colspan="3" style="text-align:center;padding:24px;color:#6b8194;">选择 Key 后查询</td></tr>
+            <tr><td colspan="3" style="text-align:center;padding:24px;color:#6b8194;">${t('cpa.selectKeyToQuery')}</td></tr>
           </tbody>
         </table>
       </div>
@@ -218,25 +218,25 @@
         <div class="cpa-danger-summary-title">
           <span class="cpa-danger-icon">${CPA_ICONS.warn}</span>
           <div>
-            <strong style="color:#b4233a;font-size:14px;">高级维护：完整 config.yaml (高危配置区)</strong>
+            <strong style="color:#b4233a;font-size:14px;">${t('cpa.yamlDangerTitle')}</strong>
             <div style="font-size:12.5px;color:#6b8194;font-weight:normal;margin-top:2px;">
-              直接编辑 CPA 原始底层配置文件。保存将全量替换 49 项全部全局配置，默认安全折叠防误触。
+              ${t('cpa.yamlDangerDesc')}
             </div>
           </div>
         </div>
-        <span class="cpa-danger-expand-btn">点击展开编辑器 ▾</span>
+        <span class="cpa-danger-expand-btn">${t('cpa.expandEditor')}</span>
       </summary>
       <div class="cpa-danger-content">
         <div style="background:#fff7f6;border:1px solid #ffd0d0;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#99242a;line-height:1.5;">
-          <strong>操作须知：</strong>保存将全量替换 CPA 全部配置。建议优先使用上方「常用设置」与「路由调度」进行细粒度修改。若确需手动编辑，保存前请务必仔细核对差异。
+          <strong>${t('cpa.yamlNotesPrefix')}</strong>${t('cpa.yamlNotesBody')}
         </div>
         <div class="cpa-actions">
-          ${button('yaml-load', '重新读取')}
-          ${button('yaml-preview', '查看改动')}
-          ${button('yaml-save', '保存 YAML (全量替换)', 'btn btn-danger btn-sm')}
+          ${button('yaml-load', t('cpa.reloadYaml'))}
+          ${button('yaml-preview', t('cpa.viewChanges'))}
+          ${button('yaml-save', t('cpa.saveYamlButton'), 'btn btn-danger btn-sm')}
         </div>
         <div class="cpa-field">
-          <label for="cpa-yaml-editor">CPA config.yaml 原文</label>
+          <label for="cpa-yaml-editor">${t('cpa.yamlEditorLabel')}</label>
           <textarea class="cpa-code" id="cpa-yaml-editor" spellcheck="false" style="min-height:280px;"></textarea>
         </div>
         <pre class="cpa-diff" id="cpa-yaml-diff" hidden></pre>
@@ -246,14 +246,14 @@
 
   const logsPage = $('tab-page-cpa-logs');
   if (logsPage) logsPage.innerHTML = `
-    <section class="cpa-panel"><h3>CPA 服务日志</h3><p>按时间范围分档加载（1 小时 / 6 小时 / 24 小时），随后增量刷新。CPA 的日志接口只支持「从某个秒级时间戳开始」，不支持只取末尾若干行，所以响应大小完全由回溯时长决定，因此不提供「全部历史」入口。若某个档位的日志量超过 8MB，Gate 会保留已收到的部分并在此处提示截断，此时请改选更短的时间范围。需要更早的历史日志请登录服务器直接查看 CPA 宿主机或容器日志挂载目录。Gate 请求流水仍在原工作区。</p>
-      <div class="cpa-actions">${button('logs-load-1h', '最近 1 小时')}${button('logs-load-6h', '最近 6 小时')}${button('logs-load-24h', '最近 24 小时')}${button('logs-refresh', '获取新日志')}${button('logs-clear', '清空 CPA 日志', 'btn btn-danger btn-sm')}</div>
-      <div class="cpa-field"><label for="cpa-log-filter">筛选日志</label><input id="cpa-log-filter" placeholder="按文本筛选已加载的日志" type="search"/></div>
-      <label class="cpa-inline-check"><input id="cpa-hide-management" type="checkbox" checked/>隐藏管理 API 请求</label>
-      <pre class="cpa-log-view" id="cpa-log-view">等待加载</pre><button class="btn btn-secondary btn-sm" type="button" id="cpa-logs-more" data-cpa-action="logs-more" hidden style="margin-top:6px;"></button><div class="cpa-logs-truncated" id="cpa-logs-truncated" role="alert" hidden style="margin-top:6px; padding:8px 10px; border:1px solid var(--danger, #d9534f); border-radius:6px; color:var(--danger, #d9534f); font-size:12.5px; line-height:1.5;"></div><div class="cpa-status" id="cpa-logs-status"></div>
+    <section class="cpa-panel"><h3>${t('cpa.serviceLogTitle')}</h3><p>${t('cpa.logRangeIntro')}</p>
+      <div class="cpa-actions">${button('logs-load-1h', t('cpa.logRange1h'))}${button('logs-load-6h', t('cpa.logRange6h'))}${button('logs-load-24h', t('cpa.logRange24h'))}${button('logs-refresh', t('cpa.fetchNewLogs'))}${button('logs-clear', t('cpa.clearLogs'), 'btn btn-danger btn-sm')}</div>
+      <div class="cpa-field"><label for="cpa-log-filter">${t('cpa.logFilterLabel')}</label><input id="cpa-log-filter" placeholder="${t('cpa.logFilterPlaceholder')}" type="search"/></div>
+      <label class="cpa-inline-check"><input id="cpa-hide-management" type="checkbox" checked/>${t('cpa.hideManagementRequests')}</label>
+      <pre class="cpa-log-view" id="cpa-log-view">${t('cpa.waitingToLoad')}</pre><button class="btn btn-secondary btn-sm" type="button" id="cpa-logs-more" data-cpa-action="logs-more" hidden style="margin-top:6px;"></button><div class="cpa-logs-truncated" id="cpa-logs-truncated" role="alert" hidden style="margin-top:6px; padding:8px 10px; border:1px solid var(--danger, #d9534f); border-radius:6px; color:var(--danger, #d9534f); font-size:12.5px; line-height:1.5;"></div><div class="cpa-status" id="cpa-logs-status"></div>
     </section>
-    <section class="cpa-panel"><div class="cpa-actions"><h3 style="margin-right:auto">请求错误文件</h3>${button('error-logs-refresh', '刷新文件')}</div>
-      <div id="cpa-error-files">等待加载</div>
+    <section class="cpa-panel"><div class="cpa-actions"><h3 style="margin-right:auto">${t('cpa.errorFilesTitle')}</h3>${button('error-logs-refresh', t('cpa.refreshFiles'))}</div>
+      <div id="cpa-error-files">${t('cpa.waitingToLoad')}</div>
       <div id="cpa-error-viewer" class="cpa-log-viewer-modal" hidden>
         <div class="cpa-log-viewer-header">
           <div>
@@ -261,9 +261,9 @@
             <span id="cpa-error-viewer-meta" style="font-size:12px;color:var(--text-dim);"></span>
           </div>
           <div class="cpa-actions" style="margin:0;">
-            ${button('error-viewer-copy', '一键复制', 'btn btn-secondary btn-sm')}
-            ${button('error-viewer-download', '下载原文件', 'btn btn-secondary btn-sm')}
-            ${button('error-viewer-close', '关闭', 'btn btn-secondary btn-sm')}
+            ${button('error-viewer-copy', t('cpa.copyAll'), 'btn btn-secondary btn-sm')}
+            ${button('error-viewer-download', t('cpa.downloadRaw'), 'btn btn-secondary btn-sm')}
+            ${button('error-viewer-close', t('cpa.closeLabel'), 'btn btn-secondary btn-sm')}
           </div>
         </div>
         <pre class="cpa-error-log-body" id="cpa-error-viewer-content"></pre>
@@ -300,7 +300,7 @@
       state.yaml = await response.text(); state.yamlEtag = response.headers.get('etag') || '';
       $('cpa-yaml-editor').value = state.yaml;
       $('cpa-yaml-diff').hidden = true;
-      status('cpa-yaml-status', '已读取 CPA 配置', 'success');
+      status('cpa-yaml-status', t('cpa.configLoaded'), 'success');
     } catch (error) { status('cpa-yaml-status', error.message, 'error'); }
   }
   function previewYaml() {
@@ -309,21 +309,21 @@
     const changes = [];
     for (let i = 0; i < Math.max(oldLines.length, newLines.length); i++) {
       if (oldLines[i] === newLines[i]) continue;
-      changes.push(`第 ${i + 1} 行\n- ${oldLines[i] ?? ''}\n+ ${newLines[i] ?? ''}`);
-      if (changes.length >= 80) { changes.push('…仅显示前 80 处差异'); break; }
+      changes.push(t('cpa.diffLineChange', { value: i + 1, value2: oldLines[i] ?? '', value3: newLines[i] ?? '' }));
+      if (changes.length >= 80) { changes.push(t('cpa.diffTruncated')); break; }
     }
-    $('cpa-yaml-diff').textContent = changes.join('\n') || '无改动';
+    $('cpa-yaml-diff').textContent = changes.join('\n') || t('cpa.noChanges');
     $('cpa-yaml-diff').hidden = false;
     return changes.length;
   }
   async function saveYaml() {
-    if (!state.yamlEtag) return status('cpa-yaml-status', '请先读取配置', 'error');
-    if (!previewYaml()) return status('cpa-yaml-status', '没有需要保存的改动');
-    if (!confirm('【高危操作警告】\n\n您正在全量覆盖 CPA 生产配置 (config.yaml)！\n此操作将整体替换全部 49 项网关配置，手滑可能导致所有上游服务不可用。\n\n请确认您已知晓风险并确定继续保存？')) return;
+    if (!state.yamlEtag) return status('cpa-yaml-status', t('cpa.loadConfigFirst'), 'error');
+    if (!previewYaml()) return status('cpa-yaml-status', t('cpa.noChangesToSave'));
+    if (!confirm(t('cpa.dangerOverwriteConfirm'))) return;
     try {
       const response = await request('config-yaml', { method: 'PUT', headers: { 'Content-Type': 'application/yaml', 'If-Match': state.yamlEtag }, body: $('cpa-yaml-editor').value });
       await response.json(); await loadYaml();
-      status('cpa-yaml-status', 'YAML 已保存并由 CPA 验证', 'success');
+      status('cpa-yaml-status', t('cpa.yamlSavedValidated'), 'success');
     } catch (error) { status('cpa-yaml-status', error.message, 'error'); }
   }
 
@@ -338,20 +338,20 @@
           const isChecked = rawVal === true || String(rawVal) === 'true';
           input.checked = isChecked;
           const textEl = row.querySelector('.cpa-toggle-state-text');
-          if (textEl) textEl.textContent = isChecked ? '开启' : '关闭';
+          if (textEl) textEl.textContent = isChecked ? t('overview.runtimeSwitchOn') : t('cpa.closeLabel');
         } else {
           input.value = String(rawVal);
         }
       }
     }));
     const failures = results.filter(result => result.status === 'rejected');
-    status('cpa-settings-status', failures.length ? `${failures.length} 项读取失败：${failures[0].reason.message}` : '常用设置已同步', failures.length ? 'error' : 'success');
+    status('cpa-settings-status', failures.length ? t('cpa.settingsLoadFailed', { count: failures.length, value: failures[0].reason.message }) : t('cpa.commonSettingsSynced'), failures.length ? 'error' : 'success');
   }
 
   async function loadModelKeys() {
     try {
       const response = await fetch('/admin/api/keys', { headers: getAuthHeaders() });
-      if (!response.ok) throw new Error(`读取 Key 失败：HTTP ${response.status}`);
+      if (!response.ok) throw new Error(t('cpa.readKeysFailed', { status: response.status }));
       const data = await response.json();
       const keys = Array.isArray(data.keys) ? data.keys : [];
       const selector = $('cpa-model-key');
@@ -371,10 +371,10 @@
           }
           syncCpaDropdown('cpa-model-key');
         } else {
-          syncCpaDropdown('cpa-model-key', [{ value: '', label: '暂无可用 API Key' }]);
+          syncCpaDropdown('cpa-model-key', [{ value: '', label: t('cpa.noApiKeyAvailable') }]);
         }
       }
-      status('cpa-model-status', keys.length ? `可选择 ${keys.length} 个 Key` : '请先创建 API Key', keys.length ? 'success' : '');
+      status('cpa-model-status', keys.length ? t('cpa.selectableKeysCount', { count: keys.length }) : t('cpa.createApiKeyFirst'), keys.length ? 'success' : '');
       if (keys.length > 0) {
         await loadModels();
       }
@@ -391,20 +391,20 @@
     const countEl = $('cpa-key-models-count');
     if (countEl) {
       countEl.textContent = query
-        ? `显示 ${filtered.length} / ${allModels.length} 个模型`
-        : `共 ${allModels.length} 个可用模型`;
+        ? t('cpa.modelsCountLabel', { count: filtered.length, count2: allModels.length })
+        : t('cpa.availableModelsCount', { count: allModels.length });
     }
 
     const tbody = $('cpa-model-rows');
     if (!tbody) return;
 
     if (!allModels.length) {
-      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:24px;color:#6b8194;">此 Key 暂无可用模型</td></tr>';
+      tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:24px;color:#6b8194;">${t('cpa.noModelsForKey')}</td></tr>`;
       return;
     }
 
     if (!filtered.length) {
-      tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:24px;color:#6b8194;">无匹配模型（关键词："${escape(query)}"）</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:24px;color:#6b8194;">${t('cpa.noMatchingModels', { value: escape(query) })}</td></tr>`;
       return;
     }
 
@@ -415,12 +415,12 @@
         <td>
           <div style="display:flex;align-items:center;gap:8px;">
             <code style="font-family:var(--mono, monospace);font-size:12.5px;color:#19334c;font-weight:600;">${id}</code>
-            <button class="btn btn-secondary btn-sm" type="button" data-cpa-action="copy-model-id" data-model="${id}" style="min-height:24px;padding:1px 6px;font-size:11px;" title="复制模型 ID">复制</button>
+            <button class="btn btn-secondary btn-sm" type="button" data-cpa-action="copy-model-id" data-model="${id}" style="min-height:24px;padding:1px 6px;font-size:11px;" title="${t('cpa.copyModelIdTitle')}">${t('cpa.copyButton')}</button>
           </div>
         </td>
         <td><span class="cpa-badge">${provider}</span></td>
         <td style="text-align:right;">
-          <button class="btn btn-secondary btn-sm" type="button" data-cpa-action="copy-model-id" data-model="${id}" style="min-height:26px;padding:2px 8px;font-size:11.5px;">复制 ID</button>
+          <button class="btn btn-secondary btn-sm" type="button" data-cpa-action="copy-model-id" data-model="${id}" style="min-height:26px;padding:2px 8px;font-size:11.5px;">${t('cpa.copyId')}</button>
         </td>
       </tr>`;
     }).join('');
@@ -428,15 +428,15 @@
 
   async function loadModels() {
     const key = $('cpa-model-key')?.value;
-    if (!key) return status('cpa-model-status', '请先选择 API Key', 'error');
-    status('cpa-model-status', '正在检索模型列表...', '');
+    if (!key) return status('cpa-model-status', t('cpa.selectApiKeyFirst'), 'error');
+    status('cpa-model-status', t('cpa.loadingModels'), '');
     try {
       const response = await fetch('/v1/models', { headers: { Authorization: `Bearer ${key}` } });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error?.message || `HTTP ${response.status}`);
       state.keyModels = Array.isArray(data.data) ? data.data : [];
       renderKeyModels();
-      status('cpa-model-status', `返回 ${state.keyModels.length} 个模型`, 'success');
+      status('cpa-model-status', t('cpa.modelsReturned', { value: state.keyModels.length }), 'success');
     } catch (error) {
       status('cpa-model-status', error.message, 'error');
     }
@@ -447,8 +447,8 @@
     const input = row.querySelector('.cpa-setting-value');
     const type = settings.find(item => item[0] === key)?.[2];
     const value = type === 'boolean' ? input.checked : type === 'number' ? Number(input.value) : input.value.trim();
-    if (type === 'number' && (!Number.isFinite(value) || value < 0)) return status('cpa-settings-status', '请输入非负数字', 'error');
-    try { await json(`settings/${key}`, 'PATCH', { value }); status('cpa-settings-status', `${key} 已保存`, 'success'); }
+    if (type === 'number' && (!Number.isFinite(value) || value < 0)) return status('cpa-settings-status', t('cpa.needNonNegativeNumber'), 'error');
+    try { await json(`settings/${key}`, 'PATCH', { value }); status('cpa-settings-status', t('cpa.settingSaved', { key: key }), 'success'); }
     catch (error) { status('cpa-settings-status', error.message, 'error'); }
   }
 
@@ -469,7 +469,7 @@
       if (state.logLines.length > LOG_LINES_LIMIT) state.logLines.splice(0, state.logLines.length - LOG_LINES_LIMIT);
       renderLogs();
       state.logAfter = Number(data['latest-timestamp']) || state.logAfter;
-      status('cpa-logs-status', `本次新增 ${lines.length} 行`, 'success');
+      status('cpa-logs-status', t('cpa.newLinesCount', { count: lines.length }), 'success');
       return lines.length;
     } catch (error) { status('cpa-logs-status', error.message, 'error'); return null; }
   }
@@ -486,8 +486,8 @@
       status(
         'cpa-logs-status',
         state.logTruncated
-          ? `已加载最近 ${safeHours} 小时日志，共 ${state.logLines.length} 行。注意：CPA 在该时间范围内日志过多，响应已达 8MB 上限被截断，更早的部分未加载——请改选更短的时间范围。`
-          : `已加载最近 ${safeHours} 小时日志，共 ${state.logLines.length} 行`,
+          ? t('cpa.logsLoadedTruncatedSummary', { safeHours: safeHours, value: state.logLines.length })
+          : t('cpa.logsLoadedSummary', { safeHours: safeHours, value: state.logLines.length }),
         state.logTruncated ? 'error' : 'success'
       );
     }
@@ -501,13 +501,13 @@
     // 改为只渲染末尾 LOG_RENDER_LIMIT 行，其余靠「显示更多」逐段追加，
     // 既保住全量筛选能力（筛选在完整数组上进行），又不让 DOM 爆炸。
     const shown = visible.slice(Math.max(0, visible.length - state.logRenderLimit));
-    view.textContent = shown.join('\n') || '暂无日志';
+    view.textContent = shown.join('\n') || t('cpa.noLogs');
     const hidden = visible.length - shown.length;
     const more = $('cpa-logs-more');
     if (more) {
       if (hidden > 0) {
         more.hidden = false;
-        more.textContent = `仅显示最近 ${shown.length} 行，另有 ${hidden} 行未渲染，点击显示更多`;
+        more.textContent = t('cpa.logLinesTruncatedMore', { count: shown.length, hidden: hidden });
       } else {
         more.hidden = true;
         more.textContent = '';
@@ -519,7 +519,7 @@
     if (banner) {
       banner.hidden = !state.logTruncated;
       if (state.logTruncated) {
-        banner.textContent = `本次加载已被 8MB 响应上限截断，共收到 ${state.logLines.length} 行，更早的日志未加载。请改选更短的时间范围查看完整内容。`;
+        banner.textContent = t('cpa.logsTruncatedBanner', { value: state.logLines.length });
       }
     }
     view.scrollTop = view.scrollHeight;
@@ -531,13 +531,13 @@
       const files = Array.isArray(data.files) ? data.files : [];
       $('cpa-error-files').innerHTML = files.length ? files.map(file => `
         <div class="cpa-setting-row" style="align-items:center;">
-          <span style="font-family:var(--mono);word-break:break-all;"><strong>${escape(file.name)}</strong> · ${escape(file.size)} 字节</span>
-          <span style="color:var(--text-dim);font-size:12px;">${file.modified ? new Date(Number(file.modified) * 1000).toLocaleString() : ''}</span>
+          <span style="font-family:var(--mono);word-break:break-all;"><strong>${escape(file.name)}</strong> · ${t('cpa.fileMetaSizeBytes', { value: escape(file.size) })}</span>
+          <span style="color:var(--text-dim);font-size:12px;">${file.modified ? new Date(Number(file.modified) * 1000).toLocaleString(LOCALE) : ''}</span>
           <div class="cpa-actions" style="margin:0;">
-            <button class="btn btn-primary btn-sm" data-cpa-action="error-preview" data-name="${escape(file.name)}" data-size="${escape(file.size)}" data-modified="${escape(file.modified || '')}">在线查看</button>
-            <button class="btn btn-secondary btn-sm" data-cpa-action="error-download" data-name="${escape(file.name)}">下载</button>
+            <button class="btn btn-primary btn-sm" data-cpa-action="error-preview" data-name="${escape(file.name)}" data-size="${escape(file.size)}" data-modified="${escape(file.modified || '')}">${t('cpa.viewOnline')}</button>
+            <button class="btn btn-secondary btn-sm" data-cpa-action="error-download" data-name="${escape(file.name)}">${t('cpa.download')}</button>
           </div>
-        </div>`).join('') : '暂无请求错误文件';
+        </div>`).join('') : t('cpa.noRequestErrorFiles');
     } catch (error) { $('cpa-error-files').textContent = error.message; }
   }
 
@@ -551,8 +551,8 @@
     if (!viewer) return;
 
     title.textContent = name;
-    meta.textContent = `${size ? `${size} 字节` : ''}${modified ? ` · 修改时间：${new Date(Number(modified) * 1000).toLocaleString()}` : ''}`;
-    content.textContent = '正在读取错误日志上下文...';
+    meta.textContent = `${size ? t('cpa.fileListSizeBytes', { count: size }) : ''}${modified ? ` ${t('cpa.modifiedAtPrefix', { value: new Date(Number(modified) * 1000).toLocaleString(LOCALE) })}` : ''}`;
+    content.textContent = t('cpa.readingErrorLogContext');
     viewer.hidden = false;
     viewer.scrollIntoView({ block: 'nearest' });
 
@@ -561,8 +561,8 @@
         headers: getAuthHeaders()
       });
       if (response.status === 413) {
-        content.textContent = '该日志文件大小超过 2 MiB 预览上限，请使用上方“下载原文件”进行离线排查。';
-        showToast('日志文件超过 2MB 预览上限，请下载查看', 'error');
+        content.textContent = t('cpa.previewTooLargeNotice');
+        showToast(t('cpa.previewTooLargeToast'), 'error');
         return;
       }
       if (!response.ok) {
@@ -570,10 +570,10 @@
         throw new Error(errJson.error || `HTTP ${response.status}`);
       }
       const text = await response.text();
-      content.textContent = text || '日志内容为空';
+      content.textContent = text || t('cpa.emptyLogContent');
     } catch (error) {
-      content.textContent = `加载日志失败：${error.message}`;
-      showToast(`加载错误日志失败：${error.message}`, 'error');
+      content.textContent = t('cpa.loadLogFailed', { msg: error.message });
+      showToast(t('cpa.loadErrorLogFailed', { msg: error.message }), 'error');
     }
   }
 
@@ -599,9 +599,9 @@
       if ($('cpa-routing-ttl')) {
         $('cpa-routing-ttl').value = routing.session_affinity_ttl ?? '';
       }
-      status('cpa-routing-status', '路由配置已加载', 'success');
+      status('cpa-routing-status', t('cpa.routingConfigLoaded'), 'success');
     } catch (err) {
-      status('cpa-routing-status', `读取路由失败：${err.message}`, 'error');
+      status('cpa-routing-status', t('cpa.readRoutingFailed', { msg: err.message }), 'error');
     }
   }
 
@@ -619,12 +619,12 @@
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      status('cpa-routing-status', '路由调度策略已成功更新', 'success');
-      showToast('路由调度策略已保存', 'success');
+      status('cpa-routing-status', t('cpa.routingStrategyUpdated'), 'success');
+      showToast(t('cpa.routingStrategySaved'), 'success');
       await loadRoutingConfig();
     } catch (err) {
-      status('cpa-routing-status', `保存失败：${err.message}`, 'error');
-      showToast(`保存路由策略失败：${err.message}`, 'error');
+      status('cpa-routing-status', t('cpa.saveFailed', { msg: err.message }), 'error');
+      showToast(t('cpa.saveRoutingStrategyFailed', { msg: err.message }), 'error');
     }
   }
 
@@ -659,10 +659,10 @@
         const id = control.dataset.model;
         if (id) {
           if (typeof copyToClipboard === 'function') {
-            copyToClipboard(id, `模型 ID ${id} 已复制`);
+            copyToClipboard(id, t('cpa.modelIdCopied', { id: id }));
           } else if (navigator.clipboard) {
             await navigator.clipboard.writeText(id).catch(() => {});
-            showToast(`模型 ID ${id} 已复制`, 'success');
+            showToast(t('cpa.modelIdCopied', { id: id }), 'success');
           }
         }
       }
@@ -674,7 +674,7 @@
       else if (action === 'logs-load-24h') await loadLogsRange(24);
       else if (action === 'logs-more') { state.logRenderLimit += LOG_RENDER_LIMIT; renderLogs(); }
       // 清空后同样不能用 0 重置游标：CPA 日志文件可能仍在，传 0 会再次请求全量。
-      else if (action === 'logs-clear' && confirm('确定清空 CPA 服务日志？')) { await json('logs', 'DELETE'); state.logAfter = Math.floor(Date.now() / 1000) - state.logRangeHours * 3600; state.logLines = []; state.logTruncated = false; await loadLogs(); }
+      else if (action === 'logs-clear' && confirm(t('cpa.confirmClearLogs'))) { await json('logs', 'DELETE'); state.logAfter = Math.floor(Date.now() / 1000) - state.logRangeHours * 3600; state.logLines = []; state.logTruncated = false; await loadLogs(); }
       else if (action === 'error-logs-refresh') await loadErrorFiles();
       else if (action === 'error-preview') await previewErrorLog(control.dataset.name, control.dataset.size, control.dataset.modified);
       else if (action === 'error-viewer-close') { const v = $('cpa-error-viewer'); if (v) v.hidden = true; state.viewingErrorName = ''; }
@@ -682,10 +682,10 @@
         const text = $('cpa-error-viewer-content')?.textContent;
         if (text) {
           if (typeof copyToClipboard === 'function') {
-            copyToClipboard(text, '日志内容已成功复制到剪贴板');
+            copyToClipboard(text, t('cpa.logCopiedToClipboard'));
           } else if (navigator.clipboard) {
             await navigator.clipboard.writeText(text).catch(() => {});
-            showToast('日志内容已成功复制到剪贴板', 'success');
+            showToast(t('cpa.logCopiedToClipboard'), 'success');
           }
         }
       }
@@ -695,7 +695,7 @@
       else if (action === 'error-download') await download(`request-error-logs/download?name=${encodeURIComponent(control.dataset.name)}`, control.dataset.name);
       else if (action === 'routing-load') await loadRoutingConfig();
       else if (action === 'routing-save') await saveRoutingConfig();
-    } catch (error) { showToast(`CPA 操作失败：${error.message}`, 'error'); }
+    } catch (error) { showToast(t('cpa.operationFailed', { msg: error.message }), 'error'); }
     finally { control.disabled = false; }
   });
 
@@ -705,7 +705,7 @@
     const toggle = event.target.closest('.cpa-toggle-input');
     if (!toggle) return;
     const textEl = toggle.closest('.cpa-setting-row')?.querySelector('.cpa-toggle-state-text');
-    if (textEl) textEl.textContent = toggle.checked ? '开启' : '关闭';
+    if (textEl) textEl.textContent = toggle.checked ? t('overview.runtimeSwitchOn') : t('cpa.closeLabel');
   });
 
   $('cpa-key-models-search')?.addEventListener('input', renderKeyModels);

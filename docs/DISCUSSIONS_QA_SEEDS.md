@@ -1,3 +1,43 @@
+# GitHub Discussions Seed Q&A
+
+Once Discussions is enabled on the repository, publish the following Q&A to the **Q&A** category and mark official replies as **Answer**.
+
+[English](#top) | [中文](#中文版)
+
+## Q1: What do cpa-gate and CLIProxyAPI each do? Do I need both?
+
+- **Q**: Is cpa-gate a replacement for CLIProxyAPI (CPA)? Can I install just one?
+- **A**: Not a replacement — the two work together (client -> `cpa-gate 8316/8317` -> `CPA 127.0.0.1:8315` -> upstream):
+  - **CLIProxyAPI (upstream, MIT)**: owns upstream credential files, OAuth refresh, account scheduling and model routing; it does not do multi-tenancy.
+  - **cpa-gate (this project, MIT)**: stores no upstream OAuth tokens; it stands in front of CPA and provides multi-tenant, multi-protocol API keys (Bearer / `x-api-key` / `api-key` / `x-goog-api-key` / `?key=`), daily token limits, a 60s sliding-window RPM limit, smart model allowlists, transport circuit breaking and a SQLite audit dashboard. For solo use, install CPA alone; add cpa-gate when you distribute keys to multiple people and need limits and auditing.
+
+## Q2: After the first clone, `npm start` reports a secret error or `/admin` returns 500 — how do I fix it?
+
+- **Q**: After following the Quick Start it exits with an error, or static assets 404.
+- **A**: Upgrade to `v2.10.0+` and run from the repository root:
+  1. The current working directory's `.env` is read automatically at startup (process environment variables take precedence) — make sure `GATE_ADMIN_SECRET` and `GATE_MGMT_SECRET` are each at least 24 characters;
+  2. Static assets resolve from the install root by default (`GATE_STATIC_DIR` can override it); `GATE_DIR` (`./data`) only needs to hold the SQLite data;
+  3. Verify with `curl -i http://127.0.0.1:8317/healthz` and `/admin` that they return 200.
+
+## Q3: When opening CPA's native management console through cpa-gate, is CPA's master secret exposed to the frontend?
+
+- **Q**: After reverse-proxying CPA's management console, can the browser see `GATE_MGMT_SECRET`?
+- **A**: No. `/admin/upstream/*` is validated by the Gate server against `GATE_ADMIN_SECRET` (stored in `sessionStorage` only), which then injects `GATE_MGMT_SECRET` in memory when forwarding, so the frontend never touches CPA's master secret. Direct external requests to `/v0/management/*`, `/v8/management/*` or `/management.html` are rejected with 403 by Gate, which prevents triggering CPA's 30-minute source-IP ban. The key list endpoint only returns the masked `display_key`.
+
+## Q4: Why is the RPM limit checked before the daily quota? Why are retries off by default (`GATE_MAX_ATTEMPTS=1`)?
+
+- **Q**: What engineering trade-offs sit behind these two defaults?
+- **A**:
+  1. **RPM before quota**: the hot-path order is `RPM -> daily quota -> circuit breaker -> model allowlist -> negative cache`. When a client falls into a retry loop, rate limiting kicks in first with a 429, so a single burst cannot burn through the whole day's token budget.
+  2. **Retries off by default**: retrying by default amplifies transient upstream jitter into multiple times the traffic and accelerates the circuit breaker. You can opt in with `GATE_MAX_ATTEMPTS=2..5` (the 3rd attempt injects a continuation prompt to salvage an empty response); Agent requests carrying non-`function` tools always skip retries to avoid duplicated side effects.
+
+## Q5: If the process crashes or restarts, is usage accounting lost?
+
+- **Q**: Are requests in flight at the moment of a restart missed?
+- **A**: No. Every usage event is written synchronously to the SQLite `usage_outbox` (WAL mode) first, and a 5-second timer then flushes it into `usage_daily`, `upstream_daily_stats` and `request_events` in a single transaction. After a crash restart, `replayOutboxIntoMemory()` automatically replays records that had not been flushed; on `SIGTERM` it drains in-flight streaming requests and runs `flushUsage()` before exiting. Calendar days are always split at `Asia/Shanghai` (UTC+8).
+
+<a id="中文版"></a>
+
 # GitHub Discussions 种子问答库
 
 在仓库开启 Discussions 后，将以下问答发布至 **Q&A** 分类并标记官方回复为 **Answer**。

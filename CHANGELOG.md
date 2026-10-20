@@ -2,9 +2,19 @@
 
 All notable changes to `cpa-gate` are documented in this file.
 
+## [v2.11.0] - 2026-10-20
+- **控制台中英双语国际化 (i18n) 全栈落地**：上线 `admin-i18n.js` 集中翻译字典（1099 条 `{ zh, en }`）与全局 `t(key, vars?)` helper，顶栏新增语言切换按钮（`EN` / `中文`），支持 `zh-CN` 与 `en` 实时无缝切换与 `localStorage['gate_lang']` 持久化；管理台 `admin.html`、`admin-*.js`、导航侧边栏、表单提示、表格字段、图表文字及状态胶囊全面覆盖双语字典，彻底告别中文单语。
+- **静态与动态文案双向打通**：静态文案通过 `data-i18n` / `data-i18n-title` / `data-i18n-placeholder` / `data-i18n-aria-label` 绑定，动态渲染文案在渲染时经 `t()` 取值；`pageMeta` 改为存储字典 key 而非已翻译文案，使 `admin-overview.js` 的运行时写入在切换语言后依然正确。切换后 `relocalizeDynamicUI()` 依据内存 `cached*` 缓存重绘当前页，无需重新请求网络；`<html lang>` 与 `Intl` / `toLocaleString` 的显示 locale 同步切换。
+- **i18n 静默失效防护**：将原本拿中文字面量做 `===` / `!==` 比较的 10 处逻辑改为比较底层数据 key（服务状态徽章、WorkBuddy 资源包排序、图表全量历史档位、已删除账号识别等），并将显示 locale 从硬编码 `zh-CN` 提为 `LOCALE` 常量（保留 `admin-stats.js` 中作为日期键生成器的 `en-CA`）。
+- **双语文档体系**：`docs/` 下 5 篇文档改为「英文段在前 + `<a id="中文版"></a>` 锚点 + 中文段在后」同文件双段结构，顶部附 `[English](#top) | [中文](#中文版)` 切换行，与仓库既有 `README.md` 惯例一致。`COMMUNITY_SUBMISSIONS.md` 的中英文条目块与 `LAUNCH_COPYWRITING.md` 的 Reddit / Show HN、X / Twitter 文案作为逐字交付物原样保留；`workbuddy-integration.md` 中上游 API 原始数据（`"PackageName": "标准基础月度积分包"`）按原样保留中文。
+- **Qoder 官方品牌高清矢量与自适应图标**：同步引入 Qoder 官方品牌矢量 SVG 及浅色/深色透明自适应 PNG 资产至 `gate-assets/`，在管理台与提供商标识中统一呈现。
+- **国际化回归测试套件**：新增 `tests/test_i18n.mjs`（15 个自动化测试套件之一），7 类闸门覆盖字典结构与键名引用完整性、`t()` 缺键回落与插值、`setLocale` 同步 `<html lang>` / `LOCALE` / `localStorage`、静态标记覆盖、中文字面量不得参与逻辑比较、显示 locale 不得硬编码、渲染代码中不得残留中文字面量（`i18n-exempt` 注释可显式豁免），15 个自动化测试套件全量通过。
+- **同步更新**：`README.md` / `AGENTS.md` / `llms.txt` / `llms-full.txt` 的测试套件计数 14 -> 15；`llms-full.txt` 新增「Console internationalization (zh/en)」章节（现共 19 章），并补充控制台语言切换的故障排查条目。
+
 ## [v2.10.7] - 2026-10-20
 - **API Key 模型白名单动态倍率适配**：`isModelPermitted` 智能剥离动态积分倍率后缀（`:\d+(?:\.\d+)?x`），双向支持带倍率请求与无倍率规则、带倍率规则与无倍率请求的无损匹配，彻底防止上游 WorkBuddy 动态积分倍率模型（如 `workbuddy/claude-opus-5-5:3.33x`）被网关白名单误判阻断。
 - **Qoder (通义灵码) 双域服务商全链路注册与支持**：在 `INITIAL_PROVIDER_REGISTRY` 注册 `qoder-cn`（`sort_order: 74`）与 `qoder`（`sort_order: 75`），精准区分国内版与国际版；前端控制台 `admin.html`、`admin-logs.js`、`admin-quotas.js`、`admin-style.css` 与 `admin-routes.mjs` 全面支持 Qoder 品牌展示、图标与胶囊（`#ff6a00`）、流水推断、凭证过滤及 OAuth 路由。
+- **Qoder 官方品牌图标与管理面板同步**：控制台与 CPA 管理面板接入阿里通义灵码 (Qoder) 官方高清图标（支持浅色/深色透明自适应与用户品牌图标资产），同步更新 `static/management.html` 并保持跨仓库 MD5 一致（`60b99ac5c47fd6cd54ddb4b1c4ee537b`）。
 - **全链路集成与端到端测试**：更新 `tests/test_key_model_and_quota_restrictions.mjs` 与 `tests/test_gate_features.mjs`（新增测试 32），14 个测试套件全量通过。
 
 ## [v2.10.6] - 2026-10-20

@@ -108,8 +108,8 @@ console.log('\n测试 2: admin.html 内联语法与 WorkBuddy 积分渲染契约
   // 验证 WorkBuddy 渲染契约
   assert.ok(clientScripts.includes("acc.provider === 'workbuddy' || acc.provider === 'workbuddy-cn'"), '需覆盖 workbuddy 与 workbuddy-cn 提供商判断');
   assert.ok(clientScripts.includes('acc.remaining_credits'), '紧凑与大卡视图中需读取 remaining_credits');
-  assert.ok(clientScripts.includes('WorkBuddy 资源包与积分额度'), '卡片模式需包含 WorkBuddy 专属额度标题');
-  assert.ok(clientScripts.includes('资源包积分'), '紧凑模式需包含资源包积分微标签');
+  assert.ok(clientScripts.includes("t('quotas.workbuddy.packsAndPointsTitle')"), '卡片模式需包含 WorkBuddy 专属额度标题');
+  assert.ok(clientScripts.includes("t('quotas.workbuddy.packPoints')"), '紧凑模式需包含资源包积分微标签');
   console.log('  ✓ WorkBuddy 剩余积分与进度条展示契约验证通过');
 }
 
@@ -133,15 +133,15 @@ console.log('\n测试 4: 凭据卡片大盘 WorkBuddy 积分与 OpenRouter 今�
 
   // 1. 验证卡片渲染逻辑是否覆盖 isWorkBuddy 资源包积分分支
   assert.ok(quotasJs.includes('isWorkBuddy'), '卡片中需包含 isWorkBuddy 凭证判定');
-  assert.ok(quotasJs.includes('资源包积分: <b style="color:${barColor};">剩余 ${remainFormatted}</b>'), 'WorkBuddy 卡片需展示资源包积分与剩余数值');
-  assert.ok(quotasJs.includes('${remPct.toFixed(1)}% 可用'), 'WorkBuddy 卡片需展示积分可用百分比');
-  assert.ok(quotasJs.includes('总额: <b>${totalFormatted}</b> 积分 · 已用: <b>${usedFormatted}</b>'), 'WorkBuddy 卡片底部次行需展示总额与已用积分');
+  assert.ok(quotasJs.includes("t('quotas.workbuddy.packPointsTitle'") && quotasJs.includes("t('quotas.workbuddy.remainingPointsLabel'"), 'WorkBuddy 卡片需展示资源包积分与剩余数值');
+  assert.ok(quotasJs.includes("t('quotas.workbuddy.remainingPercentLabel'"), 'WorkBuddy 卡片需展示积分可用百分比');
+  assert.ok(quotasJs.includes("t('quotas.points.totalLabel'") && quotasJs.includes("t('quotas.points.usedWithPointsLabel'"), 'WorkBuddy 卡片底部次行需展示总额与已用积分');
 
   // 2. 验证卡片渲染逻辑是否覆盖 isOpenRouter 今日请求次数分支
   assert.ok(quotasJs.includes('isOpenRouter'), '卡片中需包含 isOpenRouter 凭证判定');
-  assert.ok(quotasJs.includes('今日请求: <b style="color:#3b82f6;">${todayCount}</b>'), 'OpenRouter 卡片需展示今日已请求次数高亮');
-  assert.ok(quotasJs.includes('/ ${dailyLimit} 次'), 'OpenRouter 卡片需展示每日限额');
-  assert.ok(quotasJs.includes('今日剩余: <b style="color:${barColor};">${remCount}</b> 次可用 · 周期: <b>UTC日</b>'), 'OpenRouter 卡片底部需展示今日可用剩余次数与周期');
+  assert.ok(quotasJs.includes("t('quotas.todayRequestsLabel'"), 'OpenRouter 卡片需展示今日已请求次数高亮');
+  assert.ok(quotasJs.includes("t('quotas.openrouter.dailyLimitSuffix'"), 'OpenRouter 卡片需展示每日限额');
+  assert.ok(quotasJs.includes("t('quotas.todayRemainingLabel'") && quotasJs.includes("t('quotas.openrouter.availableTimesCycle'") && quotasJs.includes("t('quotas.bucket.utcDay'"), 'OpenRouter 卡片底部需展示今日可用剩余次数与周期');
 
   // 3. 验证服务端 getUpstreamAuthStats 字段导出
   const summaryModule = fs.readFileSync(path.join(__dirname, '../lib/analytics/status-summary.mjs'), 'utf8');
@@ -188,9 +188,9 @@ console.log('\n测试 5: WorkBuddy 积分到期截至时间解析与 UI 展示�
   // 5.3: 验证 admin-quotas.js 中 getWorkBuddyExpirationInfo 与三种视图中的渲染
   const quotasJs = fs.readFileSync(path.join(__dirname, '../admin-quotas.js'), 'utf8');
   assert.ok(quotasJs.includes('function getWorkBuddyExpirationInfo(acc)'), '需包含 getWorkBuddyExpirationInfo 辅助函数');
-  assert.ok(quotasJs.includes('expInfo.isAllLongTerm ? \'积分额度\' : (expInfo.hasMultiplePackages ? `分批到期'), '紧凑表格行中需包含长期额度、分批到期与单批截至到期分支');
-  assert.ok(quotasJs.includes('expInfo.isAllLongTerm ? \'积分额度\' : (expInfo.hasMultiplePackages ? `积分分批到期'), '卡片视图中需包含长期额度、积分分批到期与积分截至到期分支');
-  assert.ok(quotasJs.includes('expInfo.isAllLongTerm ? \'\' : (expInfo.hasMultiplePackages ? \'首批截至: \' : \'截至: \')'), '大卡总览中需包含长期有效与首批/截至到期展示');
+  assert.ok(quotasJs.includes("expInfo.isAllLongTerm ? t('quotas.points.quotaLabel') : (expInfo.hasMultiplePackages ? `${t('quotas.workbuddy.batchedExpiry')}"), '紧凑表格行中需包含长期额度、分批到期与单批截至到期分支');
+  assert.ok(quotasJs.includes("expInfo.isAllLongTerm ? t('quotas.points.quotaLabel') : (expInfo.hasMultiplePackages ? `${t('quotas.workbuddy.pointsBatchExpiry')}"), '卡片视图中需包含长期额度、积分分批到期与积分截至到期分支');
+  assert.ok(quotasJs.includes("expInfo.isAllLongTerm ? '' : (expInfo.hasMultiplePackages ? `${t('quotas.workbuddy.firstBatchExpiryLabel')} ` : `${t('quotas.points.expiresAtLabel')} `)"), '大卡总览中需包含长期有效与首批/截至到期展示');
   assert.ok(quotasJs.includes('pkg.isLongTerm ? \'72%\' : \'55%\''), '必须根据是否长期有效动态扩展包名最大宽度以防截断');
 
   // 5.4: 提取 getWorkBuddyExpirationInfo 在 Node 沙箱中执行逻辑测试
@@ -204,14 +204,34 @@ console.log('\n测试 5: WorkBuddy 积分到期截至时间解析与 UI 展示�
   };
   const fnMatch = quotasJs.match(/function getWorkBuddyExpirationInfo\(acc\) \{([\s\S]*?)\n    \}/);
   assert.ok(fnMatch, '必须能成功提取 getWorkBuddyExpirationInfo 函数体');
-  const helperFn = new Function('acc', fnMatch[1]);
+  // i18n：函数体内改用 t('key', {vars}) 取文案，沙箱需注入一个按字典回落的 t()
+  const i18nDict = (() => {
+    const src = fs.readFileSync(path.join(__dirname, '../admin-i18n.js'), 'utf8');
+    const dict = {};
+    const re = /^\s*'([a-zA-Z][\w.]*)':\s*\{\s*zh:\s*'((?:[^'\\]|\\.)*)'\s*,\s*en:\s*'((?:[^'\\]|\\.)*)'\s*\}/gm;
+    let mm;
+    const unesc = (v) => v.replace(/\\n/g, '\n').replace(/\\r/g, '\r')
+      .replace(/\\t/g, '\t').replace(/\\'/g, "'").replace(/\\\\/g, '\\');
+    while ((mm = re.exec(src)) !== null) dict[mm[1]] = unesc(mm[2]);
+    return dict;
+  })();
+  const tStub = (key, vars) => {
+    let text = Object.prototype.hasOwnProperty.call(i18nDict, key) ? i18nDict[key] : key;
+    if (vars) {
+      text = text.replace(/\{(\w+)\}/g, (whole, name) => (
+        Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : whole
+      ));
+    }
+    return text;
+  };
+  const helperFn = new Function('acc', 't', fnMatch[1]);
 
   const testAcc = {
     expires_at: '2026-10-26 16:16:46',
     reset_time: '2026-10-26T08:16:46.000Z',
     runs_out_points: 250
   };
-  const expInfo = helperFn(testAcc);
+  const expInfo = helperFn(testAcc, tStub);
   assert.equal(expInfo.hasExpiration, true);
   assert.equal(expInfo.shortText, '10月26日 16:16');
   assert.equal(expInfo.fullText, '2026-10-26 16:16:46');
@@ -242,7 +262,7 @@ console.log('\n测试 5: WorkBuddy 积分到期截至时间解析与 UI 展示�
     remaining_credits: 350,
     total_credits: 350
   };
-  const multiInfo = helperFn(multiPkgAcc);
+  const multiInfo = helperFn(multiPkgAcc, tStub);
   assert.equal(multiInfo.hasExpiration, true);
   assert.equal(multiInfo.hasMultiplePackages, true);
   assert.equal(multiInfo.packageCount, 2);
@@ -260,7 +280,7 @@ console.log('\n测试 5: WorkBuddy 积分到期截至时间解析与 UI 展示�
     expires_at: '2020-01-01 00:00:00',
     reset_time: '2020-01-01T00:00:00.000Z'
   };
-  const expiredInfo = helperFn(expiredAcc);
+  const expiredInfo = helperFn(expiredAcc, tStub);
   assert.equal(expiredInfo.countdown, '已到期');
   assert.equal(expiredInfo.color, '#ef4444');
 
@@ -270,7 +290,7 @@ console.log('\n测试 5: WorkBuddy 积分到期截至时间解析与 UI 展示�
     reset_time: '2035-01-15T12:57:00.000Z',
     runs_out_points: 100
   };
-  const distantInfo = helperFn(distantAcc);
+  const distantInfo = helperFn(distantAcc, tStub);
   assert.equal(distantInfo.hasExpiration, true);
   assert.equal(distantInfo.shortText, '长期有效', '远期基础包应直接净化为「长期有效」，彻底消除 3010天后的荒谬感');
   assert.equal(distantInfo.countdown, '', '长期有效包倒计时文本应置空，无需冗余括号');
@@ -287,7 +307,7 @@ console.log('\n测试 5: WorkBuddy 积分到期截至时间解析与 UI 展示�
     reset_time: '2027-02-15T02:00:00.000Z',
     runs_out_points: 50
   };
-  const nextYearInfo = helperFn(nextYearAcc);
+  const nextYearInfo = helperFn(nextYearAcc, tStub);
   assert.equal(nextYearInfo.hasExpiration, true);
   assert.equal(nextYearInfo.shortText, '2027年2月15日 10:00', '普通跨年包必须显式输出年份');
   assert.equal(nextYearInfo.isLongTerm, false);
@@ -314,7 +334,7 @@ console.log('\n测试 5: WorkBuddy 积分到期截至时间解析与 UI 展示�
       }
     ]
   };
-  const mixedInfo = helperFn(mixedAcc);
+  const mixedInfo = helperFn(mixedAcc, tStub);
   assert.equal(mixedInfo.hasMultiplePackages, true);
   assert.equal(mixedInfo.isAllLongTerm, false, '混合包时 isAllLongTerm 必须为 false');
   assert.equal(mixedInfo.shortText, '10月26日 16:16', '首批必须取真正紧迫的短期包');
@@ -332,7 +352,7 @@ console.log('\n测试 5: WorkBuddy 积分到期截至时间解析与 UI 展示�
       reset_time: null
     }]
   };
-  const noExpInfo = helperFn(noExpAcc);
+  const noExpInfo = helperFn(noExpAcc, tStub);
   assert.equal(noExpInfo.hasExpiration, false, '无到期包必须返回 hasExpiration: false');
   assert.equal(noExpInfo.hasMultiplePackages, false);
   assert.equal(noExpInfo.shortText, '未公布到期时间');

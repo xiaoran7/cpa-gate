@@ -81,7 +81,7 @@
         if (isExactSame && !force) {
           const pageInfo = document.getElementById('logs-page-info');
           const totalPages = Math.max(1, Math.ceil(cachedEventsTotal / logsPageSize));
-          if (pageInfo) pageInfo.innerText = `第 ${logsPage} / ${totalPages} 页 (共 ${cachedEventsTotal} 条)`;
+          if (pageInfo) pageInfo.innerText = t('logs.cachedEventsPageCounter', { logsPage: logsPage, totalPages: totalPages, cachedEventsTotal: cachedEventsTotal });
         } else {
           renderEventsTable(cachedEvents, cachedEventsTotal, newlyAddedIds.size > 0 ? newlyAddedIds : null);
         }
@@ -129,7 +129,7 @@
         }
       }
 
-      const options = [{ value: 'all', label: '全部密钥 (不限)' }];
+      const options = [{ value: 'all', label: t('logs.allKeysOption') }];
       for (const [id, info] of keyMap.entries()) {
         const label = info.alias ? `${info.alias} (${info.display || id})` : (info.display || `Key #${id}`);
         options.push({ value: id, label });
@@ -161,30 +161,30 @@
       logsPage = 1;
       fetchEventsData();
       const brand = getProviderBrand(logsProviderFilter);
-      showToast(`已仅筛选服务商 ${brand.name || logsProviderFilter} 的请求流水`, 'success');
+      showToast(t('logs.filteredByProvider', { value: brand.name || logsProviderFilter }), 'success');
     }
 
     function updateLogsProviderSelect(events = []) {
       if (!dropdownInstances['logs-provider-dropdown']) return;
       const provMap = new Map();
       const presetProviders = [
-        { value: 'antigravity', label: '反重力 Antigravity' },
+        { value: 'antigravity', label: t('logs.providerAntigravity') },
         { value: 'codex', label: 'OpenAI Codex' },
         { value: 'gemini', label: 'Google Gemini' },
         { value: 'claude', label: 'Anthropic Claude' },
-        { value: 'stepfun', label: 'StepFun 阶跃星辰' },
+        { value: 'stepfun', label: t('logs.providerStepFun') },
         { value: 'opencode', label: 'OpenCode Zen' },
-        { value: 'workbuddy', label: '腾讯 WorkBuddy' },
+        { value: 'workbuddy', label: t('logs.providerWorkBuddy') },
         { value: 'workbuddy-cn', label: 'WorkBuddy (CodeBuddy)' },
         { value: 'deepseek', label: 'DeepSeek' },
-        { value: 'qoder-cn', label: 'Qoder (通义灵码)' },
-        { value: 'qoder', label: 'Qoder 阿里通义灵码' },
+        { value: 'qoder-cn', label: t('logs.providerQoderCn') },
+        { value: 'qoder', label: t('logs.providerQoder') },
         { value: 'openrouter', label: 'OpenRouter' },
-        { value: 'qwen', label: 'Qwen 通义千问' },
+        { value: 'qwen', label: t('logs.providerQwen') },
         { value: 'moonshot', label: 'Moonshot Kimi' },
         { value: 'zhipu', label: 'Zhipu GLM' },
         { value: 'stealth', label: 'stealth' },
-        { value: 'other', label: '其他上游' }
+        { value: 'other', label: t('logs.providerOther') }
       ];
       for (const p of presetProviders) {
         provMap.set(p.value, p.label);
@@ -206,7 +206,7 @@
           }
         }
       }
-      const options = [{ value: 'all', label: '全部服务商 (不限)' }];
+      const options = [{ value: 'all', label: t('logs.allProvidersOption') }];
       for (const [val, label] of provMap.entries()) {
         options.push({ value: val, label });
       }
@@ -232,7 +232,7 @@
       }
       logsPage = 1;
       fetchEventsData();
-      showToast('已仅筛选该 Key 的请求流水', 'success');
+      showToast(t('logs.filteredByKey'), 'success');
     }
 
     function onLogsSearch(query) {
@@ -325,7 +325,7 @@
       updateAuthFilterNotice();
       fetchEventsData();
       const name = getAuthDisplayName(logsAuthFilter);
-      showToast(`已仅筛选上游账号 ${name} 的请求流水`, 'success');
+      showToast(t('logs.filteredByUpstreamAccount', { name: name }), 'success');
     }
 
     function clearAuthFilter() {
@@ -361,8 +361,8 @@
       filterEvents('errors');
       if (typeof showToast === 'function') {
         const msg = failCount > 0
-          ? `已跳转至请求流水并筛选异常错误${timeRangeHint ? ` (时段 ${timeRangeHint}，共 ${failCount} 次失败)` : ''}`
-          : `已跳转至请求流水并筛选异常错误${timeRangeHint ? ` (时段 ${timeRangeHint})` : ''}`;
+          ? `${t('logs.jumpedToErrorLogs')}${timeRangeHint ? ` ${t('logs.timeRangeFailHintSuffix', { timeRangeHint: timeRangeHint, failCount: failCount })}` : ''}`
+          : `${t('logs.jumpedToErrorLogs')}${timeRangeHint ? ` ${t('logs.timeRangeHintSuffix', { timeRangeHint: timeRangeHint })}` : ''}`;
         showToast(msg, 'info');
       }
     };
@@ -371,7 +371,7 @@
       const rowClassAttr = isNew ? ' class="live-row-enter live-row-highlight"' : '';
       const tsMs = ev.ts > 1e11 ? ev.ts : ev.ts * 1000;
       const d = new Date(tsMs);
-      const timeStr = d.toLocaleTimeString('zh-CN', { hour12: false });
+      const timeStr = d.toLocaleTimeString(LOCALE, { hour12: false });
       const dateStr = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const fullIso = Number.isNaN(d.getTime()) ? '' : d.toISOString();
 
@@ -382,24 +382,24 @@
 
       let cacheTag = '<span style="color:var(--text-dim);">—</span>';
       if (ev.cached_tokens > 0) {
-        cacheTag = `<span class="chip chip-cache" title="Prompt Cache 命中 ${ev.cached_tokens.toLocaleString()} Tokens">${formatTokens(ev.cached_tokens)} (${ev.cache_hit_rate}%)</span>`;
+        cacheTag = `<span class="chip chip-cache" title="${t('logs.promptCacheHitTitle', { value: ev.cached_tokens.toLocaleString(LOCALE) })} Tokens">${formatTokens(ev.cached_tokens)} (${ev.cache_hit_rate}%)</span>`;
       } else if (ev.status >= 200 && ev.status < 400 && (ev.prompt_tokens > 0 || ev.total_tokens > 0)) {
-        cacheTag = '<span style="color:var(--text-dim); font-size:11.5px; font-family:var(--mono);" title="缓存未命中 (0 Tokens)">0%</span>';
+        cacheTag = `<span style="color:var(--text-dim); font-size:11.5px; font-family:var(--mono);" title="${t('logs.cacheMissTitle')}">0%</span>`;
       }
 
       const costTag = ev.cost_usd > 0 ? `<span class="num" style="color:#34d399;">${formatCost(ev.cost_usd)}</span>` : '<span style="color:var(--text-dim);">$0.00</span>';
 
       const flags = [];
-      if (ev.stream) flags.push('<span class="flag-pill">流式</span>');
-      if (ev.estimated) flags.push('<span class="flag-pill">估算</span>');
+      if (ev.stream) flags.push(`<span class="flag-pill">${t('logs.streamFlag')}</span>`);
+      if (ev.estimated) flags.push(`<span class="flag-pill">${t('logs.estimatedFlag')}</span>`);
       if (ev.error_type) {
-        flags.push(`<span class="flag-pill" style="background:#fef2f2;color:#ef4444;border-color:#fecaca;font-weight:600;" title="异常类型: ${escapeHtml(errorTypeLabel(ev.error_type))}">${escapeHtml(errorTypeLabel(ev.error_type))}</span>`);
+        flags.push(`<span class="flag-pill" style="background:#fef2f2;color:#ef4444;border-color:#fecaca;font-weight:600;" title="${t('logs.errorTypeTitle', { value: escapeHtml(errorTypeLabel(ev.error_type)) })}">${escapeHtml(errorTypeLabel(ev.error_type))}</span>`);
       }
 
       const totalLatStr = ev.latency_ms >= 1000 ? (ev.latency_ms / 1000).toFixed(1) + 's' : ev.latency_ms + 'ms';
       const ttftStr = ev.ttft_ms ? (ev.ttft_ms >= 1000 ? (ev.ttft_ms / 1000).toFixed(1) + 's' : ev.ttft_ms + 'ms') : '-';
       const latencyHtml = `<div class="num" style="font-weight:500;">${totalLatStr}</div>` +
-        (ev.stream && ev.ttft_ms ? `<div style="font-size:10.5px; color:var(--text-dim);">首字 ${ttftStr}</div>` : '');
+        (ev.stream && ev.ttft_ms ? `<div style="font-size:10.5px; color:var(--text-dim);">${t('logs.ttftLabel', { ttftStr: ttftStr })}</div>` : '');
 
       const ks = getKeyStyle(ev.key_id, ev.display_key);
       const filterKeyTarget = ev.key_id != null ? ev.key_id : ev.display_key;
@@ -415,15 +415,15 @@
       }
       if (ev.auth_index && (!authName || authName === ev.auth_index)) {
         authName = (authBrand && authBrand.id !== 'other')
-          ? `${authBrand.name} 渠道 ${shortAuth}`
-          : `已删除账号 ${shortAuth}`;
+          ? t('logs.channelByShortAuth', { name: authBrand.name, shortAuth: shortAuth })
+          : t('logs.deletedAccountByShortAuth', { shortAuth: shortAuth });
       }
       let authTdHtml = '<span style="color:var(--text-dim); font-size:11.5px;">—</span>';
       if (ev.auth_index) {
         authTdHtml = `
-          <div style="cursor:pointer;" onclick="filterBySpecificAuth('${escapeHtml(ev.auth_index)}')" title="点击筛选此上游账号的流水">
+          <div style="cursor:pointer;" onclick="filterBySpecificAuth('${escapeHtml(ev.auth_index)}')" title="${t('logs.filterByUpstreamAccountHint')}">
             <div style="display:flex; align-items:center; gap:5px;">
-              <span class="provider-pill ${authBrand.pillClass}" style="font-size:9.5px; padding:0 4px; cursor:pointer;" onclick="event.stopPropagation(); filterBySpecificProvider('${escapeHtml(authBrand.id)}');" title="点击仅看该服务商的请求流水">${escapeHtml(authBrand.name)}</span>
+              <span class="provider-pill ${authBrand.pillClass}" style="font-size:9.5px; padding:0 4px; cursor:pointer;" onclick="event.stopPropagation(); filterBySpecificProvider('${escapeHtml(authBrand.id)}');" title="${t('logs.filterByProviderHint')}">${escapeHtml(authBrand.name)}</span>
               <span style="font-weight:600; color:var(--text-main); font-size:11.5px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(authName || ev.auth_index)}">
                 ${escapeHtml(authName || ev.auth_index)}
               </span>
@@ -435,12 +435,12 @@
 
       const statusTitle = ev.status >= 400
         ? `HTTP ${ev.status}${ev.error_type ? ` · ${errorTypeLabel(ev.error_type)}` : ''}`
-        : `HTTP ${ev.status} 成功`;
+        : `HTTP ${t('logs.httpSuccessStatus', { status: ev.status })}`;
 
       // 思考强度标签 (Reasoning Effort / Thinking Budget)
       let reasoningHtml = '<span style="color:var(--text-dim); font-size:11.5px;">—</span>';
       if (ev.reasoning_effort) {
-        reasoningHtml = `<span class="chip chip-purple" title="思考强度 / Thinking: ${escapeHtml(ev.reasoning_effort)}">${escapeHtml(ev.reasoning_effort)}</span>`;
+        reasoningHtml = `<span class="chip chip-purple" title="${t('logs.reasoningEffortTitle', { value: escapeHtml(ev.reasoning_effort) })}">${escapeHtml(ev.reasoning_effort)}</span>`;
       }
 
       // 速率 (Tokens/s 生成吞吐)
@@ -451,7 +451,7 @@
         if (tpsNum >= 100) speedColor = '#10b981';
         else if (tpsNum >= 50) speedColor = '#06b6d4';
         else if (tpsNum < 20) speedColor = '#f59e0b';
-        tpsHtml = `<span class="speed-badge" style="color:${speedColor}; font-weight:600; font-size:11.5px;" title="生成速率: ${tpsNum} tokens/s (纯输出阶段速率)">${tpsNum} <span style="font-size:10px; font-weight:400; opacity:0.8;">tok/s</span></span>`;
+        tpsHtml = `<span class="speed-badge" style="color:${speedColor}; font-weight:600; font-size:11.5px;" title="${t('logs.generationRateTitle', { tpsNum: tpsNum })}">${tpsNum} <span style="font-size:10px; font-weight:400; opacity:0.8;">tok/s</span></span>`;
       }
 
       return `<tr${rowClassAttr} data-id="${escapeHtml(String(ev.id || ''))}">
@@ -463,7 +463,7 @@
             <div class="key-badge" style="--key-bg:${ks.bg}; --key-border:${ks.border}; --key-color:${ks.color};"
                  data-target="${escapeHtml(String(filterKeyTarget))}"
                  onclick="filterBySpecificKey(this.dataset.target)"
-                 title="点击一键仅看此 Key 的流水">
+                 title="${t('logs.filterByKeyHint')}">
               <span>${escapeHtml(mainKeyText)}</span>
             </div>
             <div class="key-display" style="font-size:10px; color:var(--text-dim); margin-top:2px; height:14px; line-height:14px;">${escapeHtml(subKeyText)}</div>
@@ -474,7 +474,7 @@
         <td><div class="live-cell-content">${reasoningHtml}</div></td>
         <td><div class="live-cell-content"><span class="chip ${statusClass}" title="${escapeHtml(statusTitle)}">${ev.status}</span></div></td>
         <td><div class="live-cell-content">${tpsHtml}</div></td>
-        <td class="num"><div class="live-cell-content">${(ev.prompt_tokens || 0).toLocaleString()} / <b>${(ev.completion_tokens || 0).toLocaleString()}</b></div></td>
+        <td class="num"><div class="live-cell-content">${(ev.prompt_tokens || 0).toLocaleString(LOCALE)} / <b>${(ev.completion_tokens || 0).toLocaleString(LOCALE)}</b></div></td>
         <td class="num"><div class="live-cell-content">${cacheTag}</div></td>
         <td><div class="live-cell-content">${costTag}</div></td>
         <td><div class="live-cell-content">${latencyHtml}</div></td>
@@ -491,14 +491,14 @@
       const pageInfo = document.getElementById('logs-page-info');
       const prevBtn = document.getElementById('logs-prev-btn');
       const nextBtn = document.getElementById('logs-next-btn');
-      if (pageInfo) pageInfo.innerText = `第 ${logsPage} / ${totalPages} 页 (共 ${totalFiltered} 条)`;
+      if (pageInfo) pageInfo.innerText = t('logs.pageCounter', { logsPage: logsPage, totalPages: totalPages, totalFiltered: totalFiltered });
       if (prevBtn) prevBtn.disabled = logsPage <= 1;
       if (nextBtn) nextBtn.disabled = logsPage >= totalPages;
 
       const tbody = document.getElementById('events-tbody');
       if (!tbody) return;
       if (totalFiltered === 0 || pageEvents.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; color: var(--text-dim); padding: 32px;">当前筛选条件与搜索词下暂无流水数据</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: var(--text-dim); padding: 32px;">${t('logs.emptyFiltered')}</td></tr>`;
         return;
       }
 
@@ -548,15 +548,15 @@
 
     function errorTypeLabel(t) {
       const map = {
-        quota_exceeded: '额度超限',
-        rate_limited: 'RPM 限速',
-        model_forbidden: '模型拦截',
-        empty_response: '上游空响应',
-        stream_interrupted: '流中断',
-        connection_error: '上游失联',
-        stream_loop_detected: '思考死循环熔断',
-        payload_too_large: '请求体过大',
-        upstream_validation_required: '上游人机验证'
+        quota_exceeded: t('logs.errorQuotaExceeded'),
+        rate_limited: t('logs.errorRateLimited'),
+        model_forbidden: t('logs.errorModelForbidden'),
+        empty_response: t('logs.errorEmptyResponse'),
+        stream_interrupted: t('logs.errorStreamInterrupted'),
+        connection_error: t('logs.errorConnectionLost'),
+        stream_loop_detected: t('logs.errorThinkingLoopBreaker'),
+        payload_too_large: t('logs.errorPayloadTooLarge'),
+        upstream_validation_required: t('logs.errorUpstreamVerification')
       };
       return map[t] || t;
     }
@@ -639,14 +639,14 @@
       const pageInfo = document.getElementById('errors-page-info');
       const prevBtn = document.getElementById('errors-prev-btn');
       const nextBtn = document.getElementById('errors-next-btn');
-      if (pageInfo) pageInfo.innerText = `第 ${errorsPage} / ${totalPages} 页 (共 ${totalFiltered} 条)`;
+      if (pageInfo) pageInfo.innerText = t('logs.errorsPageCounter', { errorsPage: errorsPage, totalPages: totalPages, totalFiltered: totalFiltered });
       if (prevBtn) prevBtn.disabled = errorsPage <= 1;
       if (nextBtn) nextBtn.disabled = errorsPage >= totalPages;
 
       const tbody = document.getElementById('errors-tbody');
       if (!tbody) return;
       if (!errors || errors.length === 0 || totalFiltered === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-dim); padding: 32px;">暂无上游错误或熔断事件，网关运行健康</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-dim); padding: 32px;">${t('logs.emptyIncidents')}</td></tr>`;
         return;
       }
 
@@ -657,7 +657,7 @@
         const tsMs = ev.ts > 1e11 ? ev.ts : ev.ts * 1000;
         const d = new Date(tsMs);
         const dateStr = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const timeStr = d.toLocaleTimeString('zh-CN', { hour12: false });
+        const timeStr = d.toLocaleTimeString(LOCALE, { hour12: false });
         const fullTimeStr = `${dateStr} ${timeStr}`;
         const keyInfo = ev.key_alias ? `${escapeHtml(ev.key_alias)} (#${ev.key_id || '—'})` : (ev.key_id ? `#${ev.key_id}` : '—');
 
@@ -665,12 +665,12 @@
         if (ev.status === 429) statusClass = 'chip-yellow';
 
         // 熔断与退避倒计时
-        let circuitStatus = '<span style="color:var(--text-dim);">已结束</span>';
+        let circuitStatus = `<span style="color:var(--text-dim);">${t('logs.statusEnded')}</span>`;
         if (ev.recover_at && ev.recover_at > now) {
           const remainSec = Math.ceil((ev.recover_at - now) / 1000);
-          circuitStatus = `<span class="chip chip-red" style="font-weight:600;">熔断中 (${remainSec}s 后解封)</span>`;
+          circuitStatus = `<span class="chip chip-red" style="font-weight:600;">${t('logs.circuitBrokenChip', { remainSec: remainSec })}</span>`;
         } else if (ev.retry_after_ms > 0) {
-          circuitStatus = `<span class="chip chip-gray">退避 ${Math.round(ev.retry_after_ms / 1000)}s</span>`;
+          circuitStatus = `<span class="chip chip-gray">${t('logs.backoffChip', { value: Math.round(ev.retry_after_ms / 1000) })}s</span>`;
         }
 
         // 上游账号与凭据身份直观展示
@@ -683,8 +683,8 @@
       }
         if (ev.auth_index && (!authName || authName === ev.auth_index)) {
           authName = (brand && brand.id !== 'other')
-            ? `${brand.name} 渠道 ${shortId}`
-            : `已删除账号 ${shortId}`;
+            ? t('logs.channelByShortId', { name: brand.name, shortId: shortId })
+            : t('logs.deletedAccountByShortId', { shortId: shortId });
         }
         let authDisplay = '<span style="color:var(--text-dim);">—</span>';
         if (ev.auth_index) {
@@ -708,7 +708,7 @@
           const urlMatch = (ev.error_body || '').match(/https:\/\/accounts\.google\.com\/signin\/continue\?[^\s"'\\]+/);
           if (urlMatch) {
             const rawUrl = urlMatch[0];
-            bodySnippet = `<span style="color:var(--danger); font-weight:700;">Google 账号安全验证拦截</span> · <a href="${escapeHtml(rawUrl)}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:700; text-decoration:underline;">立即打开验证页 ↗</a>`;
+            bodySnippet = `<span style="color:var(--danger); font-weight:700;">${t('logs.googleVerificationBlocked')}</span> · <a href="${escapeHtml(rawUrl)}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:700; text-decoration:underline;">${t('logs.openVerificationPageLink')}</a>`;
           }
         }
 

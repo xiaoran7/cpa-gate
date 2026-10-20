@@ -40,7 +40,7 @@
       try {
         const res = await fetch('/admin/api/keys', { headers: getAuthHeaders() });
         if (res.status === 401) {
-          document.getElementById('keys-tbody').innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--danger); padding: 32px;">鉴权失败，请点击右上角"密钥"配置管理密钥。</td></tr>';
+          document.getElementById('keys-tbody').innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--danger); padding: 32px;">${t('keys.authFailedHint')}</td></tr>`;
           return;
         }
         if (!res.ok) return;
@@ -58,12 +58,12 @@
     }
 
     function renderKeysTable(keys) {
-      document.getElementById('table-keys-count').innerText = `共 ${keys.length} 个密钥`;
+      document.getElementById('table-keys-count').innerText = t('keys.countKeysSuffix', { count: keys.length });
       const navBadge = document.getElementById('nav-badge-keys');
       if (navBadge) navBadge.innerText = keys.length;
       const tbody = document.getElementById('keys-tbody');
       if (keys.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--text-dim); padding: 32px;">暂无 API 密钥，请点击"新建 Key"创建。</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-dim); padding: 32px;">${t('keys.emptyState')}</td></tr>`;
         return;
       }
       let html = '';
@@ -73,21 +73,21 @@
         const ratio = hardLimit > 0 ? Math.max(0, Math.min(1, usage / hardLimit)) : 0;
         const barColorClass = k.is_blocked ? 'danger' : (ratio >= 0.85 ? 'warn' : '');
 
-        let statusChip = '<span class="chip chip-gray">未限制</span>';
+        let statusChip = `<span class="chip chip-gray">${t('keys.statusNoLimit')}</span>`;
         if (k.is_blocked) {
-          statusChip = '<span class="chip chip-red">硬顶阻断 (429)</span>';
+          statusChip = `<span class="chip chip-red">${t('keys.statusHardCapBlocked')}</span>`;
         } else if (k.enabled) {
-          if (ratio >= 0.85) statusChip = '<span class="chip chip-yellow">接近上限</span>';
-          else statusChip = '<span class="chip chip-green">运行正常</span>';
+          if (ratio >= 0.85) statusChip = `<span class="chip chip-yellow">${t('keys.statusNearLimit')}</span>`;
+          else statusChip = `<span class="chip chip-green">${t('keys.statusRunningOk')}</span>`;
         }
 
-        let modelHtml = '<span class="model-perm-badge all" title="允许访问所有已接入模型"><span class="perm-dot all"></span>全部模型 (*)</span>';
+        let modelHtml = `<span class="model-perm-badge all" title="${t('keys.allModelsAllowedTitle')}"><span class="perm-dot all"></span>${t('keys.modelsAllBadge')}</span>`;
         if (k.model_whitelist) {
           const list = parseModelList(k.model_whitelist);
           if (list.length === 1) {
             modelHtml = `<span class="model-perm-badge limited" title="${escapeHtml(list[0])}"><span class="perm-dot limited"></span>${escapeHtml(list[0])}</span>`;
           } else if (list.length > 1) {
-            modelHtml = `<span class="model-perm-badge limited" title="${escapeHtml(list.join(', '))}"><span class="perm-dot limited"></span>允许 ${list.length} 个模型</span>`;
+            modelHtml = `<span class="model-perm-badge limited" title="${escapeHtml(list.join(', '))}"><span class="perm-dot limited"></span>${t('keys.allowedModelsCount', { count: list.length })}</span>`;
           }
         }
 
@@ -97,40 +97,40 @@
         if (hardLimit > 0) {
           const pct = Math.max(0, Math.min(100, Math.round(ratio * 100)));
           progressHtml = `
-            <div class="usage-progress-wrap" title="今日消耗进度: ${pct}% (软限额: ${formatTokens(k.daily_limit || 0)}, 硬限: ${formatTokens(hardLimit)})">
+            <div class="usage-progress-wrap" title="${t('keys.todayUsageProgressTitle', { pct: pct, value: formatTokens(k.daily_limit || 0), value2: formatTokens(hardLimit) })}">
               <div class="usage-progress-bar">
                 <div class="usage-progress-fill ${barColorClass}" style="width:${pct}%;"></div>
               </div>
             </div>`;
         } else {
           progressHtml = `
-            <div class="usage-progress-wrap" title="未设置每日额度限制">
+            <div class="usage-progress-wrap" title="${t('keys.noDailyLimitTitle')}">
               <div class="usage-progress-bar unlimited"></div>
             </div>`;
         }
 
         const keyCopyBtn = `
-          <button class="key-action-icon-btn" onclick="copyFullKey(${k.key_id})" title="复制完整 API Key">
+          <button class="key-action-icon-btn" onclick="copyFullKey(${k.key_id})" title="${t('keys.copyFullKeyTitle')}">
             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
           </button>`;
 
         const pctNum = hardLimit > 0 ? Math.max(0, Math.min(100, Math.round(ratio * 100))) : 0;
-        const limitTag = hardLimit > 0 ? `<span style="color:${pctNum >= 85 ? 'var(--warning)' : 'var(--text-dim)'};">${pctNum}%</span>` : '<span style="color:var(--text-dim); opacity:0.8;">不限</span>';
+        const limitTag = hardLimit > 0 ? `<span style="color:${pctNum >= 85 ? 'var(--warning)' : 'var(--text-dim)'};">${pctNum}%</span>` : `<span style="color:var(--text-dim); opacity:0.8;">${t('keys.unlimitedLabel')}</span>`;
 
         const limitDisplay = k.daily_limit > 0
-          ? (k.enabled ? formatTokens(k.daily_limit) : `<span class="cell-unlimited" style="color:var(--text-dim);" title="已设置每日限额，但未开启硬顶管控开关">${formatTokens(k.daily_limit)} (未启用)</span>`)
-          : '<span class="cell-unlimited">不限</span>';
-        const rpmDisplay = k.rpm_limit > 0 ? `${k.rpm_limit} RPM` : '<span class="cell-unlimited">不限</span>';
+          ? (k.enabled ? formatTokens(k.daily_limit) : `<span class="cell-unlimited" style="color:var(--text-dim);" title="${t('keys.dailyLimitHardCapOffHint')}">${t('keys.dailyLimitNotEnabledSuffix', { value: formatTokens(k.daily_limit) })}</span>`)
+          : `<span class="cell-unlimited">${t('keys.unlimitedLabel')}</span>`;
+        const rpmDisplay = k.rpm_limit > 0 ? `${k.rpm_limit} RPM` : `<span class="cell-unlimited">${t('keys.unlimitedLabel')}</span>`;
 
         html += `<tr>
           <td>
             <div class="key-display-row">
-              <div class="key-display" style="user-select:all; cursor:pointer;" title="完整 Key 需点击右侧按钮复制">${escapeHtml(k.display_key)}</div>
+              <div class="key-display" style="user-select:all; cursor:pointer;" title="${t('keys.fullKeyCopyHint')}">${escapeHtml(k.display_key)}</div>
               ${keyCopyBtn}
             </div>
             <div class="key-alias-row">
-              <span class="key-alias ${k.key_alias ? '' : 'empty'}">${escapeHtml(k.key_alias || '无备注')}</span>
-              <button class="alias-quick-edit-btn" onclick="openRenameModal(${k.key_id})" title="修改备注别名">
+              <span class="key-alias ${k.key_alias ? '' : 'empty'}">${escapeHtml(k.key_alias || t('keys.aliasEmpty'))}</span>
+              <button class="alias-quick-edit-btn" onclick="openRenameModal(${k.key_id})" title="${t('keys.renameAliasButtonTitle')}">
                 <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
               </button>
             </div>
@@ -140,10 +140,10 @@
             <div class="key-usage-cell">
               <div class="key-usage-primary">
                 <span class="key-usage-tokens">${formatTokens(k.today_usage)}</span>
-                <span class="key-usage-requests">${(k.today_requests || 0).toLocaleString()} 次</span>
+                <span class="key-usage-requests">${t('stats.requestCountSuffix', { value: (k.today_requests || 0).toLocaleString(LOCALE) })}</span>
               </div>
               <div class="key-usage-sub">
-                <span class="key-usage-alltime">累计 ${formatTokens(k.all_time_usage || 0)}</span>
+                <span class="key-usage-alltime">${t('keys.allTimeUsageLabel', { value: formatTokens(k.all_time_usage || 0) })}</span>
                 ${limitTag}
               </div>
               ${progressHtml}
@@ -156,9 +156,9 @@
           <td>${statusChip}</td>
           <td style="text-align: right;">
             <div class="btn-action-group">
-              <button class="btn btn-secondary btn-sm" onclick="openEditModal(${k.key_id})">配置</button>
-              <button class="btn btn-secondary btn-sm" onclick="rotateKey(${k.key_id})">轮换</button>
-              <button class="btn btn-danger btn-sm" onclick="deleteKey(${k.key_id})">删除</button>
+              <button class="btn btn-secondary btn-sm" onclick="openEditModal(${k.key_id})">${t('keys.configureButton')}</button>
+              <button class="btn btn-secondary btn-sm" onclick="rotateKey(${k.key_id})">${t('keys.rotateButton')}</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteKey(${k.key_id})">${t('quotas.actionDelete')}</button>
             </div>
           </td>
         </tr>`;
@@ -172,7 +172,7 @@
       const item = cachedKeys.find(k => k.key_id === keyId);
       if (!item) return;
       currentRenameKeyId = keyId;
-      document.getElementById('rename-modal-title').innerText = `修改别名: ${item.display_key}`;
+      document.getElementById('rename-modal-title').innerText = t('keys.renameModalTitle', { display_key: item.display_key });
       const input = document.getElementById('rename-alias-input');
       input.value = item.key_alias || '';
       openModal('rename-modal');
@@ -200,7 +200,7 @@
           body: JSON.stringify({ alias })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || '更新别名失败');
+        if (!res.ok) throw new Error(data.error || t('keysModal.renameUpdateFailed'));
 
         // 本地更新缓存以即时反馈
         const item = cachedKeys.find(k => k.key_id === currentRenameKeyId);
@@ -212,9 +212,9 @@
         renderEventsTable(cachedEvents, cachedEventsTotal);
 
         closeModal('rename-modal');
-        showToast(alias ? `别名已更新为 "${alias}"` : '别名已清空', 'success');
+        showToast(alias ? t('keys.aliasUpdatedToast', { alias: alias }) : t('keysModal.renameCleared'), 'success');
       } catch (err) {
-        showToast('修改别名失败: ' + err.message, 'error');
+        showToast(`${t('keysModal.renameFailedPrefix')} ` + err.message, 'error');
       } finally {
         if (saveBtn) saveBtn.disabled = false;
       }
@@ -226,7 +226,7 @@
       if (!item) return;
       currentKeyId = keyId;
 
-      document.getElementById('edit-modal-title').innerText = `配置 Key 规则: ${item.key_alias || item.display_key}`;
+      document.getElementById('edit-modal-title').innerText = t('keys.editKeyRuleTitle', { value: item.key_alias || item.display_key });
       const rawGroup = document.getElementById('edit-key-raw-group');
       const rawInput = document.getElementById('edit-key-raw-input');
       // 完整 Key 不在列表里下发，改为打开弹窗时按需拉取；
@@ -264,7 +264,7 @@
       const box = document.getElementById('edit-tags-box');
       if (!box) return;
       if (currentSelectedModels.length === 0) {
-        box.innerHTML = '<span class="tag-empty">未设置限制（全量模型均允许 *）</span>';
+        box.innerHTML = `<span class="tag-empty">${t('editModal.modelsEmptyTag')}</span>`;
         return;
       }
       let html = '';
@@ -336,8 +336,8 @@
       const label = document.getElementById('model-picker-label');
       if (label) {
         label.innerText = cachedUpstreamModelsList && cachedUpstreamModelsList.length > 0
-          ? `点击搜索或选择上游模型 (已接入 ${cachedUpstreamModelsList.length} 个)...`
-          : '点击搜索或选择上游模型添加...';
+          ? t('keys.modelPickerPlaceholder', { count: cachedUpstreamModelsList.length })
+          : t('editModal.modelPickerPlaceholder');
       }
     }
 
@@ -353,10 +353,10 @@
         btn.disabled = true;
       }
       if (label && (!cachedUpstreamModelsList || cachedUpstreamModelsList.length === 0)) {
-        label.innerText = '正在同步上游模型清单...';
+        label.innerText = t('editModal.modelPickerSyncing');
       }
       if (listEl && (!cachedUpstreamModelsList || cachedUpstreamModelsList.length === 0)) {
-        listEl.innerHTML = '<div class="model-picker-empty">正在拉取上游模型...</div>';
+        listEl.innerHTML = `<div class="model-picker-empty">${t('editModal.modelPickerFetching')}</div>`;
       }
 
       try {
@@ -372,18 +372,18 @@
 
         cachedUpstreamModelsList = uniqueModels;
         if (label) {
-          label.innerText = `点击搜索或选择上游模型 (已接入 ${uniqueModels.length} 个)...`;
+          label.innerText = t('keys.modelPickerPlaceholder', { count: uniqueModels.length });
         }
         renderModelPickerList();
         if (showSuccessToast) {
-          showToast(`成功同步 ${uniqueModels.length} 个上游模型`, 'success');
+          showToast(t('keys.modelSyncSuccess', { count: uniqueModels.length }), 'success');
         }
       } catch (err) {
         console.warn('Fetch upstream models failed:', err);
         if (listEl && (!cachedUpstreamModelsList || cachedUpstreamModelsList.length === 0)) {
-          listEl.innerHTML = `<div class="model-picker-empty" style="color:var(--danger);">同步失败: ${escapeHtml(err.message)}</div>`;
+          listEl.innerHTML = `<div class="model-picker-empty" style="color:var(--danger);">${t('keys.modelSyncFailed', { value: escapeHtml(err.message) })}</div>`;
         }
-        showToast('同步上游模型失败: ' + err.message, 'error');
+        showToast(`${t('editModal.modelPickerSyncToastPrefix')} ` + err.message, 'error');
       } finally {
         isFetchingUpstreamModels = false;
         if (btn) {
@@ -399,12 +399,12 @@
       const query = (filterText || '').trim().toLowerCase();
 
       if (!cachedUpstreamModelsList) {
-        listEl.innerHTML = '<div class="model-picker-empty">正在加载模型清单...</div>';
+        listEl.innerHTML = `<div class="model-picker-empty">${t('editModal.modelPickerLoading')}</div>`;
         return;
       }
 
       if (cachedUpstreamModelsList.length === 0) {
-        listEl.innerHTML = '<div class="model-picker-empty">上游暂无可用模型</div>';
+        listEl.innerHTML = `<div class="model-picker-empty">${t('editModal.modelPickerEmptyUpstream')}</div>`;
         return;
       }
 
@@ -415,7 +415,7 @@
 
       let html = '';
       if (matched.length === 0) {
-        html += `<div class="model-picker-empty">无匹配上游模型</div>`;
+        html += `<div class="model-picker-empty">${t('editModal.modelPickerNoMatch')}</div>`;
       } else {
         matched.forEach(m => {
           const isAdded = currentSelectedModels.includes(m.toLowerCase());
@@ -426,7 +426,7 @@
                 <span class="model-picker-item-name" title="${escapeHtml(m)}">${escapeHtml(m)}</span>
               </div>
               <div class="model-picker-item-right">
-                ${isAdded ? '<span class="model-picker-badge-added">已在白名单</span>' : '<span class="model-picker-badge-add">+ 添加</span>'}
+                ${isAdded ? `<span class="model-picker-badge-added">${t('editModal.modelBadgeInWhitelist')}</span>` : `<span class="model-picker-badge-add">${t('editModal.modelBadgeAdd')}</span>`}
               </div>
             </div>
           `;
@@ -438,7 +438,7 @@
         html += `
           <div class="model-picker-custom-add" onclick="selectModelFromPicker('${escapeHtml(query)}')">
             <svg style="width:13px; height:13px; flex-shrink:0;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"></path></svg>
-            <span>添加自定义模型 <strong>${escapeHtml(query)}</strong></span>
+            <span>${t('editModal.modelCustomAdd')} <strong>${escapeHtml(query)}</strong></span>
           </div>
         `;
       }
@@ -472,14 +472,14 @@
       if (!currentSelectedModels.includes(val)) {
         currentSelectedModels.push(val);
         renderModelTags();
-        showToast(`已添加模型: ${val}`, 'info');
+        showToast(t('keys.modelAddedToast', { val: val }), 'info');
       } else {
         // 已存在时点击则移除（切换行为）
         const idx = currentSelectedModels.indexOf(val);
         if (idx !== -1) {
           currentSelectedModels.splice(idx, 1);
           renderModelTags();
-          showToast(`已移除模型: ${val}`, 'info');
+          showToast(t('keys.modelRemovedToast', { val: val }), 'info');
         }
       }
       renderModelPickerList(document.getElementById('model-picker-search')?.value || '');
@@ -527,7 +527,7 @@
         });
         if (!resAlias.ok) {
           const errData = await resAlias.json().catch(() => ({}));
-          throw new Error(errData.error || '保存别名失败');
+          throw new Error(errData.error || t('editModal.saveAliasFailed'));
         }
 
         const resQuota = await fetch(`/admin/api/keys/${currentKeyId}/quota`, {
@@ -543,15 +543,15 @@
         });
         if (!resQuota.ok) {
           const errData = await resQuota.json().catch(() => ({}));
-          throw new Error(errData.error || '保存配额规则失败');
+          throw new Error(errData.error || t('editModal.saveQuotaFailed'));
         }
 
         invalidateKeysFrontendCache();
         closeModal('edit-modal');
-        showToast('Key 配置已更新生效', 'success');
+        showToast(t('editModal.savedToast'), 'success');
         manualRefresh();
       } catch (err) {
-        showToast('保存失败: ' + err.message, 'error');
+        showToast(`${t('editModal.saveFailedPrefix')} ` + err.message, 'error');
       }
     }
 
@@ -581,10 +581,10 @@
           body: JSON.stringify({ alias, api_key: apiKey, enabled, daily_limit: limit })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || '创建失败');
+        if (!res.ok) throw new Error(data.error || t('keysModal.createFailed'));
         invalidateKeysFrontendCache();
         createdKeyRaw = data.key?.api_key || data.api_key;
-        if (!createdKeyRaw) throw new Error('CPA 已创建 Key，但响应未包含密钥，请在列表中查看');
+        if (!createdKeyRaw) throw new Error(t('keysModal.createNoSecretError'));
         document.getElementById('created-key-val').innerText = createdKeyRaw;
         document.getElementById('create-form').style.display = 'none';
         document.getElementById('create-result').style.display = 'block';
@@ -595,39 +595,39 @@
     }
     function copyCreatedKey() {
       if (!createdKeyRaw) return;
-      navigator.clipboard.writeText(createdKeyRaw).then(() => showToast('已复制到剪贴板', 'success'));
+      navigator.clipboard.writeText(createdKeyRaw).then(() => showToast(t('keys.copiedToast'), 'success'));
     }
     function finishCreateKey() {
       closeModal('create-modal');
     }
     async function rotateKey(keyId) {
-      if (!confirm('轮换后旧 Key 立即失效。确定为此 Key 生成新密钥吗？')) return;
+      if (!confirm(t('keysModal.rotateConfirm'))) return;
       try {
         const res = await fetch(`/admin/api/keys/${keyId}/rotate`, { method: 'POST', headers: getAuthHeaders() });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || '轮换失败');
+        if (!res.ok) throw new Error(data.error || t('keysModal.rotateFailed'));
         invalidateKeysFrontendCache();
         createdKeyRaw = data.key?.api_key;
-        if (!createdKeyRaw) throw new Error('轮换已完成，但响应未包含新密钥');
+        if (!createdKeyRaw) throw new Error(t('keysModal.rotateNoSecretError'));
         document.getElementById('created-key-val').innerText = createdKeyRaw;
         document.getElementById('create-form').style.display = 'none';
         document.getElementById('create-result').style.display = 'block';
         openModal('create-modal');
         manualRefresh();
-      } catch (err) { showToast('轮换失败: ' + err.message, 'error'); }
+      } catch (err) { showToast(`${t('keysModal.rotateFailedPrefix')} ` + err.message, 'error'); }
     }
 
     async function deleteKey(keyId) {
-      if (!confirm('确定要彻底删除该 Key 吗？此操作将同步至 CPA 并不再接受请求。')) return;
+      if (!confirm(t('keysModal.deleteConfirm'))) return;
       try {
         const res = await fetch(`/admin/api/keys/${keyId}`, {
           method: 'DELETE',
           headers: getAuthHeaders()
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || '删除失败');
+        if (!res.ok) throw new Error(data.error || t('keysModal.deleteFailed'));
         invalidateKeysFrontendCache();
-        showToast('Key 已成功删除', 'success');
+        showToast(t('keysModal.deleteSuccess'), 'success');
         manualRefresh();
       } catch (err) {
         showToast(err.message, 'error');
@@ -661,7 +661,7 @@
       const tbody = document.getElementById('prices-tbody');
       if (!tbody) return;
       if (!prices || prices.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 24px;">暂无定价规则配置</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 24px;">${t('pricesModal.emptyState')}</td></tr>`;
         return;
       }
       let html = '';
@@ -674,8 +674,8 @@
           <td class="num">$${Number(p.cache_read_price || 0).toFixed(3)}</td>
           <td class="num"><span class="chip chip-gray">${Number(p.multiplier || 1.0).toFixed(1)}x</span></td>
           <td style="text-align: right;">
-            <button class="btn btn-secondary btn-sm" onclick="editPriceRule(${p.id})">编辑</button>
-            <button class="btn btn-danger btn-sm" style="margin-left:4px;" onclick="deletePriceRule(${p.id})">删除</button>
+            <button class="btn btn-secondary btn-sm" onclick="editPriceRule(${p.id})">${t('quotas.actionEdit')}</button>
+            <button class="btn btn-danger btn-sm" style="margin-left:4px;" onclick="deletePriceRule(${p.id})">${t('quotas.actionDelete')}</button>
           </td>
         </tr>`;
       }
@@ -684,7 +684,7 @@
 
     function resetPriceForm() {
       document.getElementById('price-form-id').value = '';
-      document.getElementById('price-form-title').innerText = '添加 / 编辑定价规则';
+      document.getElementById('price-form-title').innerText = t('keys.addEditPricingRuleTitle');
       document.getElementById('price-pattern').value = '';
       document.getElementById('price-prompt').value = '';
       document.getElementById('price-completion').value = '';
@@ -697,7 +697,7 @@
       if (!p) return;
       const pat = p.pattern || p.model_pattern || '';
       document.getElementById('price-form-id').value = p.id;
-      document.getElementById('price-form-title').innerText = `编辑定价规则: ${pat}`;
+      document.getElementById('price-form-title').innerText = t('keys.editPricingRuleTitle', { pat: pat });
       document.getElementById('price-pattern').value = pat;
       document.getElementById('price-prompt').value = p.prompt_price;
       document.getElementById('price-completion').value = p.completion_price;
@@ -709,7 +709,7 @@
       const id = document.getElementById('price-form-id').value;
       const pattern = document.getElementById('price-pattern').value.trim();
       if (!pattern) {
-        showToast('模型匹配模式不可为空', 'error');
+        showToast(t('pricesModal.patternRequired'), 'error');
         return;
       }
       const promptPrice = Number(document.getElementById('price-prompt').value) || 0;
@@ -733,8 +733,8 @@
           body: JSON.stringify(payload)
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || '保存定价失败');
-        showToast('定价规则已生效', 'success');
+        if (!res.ok) throw new Error(data.error || t('pricesModal.saveFailed'));
+        showToast(t('pricesModal.saveSuccess'), 'success');
         resetPriceForm();
         fetchModelPrices();
         fetchStatsData();
@@ -744,15 +744,15 @@
     }
 
     async function deletePriceRule(id) {
-      if (!confirm('确定删除该模型定价规则吗？删除后将采用默认兜底定价。')) return;
+      if (!confirm(t('pricesModal.deleteConfirm'))) return;
       try {
         const res = await fetch(`/admin/api/model-prices/${id}`, {
           method: 'DELETE',
           headers: getAuthHeaders()
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || '删除失败');
-        showToast('定价规则已移除', 'success');
+        if (!res.ok) throw new Error(data.error || t('keysModal.deleteFailed'));
+        showToast(t('pricesModal.deleteSuccess'), 'success');
         fetchModelPrices();
         fetchStatsData();
       } catch (err) {

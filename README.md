@@ -10,7 +10,7 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg?style=flat-square&color=0284c7)](https://nodejs.org/)
 [![Database](https://img.shields.io/badge/SQLite-WAL%20%2B%20Outbox-orange.svg?style=flat-square)](https://sqlite.org/)
 [![UI Style](https://img.shields.io/badge/Design-Aozora%20UI%2060FPS-informational.svg?style=flat-square)](https://github.com/xiaoran7/cpa-gate)
-[![Tests](https://img.shields.io/badge/tests-14%20suites%20passing-10b981.svg?style=flat-square)](https://github.com/xiaoran7/cpa-gate/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-15%20suites%20passing-10b981.svg?style=flat-square)](https://github.com/xiaoran7/cpa-gate/actions/workflows/ci.yml)
 [![Upstream](https://img.shields.io/badge/upstream-CLIProxyAPI-64748b.svg?style=flat-square)](https://github.com/router-for-me/CLIProxyAPI)
 
 [English](./README.md) | [中文说明](#中文介绍) · [AI Spec (llms-full.txt)](./llms-full.txt)
@@ -28,6 +28,7 @@
 - **Safe CPA Control Plane Proxy**: Serves CPA's management UI under `/admin/upstream/*` with server-side secret injection, while blocking unauthenticated `/v0/management/*` probes to prevent CPA's 30-minute IP-ban trap.
 - **Transactional Outbox Durability**: Synchronous writes to SQLite `usage_outbox` (WAL mode) with 5s atomic batch flushes into `usage_daily`, `upstream_daily_stats`, and `request_events`, plus startup crash replay.
 - **Aozora UI Dashboard**: 60 FPS vanilla JS console (`/admin`) with minute-slot heartbeats, multi-window traffic charts (`3h20m` to `30d`, `Asia/Shanghai` aligned), credential-first provider attribution, audit/error search, and real-time quota panels (WorkBuddy multi-package & long-term sentinel purification, OpenRouter, Antigravity, OpenCode).
+- **Bilingual Console (zh/en)**: The dashboard ships a Chinese/English language switch backed by a single `admin-i18n.js` dictionary and a global `t()` helper — no build step, no framework. Your choice persists in `localStorage`; every document under `docs/` also carries an English section followed by its Chinese counterpart.
 
 ```text
 [Clients / Agents] ──(8316 / 8317)──▶ [cpa-gate: Auth · RPM/Quota · Allowlist · Outbox · Guard]
@@ -95,8 +96,10 @@ systemctl enable --now gate
 - **[WorkBuddy / CodeBuddy Quota Integration](docs/workbuddy-integration.md)**: Official metering endpoints, dual-layer sync, multi-package & long-term expiration handling.
 - **[llms.txt](./llms.txt)** / **[llms-full.txt](./llms-full.txt)**: Machine-readable specifications for AI assistants.
 
+> Every document under `docs/` is bilingual: the English section comes first, followed by an `<a id="中文版"></a>` anchor and the Chinese section, with an `[English](#top) | [中文](#中文版)` switcher at the top.
+
 ```bash
-npm test   # Run all 14 isolated SQLite test suites
+npm test   # Run all 15 isolated SQLite test suites
 ```
 
 ---
@@ -120,6 +123,7 @@ When troubleshooting provider credentials or the upstream management UI, check u
 - **弹性传输与流式守卫**：5xx 熔断器、30s 空响应负缓存、OpenAI/Anthropic 深度思考与工具流式语义识别、Google 403 验证链接提取及可选重试续写（`GATE_MAX_ATTEMPTS`）；
 - **安全反代 CPA 控制台**：服务端内存注入 `GATE_MGMT_SECRET` 代理 `/admin/upstream/*`，外层拦截未授权 `/v0/management/*` 探测以防触发 CPA 30 分钟 IP 连坐封禁；
 - **事务性发件箱记账**：SQLite WAL + `usage_outbox` 先入库后核算，5 秒原子刷盘，崩溃重启自动回放；
-- **Aozora UI 60 FPS 控制台**：提供分钟级心跳、东八区对齐的多窗口吞吐趋势、基于真实凭证 `auth_index` 的提供商归属核算、审计检索及多上游实时配额看板。
+- **Aozora UI 60 FPS 控制台**：提供分钟级心跳、东八区对齐的多窗口吞吐趋势、基于真实凭证 `auth_index` 的提供商归属核算、审计检索及多上游实时配额看板；
+- **中英双语控制台（zh/en）**：控制台内置中英文切换，依赖单一 `admin-i18n.js` 字典与全局 `t()` 函数，无构建步骤、无框架；选择记忆在 `localStorage`，`docs/` 下每篇文档同样含英文段与中文段。
 
 快速启动请参考上方 [Quick Start](#quick-start)。遵循 [MIT License](LICENSE) 开源。

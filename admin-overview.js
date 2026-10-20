@@ -36,7 +36,7 @@
 
   function fmtInt(n) {
     if (n == null || !Number.isFinite(Number(n))) return '--';
-    return Math.round(Number(n)).toLocaleString('zh-CN');
+    return Math.round(Number(n)).toLocaleString(LOCALE);
   }
 
   function fmtPct(n) {
@@ -46,34 +46,34 @@
 
   function fmtWindow(minutes) {
     const m = Number(minutes) || 0;
-    if (m <= 0) return '未知窗口';
-    if (m < 60) return `近 ${m} 分钟`;
+    if (m <= 0) return t('overview.runtimeWindowUnknown');
+    if (m < 60) return t('overview.runtimeWindowMinutes', { m: m });
     const hours = Math.floor(m / 60);
     const rest = m % 60;
     if (hours >= 24 && rest === 0 && hours % 24 === 0) {
-      return `近 ${hours / 24} 天`;
+      return t('overview.runtimeWindowDays', { value: hours / 24 });
     }
-    return rest ? `近 ${hours} 小时 ${rest} 分` : `近 ${hours} 小时`;
+    return rest ? t('overview.runtimeWindowHoursMinutes', { hours: hours, rest: rest }) : t('overview.runtimeWindowHours', { hours: hours });
   }
 
   function fmtBucketSpan(minutes) {
     const m = Number(minutes) || 10;
-    if (m < 60) return `每桶 ${m} 分钟`;
+    if (m < 60) return t('overview.runtimeBucketSpanMinutes', { m: m });
     const hours = Math.floor(m / 60);
     const rest = m % 60;
-    return rest ? `每桶 ${hours} 小时 ${rest} 分` : `每桶 ${hours} 小时`;
+    return rest ? t('overview.runtimeBucketSpanHoursMinutes', { hours: hours, rest: rest }) : t('overview.runtimeBucketSpanHours', { hours: hours });
   }
 
   // 判定口径与 CPA 面板一致：无流量单独成态，不按 0% 失败率误判为告警。
   function verdictOf(totals) {
-    if (!totals) return { key: 'idle', label: '静候流量' };
+    if (!totals) return { key: 'idle', label: t('status.runtimeVerdictIdle') };
     const total = totals.total_requests || 0;
-    if (total === 0) return { key: 'idle', label: '静候流量' };
+    if (total === 0) return { key: 'idle', label: t('status.runtimeVerdictIdle') };
     const rate = totals.success_rate;
-    if (rate == null) return { key: 'idle', label: '静候流量' };
-    if (rate >= 99) return { key: 'good', label: '运行平稳' };
-    if (rate >= 95) return { key: 'warning', label: '略有波动' };
-    return { key: 'critical', label: '需要留意' };
+    if (rate == null) return { key: 'idle', label: t('status.runtimeVerdictIdle') };
+    if (rate >= 99) return { key: 'good', label: t('stats.requestsSteady') };
+    if (rate >= 95) return { key: 'warning', label: t('status.runtimeVerdictWarning') };
+    return { key: 'critical', label: t('status.runtimeVerdictCritical') };
   }
 
   function sparkline(buckets, opts = {}) {
@@ -121,12 +121,12 @@
   function bucketTooltipHtml(bucket, facts) {
     const sum = (bucket.success || 0) + (bucket.failed || 0);
     const bucketMins = facts?.bucket_minutes || facts?.totals?.bucket_minutes || 10;
-    let timeLabel = escapeHtml(bucket.time || '10 分钟时段');
+    let timeLabel = escapeHtml(bucket.time || t('overview.runtimeBucketTimeFallback'));
     if (bucketMins >= 1440) {
-      timeLabel = `${escapeHtml(bucket.time)} 全天`;
+      timeLabel = t('overview.runtimeChartBucketAllDay', { value: escapeHtml(bucket.time) });
     }
     if (sum === 0) {
-      return `<div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:3px;">${timeLabel}</div><div style="color:#64748b;font-size:11.5px;">该时段无请求流量</div>`;
+      return `<div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:3px;">${timeLabel}</div><div style="color:#64748b;font-size:11.5px;">${t('chart.runtimeBucketNoTraffic')}</div>`;
     }
     const rate = sum > 0 ? ((bucket.success / sum) * 100).toFixed(1) : '100.0';
     let failHtml = '';
@@ -154,12 +154,12 @@
       const provItems = Array.from(provMap.entries()).map(([p, info]) => {
         const brand = typeof getProviderBrand === 'function' ? getProviderBrand(p) : { name: p, pillClass: 'provider-pill-default' };
         const shortNames = info.names.length > 0
-          ? `<div style="font-size:10px;font-family:var(--mono, monospace);color:#64748b;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">账号: ${escapeHtml(info.names.map(n => n.replace(/\.json$/i, '')).join(', '))}${info.count > info.names.length ? ' 等' : ''}</div>`
+          ? `<div style="font-size:10px;font-family:var(--mono, monospace);color:#64748b;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t('overview.runtimeAccountPrefix', { value: escapeHtml(info.names.map(n => n.replace(/\.json$/i, '')).join(', ')) })}${info.count > info.names.length ? ` ${t('overview.runtimeAccountEtcSuffix')}` : ''}</div>`
           : '';
         return `<div style="padding:4px 8px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;margin-top:4px;">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
             <span class="provider-pill ${brand.pillClass}" style="font-size:9.5px;padding:0 5px;">${escapeHtml(brand.name || p)}</span>
-            <span style="color:#dc2626;font-weight:700;font-family:var(--mono, monospace);font-size:11px;">${info.total} 次异常</span>
+            <span style="color:#dc2626;font-weight:700;font-family:var(--mono, monospace);font-size:11px;">${t('overview.runtimeAnomalyCountSuffix', { total: info.total })}</span>
           </div>
           ${shortNames}
         </div>`;
@@ -167,21 +167,21 @@
 
       failHtml = `
         <div style="margin-top:6px;">
-          <div style="font-size:11px;font-weight:600;color:#991b1b;">异常上游归因 (${failedCreds.length} 个凭据):</div>
-          ${provItems || `<div style="font-size:11px;color:#dc2626;">上游异常响应共 ${bucket.failed} 次</div>`}
+          <div style="font-size:11px;font-weight:600;color:#991b1b;">${t('overview.runtimeAnomalyAttribution', { count: failedCreds.length })}</div>
+          ${provItems || `<div style="font-size:11px;color:#dc2626;">${t('overview.runtimeUpstreamAnomalyTotal', { failed: bucket.failed })}</div>`}
         </div>
         <div style="margin-top:8px;padding-top:6px;border-top:1px dashed #e2e8f0;color:#2563eb;font-weight:600;font-size:11px;display:flex;align-items:center;justify-content:space-between;">
-          <span>点击柱体查看对应请求流水</span>
+          <span>${t('chart.runtimeClickBarRequestLog')}</span>
           <span style="font-family:var(--mono, monospace);">↗</span>
         </div>
       `;
     } else {
       failHtml = `
         <div style="margin-top:6px;font-size:11px;color:#059669;font-weight:600;">
-          全量请求处理成功
+          ${t('chart.runtimeAllRequestsSucceeded')}
         </div>
         <div style="margin-top:6px;padding-top:5px;border-top:1px dashed #e2e8f0;color:#2563eb;font-size:11px;">
-          点击柱体查看该时段流水 ↗
+          ${t('chart.runtimeClickBarWindowLog')}
         </div>
       `;
     }
@@ -194,9 +194,9 @@
         <span style="font-size:10.5px;color:#64748b;font-weight:400;font-family:var(--mono, monospace);">${windowTag}</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;margin-bottom:4px;padding-bottom:5px;border-bottom:1px solid #f1f5f9;">
-        <span>成功 <b style="color:#059669;">${fmtInt(bucket.success)}</b></span>
-        <span>失败 <b style="color:${bucket.failed > 0 ? '#dc2626' : '#94a3b8'};">${fmtInt(bucket.failed)}</b></span>
-        <span style="margin-left:auto;color:#475569;">成功率 <b style="color:${bucket.failed > 0 ? '#b45309' : '#059669'};">${rate}%</b></span>
+        <span>${t('overview.runtimeSuccessLabel')} <b style="color:#059669;">${fmtInt(bucket.success)}</b></span>
+        <span>${t('overview.runtimeFailureLabel')} <b style="color:${bucket.failed > 0 ? '#dc2626' : '#94a3b8'};">${fmtInt(bucket.failed)}</b></span>
+        <span style="margin-left:auto;color:#475569;">${t('stats.successRate')} <b style="color:${bucket.failed > 0 ? '#b45309' : '#059669'};">${rate}%</b></span>
       </div>
       ${failHtml}
     `;
@@ -212,7 +212,7 @@
         filterEvents(failCount > 0 ? 'errors' : 'all');
       }
       if (typeof showToast === 'function') {
-        showToast(failCount > 0 ? `已跳转至请求流水并筛选异常错误${timeStr ? ` (时段 ${timeStr})` : ''}` : `已跳转至请求流水${timeStr ? ` (时段 ${timeStr})` : ''}`, 'info');
+        showToast(failCount > 0 ? `${t('logs.jumpedToErrorLogs')}${timeStr ? ` ${t('overview.runtimeTimeRangeHint', { timeStr: timeStr })}` : ''}` : `${t('overview.runtimeJumpedToRequestLog')}${timeStr ? ` ${t('overview.runtimeTimeRangeHint', { timeStr: timeStr })}` : ''}`, 'info');
       }
     }
   };
@@ -224,7 +224,7 @@
     const buckets = totals ? aggregateBuckets(facts) : [];
 
     if (!buckets.length) {
-      holder.innerHTML = '<div class="ovw-empty">暂无流量数据 · 代理处理首个请求后即会出现计数</div>';
+      holder.innerHTML = `<div class="ovw-empty">${t('chart.runtimeEmptyNoTrafficHint')}</div>`;
       return;
     }
 
@@ -249,7 +249,7 @@
       const ySuccess = padT + innerH - hSuccess;
       const yFailed = ySuccess - hFailed;
       const hasFailed = b.failed > 0;
-      return `<g class="ovw-chart-bar ${hasFailed ? 'has-failed' : ''}" data-bucket-idx="${i}" tabindex="0" role="button" aria-label="${escapeHtml(b.time)} 成功 ${b.success} 失败 ${b.failed}，点击跳转流水">
+      return `<g class="ovw-chart-bar ${hasFailed ? 'has-failed' : ''}" data-bucket-idx="${i}" tabindex="0" role="button" aria-label="${t('overview.runtimeChartBucketSummary', { value: escapeHtml(b.time), success: b.success, failed: b.failed })}">
         <rect x="${x.toFixed(1)}" y="${padT}" width="${barW.toFixed(1)}" height="${innerH}" fill="transparent"></rect>
         ${hSuccess > 0 ? `<rect x="${x.toFixed(1)}" y="${ySuccess.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(hSuccess, 1).toFixed(1)}" fill="#10b981" rx="1.5"></rect>` : ''}
         ${hFailed > 0 ? `<rect class="ovw-chart-bar-failed" x="${x.toFixed(1)}" y="${yFailed.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(hFailed, 1).toFixed(1)}" fill="#ef4444" rx="1.5"></rect>` : ''}
@@ -331,13 +331,13 @@
       return `<text class="ovw-chart-axis ovw-chart-xaxis${sparseClass}" x="${xPos.toFixed(1)}" y="${height - 7}" text-anchor="${anchor}">${escapeHtml(startLabel)}</text>`;
     }).join('');
 
-    holder.innerHTML = `<svg class="ovw-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="以${bucketSpanText}为粒度的吞吐">
+    holder.innerHTML = `<svg class="ovw-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${t('overview.runtimeChartThroughputTitle', { bucketSpanText: bucketSpanText })}">
       ${ticks}${bars}${xLabels}
     </svg>
     <div class="ovw-chart-legend">
-      <span><i class="ovw-swatch is-success"></i> 成功</span>
-      <span><i class="ovw-swatch is-failure"></i> 失败</span>
-      <span style="margin-left:auto">${bucketSpanText}一桶 · 悬停查看构成 · 点击直接跳转流水排查</span>
+      <span><i class="ovw-swatch is-success"></i> ${t('overview.runtimeSuccessLabel')}</span>
+      <span><i class="ovw-swatch is-failure"></i> ${t('overview.runtimeFailureLabel')}</span>
+      <span style="margin-left:auto">${t('overview.runtimeChartBucketLegendHint', { bucketSpanText: bucketSpanText })}</span>
     </div>`;
 
     const tip = getOvwTooltip();
@@ -418,12 +418,12 @@
     const bucketSpanText = fmtBucketSpan(bucketMinutes);
 
     setText('ovw-hero-value', fmtInt(totals?.total_requests));
-    setText('ovw-hero-label', '已处理请求');
+    setText('ovw-hero-label', t('overview.runtimeHeroLabel'));
     setText('ovw-hero-meta', totals
       ? (totals.scope === 'cumulative'
-        ? `累计计数 · 滚动窗口 ${fmtWindow(totals.window_minutes)}内无流量`
-        : `滚动窗口 ${fmtWindow(totals.window_minutes)} · ${bucketSpanText}`)
-      : '等待 CPA 运行时数据');
+        ? t('overview.runtimeCumulativeScopeNoTraffic', { value: fmtWindow(totals.window_minutes) })
+        : `${t('overview.runtimeRollingWindow', { value: fmtWindow(totals.window_minutes) })} · ${bucketSpanText}`)
+      : t('overview.runtimeAwaitingData'));
     setText('ovw-split-success', fmtInt(totals?.success_count));
     setText('ovw-split-failed', fmtInt(totals?.failure_count));
 
@@ -432,7 +432,7 @@
       const buckets = aggregateBuckets(facts);
       spark.innerHTML = buckets.length
         ? sparkline(buckets, { width: 260, height: 48 })
-        : '<div class="ovw-empty" style="padding:12px 0">暂无请求量</div>';
+        : `<div class="ovw-empty" style="padding:12px 0">${t('overview.runtimeNoRequestVolume')}</div>`;
     }
   }
 
@@ -451,33 +451,33 @@
 
     const tiles = [
       {
-        label: '成功率',
+        label: t('stats.successRate'),
         value: fmtPct(successRate),
         cls: rateClass,
         hint: totals
           ? (scopeCumulative
-            ? `累计共 ${fmtInt(totals.total_requests)} 次请求 · 窗口内无流量`
-            : `近 ${fmtWindow(totals.window_minutes).replace('近 ', '')}共 ${fmtInt(totals.total_requests)} 次请求`)
-          : '暂无数据',
+            ? t('overview.runtimeCumulativeNoTraffic', { value: fmtInt(totals.total_requests) })
+            : `${t('stats.rangeLastPrefix')} ${fmtWindow(totals.window_minutes).replace(`${t('stats.rangeLastPrefix')} `, '')}${t('overview.runtimeRequestCountSuffix', { value: fmtInt(totals.total_requests) })}`)
+          : t('stats.statusNoData'),
         meter: successRate == null ? null : Math.max(0, Math.min(100, successRate))
       },
       {
-        label: '凭证',
+        label: t('overview.runtimeCredentialsLabel'),
         value: fmtInt(totals?.credentials_total),
-        hint: totals ? `${totals.credentials_active} 个可用 · ${totals.credentials_disabled} 个已停用` : '暂无数据',
+        hint: totals ? t('overview.runtimeCredentialsStatusHint', { credentials_active: totals.credentials_active, credentials_disabled: totals.credentials_disabled }) : t('stats.statusNoData'),
         meter: null
       },
       {
-        label: '供应商密钥',
+        label: t('overview.runtimeProviderKeysLabel'),
         value: fmtInt(providerKeys),
-        hint: providers.length ? `${providers.length} 个供应商` : '暂无数据',
+        hint: providers.length ? t('overview.runtimeProviderCount', { count: providers.length }) : t('stats.statusNoData'),
         meter: null
       },
       {
-        label: '冷却中',
+        label: t('overview.runtimeCooldownLabel'),
         value: fmtInt(totals?.credentials_cooldown),
         cls: totals?.credentials_cooldown > 0 ? ' is-bad' : '',
-        hint: totals?.credentials_blocked > 0 ? `${totals.credentials_blocked} 个不可参与调度` : '全部可参与调度',
+        hint: totals?.credentials_blocked > 0 ? t('overview.runtimeNotSchedulableHint', { credentials_blocked: totals.credentials_blocked }) : t('overview.runtimeAllSchedulableHint'),
         meter: null
       }
     ];
@@ -495,7 +495,7 @@
     if (!holder) return;
     const providers = facts?.providers || [];
     if (providers.length === 0) {
-      holder.innerHTML = '<div class="ovw-empty">暂未记录到供应商流量</div>';
+      holder.innerHTML = `<div class="ovw-empty">${t('overview.runtimeProviderNoTraffic')}</div>`;
       return;
     }
     const max = Math.max(1, ...providers.map(p => p.total || 0));
@@ -506,7 +506,7 @@
         <div class="ovw-fleet-name" title="${escapeHtml(p.provider)}">${escapeHtml(p.provider)}</div>
         ${sparkline(p.buckets, { width: 300, height: 30, stroke: p.total >= max ? '#38bdf8' : '#a5c8e6' })}
         <div class="ovw-fleet-numbers">
-          ${fmtInt(p.total)} 次 · <span class="ovw-fleet-rate${rateCls}">${fmtPct(rate)}</span>
+          ${t('overview.runtimeProviderRequestSuffix', { value: fmtInt(p.total) })} <span class="ovw-fleet-rate${rateCls}">${fmtPct(rate)}</span>
         </div>
       </div>`;
     }).join('');
@@ -522,11 +522,11 @@
 
   // 选项文案取 CPA 面板的短标签：这一行只有四列栅格，长标签会把下拉框挤到裁切
   const ROUTING_STRATEGIES = [
-    { value: 'round-robin', label: '轮询' },
-    { value: 'weighted-round-robin', label: '加权轮询' },
-    { value: 'fill-first', label: '填充优先' },
-    { value: 'smart', label: '临期优先' },
-    { value: 'pace', label: '步调均衡' }
+    { value: 'round-robin', label: t('overview.runtimeStrategyRoundRobin') },
+    { value: 'weighted-round-robin', label: t('overview.runtimeStrategyWeightedRoundRobin') },
+    { value: 'fill-first', label: t('overview.runtimeStrategyFillFirst') },
+    { value: 'smart', label: t('overview.runtimeStrategySmart') },
+    { value: 'pace', label: t('overview.runtimeStrategyPace') }
   ];
 
   // 路由配置可编辑的前提与只读区块一致：管理员已配密钥，且不是成员视角
@@ -552,11 +552,11 @@
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
       state.config = { ...(state.config || {}), routing: { ok: true, value: body.routing } };
-      notify('路由配置已保存并生效', 'success');
+      notify(t('route.runtimeConfigSaved'), 'success');
       return true;
     } catch (err) {
       // 回滚到服务端真值：界面不能停在「以为改了其实没改」的状态
-      notify(`路由配置保存失败：${err.message}`, 'error');
+      notify(t('overview.runtimeRoutingSaveFailed', { msg: err.message }), 'error');
       await fetchRuntimeConfig();
       return false;
     } finally {
@@ -569,60 +569,60 @@
     if (!holder) return;
     const cfg = state.config?.config;
     if (!cfg?.ok) {
-      holder.innerHTML = `<div class="ovw-empty">运行时配置暂不可用${state.config?.config?.error ? '：' + escapeHtml(state.config.config.error) : ''}</div>`;
+      holder.innerHTML = `<div class="ovw-empty">${t('overview.runtimeConfigUnavailable', { value: state.config?.config?.error ? '：' + escapeHtml(state.config.config.error) : '' })}</div>`;
       return;
     }
     const v = cfg.value || {};
     const routing = state.config?.routing;
     const r = routing?.ok ? (routing.value || {}) : {};
-    const version = state.config?.version?.ok ? (state.config.version.value?.['latest-version'] || '未知') : '未知';
+    const version = state.config?.version?.ok ? (state.config.version.value?.['latest-version'] || t('overview.runtimeUnknownValue')) : t('overview.runtimeUnknownValue');
     const proxyUrl = readConfigValue(v, 'proxy-url');
     const editable = canEditRouting();
 
     const onOff = x => x === true
-      ? '<span class="ovw-runtime-value is-on">开启</span>'
+      ? `<span class="ovw-runtime-value is-on">${t('overview.runtimeSwitchOn')}</span>`
       : x === false
-        ? '<span class="ovw-runtime-value is-off">关闭</span>'
+        ? `<span class="ovw-runtime-value is-off">${t('cpa.closeLabel')}</span>`
         : '<span class="ovw-runtime-value">--</span>';
 
     // 路由三项从纯文本升级为可编辑控件。routing 不可用时退回只读占位，
     // 不给一个改了也保存不上去的假输入框。
     let routingCells;
     if (!routing?.ok) {
-      routingCells = ['路由策略', '<span class="ovw-runtime-value is-off">--</span>'];
+      routingCells = [t('route.runtimeStrategyLabel'), '<span class="ovw-runtime-value is-off">--</span>'];
     } else if (!editable) {
-      const label = ROUTING_STRATEGIES.find(s => s.value === r.strategy)?.label || r.strategy || '未知';
-      routingCells = ['路由策略', `<span class="ovw-runtime-value">${escapeHtml(label)}</span>`];
+      const label = ROUTING_STRATEGIES.find(s => s.value === r.strategy)?.label || r.strategy || t('overview.runtimeUnknownValue');
+      routingCells = [t('route.runtimeStrategyLabel'), `<span class="ovw-runtime-value">${escapeHtml(label)}</span>`];
     } else {
       const options = ROUTING_STRATEGIES
         .map(s => `<option value="${escapeHtml(s.value)}"${s.value === r.strategy ? ' selected' : ''}>${escapeHtml(s.label)}</option>`)
         .join('');
-      routingCells = ['路由策略', `
+      routingCells = [t('route.runtimeStrategyLabel'), `
         <div class="ovw-dropdown-wrap">
-          <div class="dropdown ovw-routing-dropdown" id="ovw-routing-dropdown" aria-label="路由策略"></div>
+          <div class="dropdown ovw-routing-dropdown" id="ovw-routing-dropdown" aria-label="${t('route.runtimeStrategyLabel')}"></div>
           <select id="ovw-routing-strategy" style="display:none;" aria-hidden="true">${options}</select>
         </div>`];
     }
 
     const rows = [
       routingCells,
-      ['请求重试', escapeHtml(String(readConfigValue(v, 'request-retry') ?? '--'))],
-      ['服务端最新版本', escapeHtml(String(version))],
-      ['上游代理', proxyUrl ? escapeHtml(String(proxyUrl)) : '<span class="ovw-runtime-value is-off">未配置</span>'],
-      ['调试模式', onOff(v.debug)],
-      ['文件日志', onOff(v['logging-to-file'])],
-      ['请求日志', onOff(v['request-log'])],
-      ['WebSocket 鉴权', onOff(v['ws-auth'])],
-      ['模型前缀', onOff(v['force-model-prefix'])],
-      ['用量统计', onOff(v['usage-statistics-enabled'])]
+      [t('overview.runtimeRequestRetryLabel'), escapeHtml(String(readConfigValue(v, 'request-retry') ?? '--'))],
+      [t('overview.runtimeLatestServerVersionLabel'), escapeHtml(String(version))],
+      [t('overview.runtimeUpstreamProxyLabel'), proxyUrl ? escapeHtml(String(proxyUrl)) : `<span class="ovw-runtime-value is-off">${t('quotas.notConfigured')}</span>`],
+      [t('overview.runtimeDebugModeLabel'), onOff(v.debug)],
+      [t('overview.runtimeFileLogLabel'), onOff(v['logging-to-file'])],
+      [t('cpa.settingRequestLog'), onOff(v['request-log'])],
+      [t('cpa.settingWsAuth'), onOff(v['ws-auth'])],
+      [t('overview.runtimeModelPrefixLabel'), onOff(v['force-model-prefix'])],
+      [t('cpa.settingUsageStatistics'), onOff(v['usage-statistics-enabled'])]
     ];
 
     // 会话粘性两项只在可编辑时出现；只读视角下并入路由策略的说明文案，
     // 免得给成员看一排没用的空格子。
     if (editable && routing?.ok) {
       rows.splice(1, 0,
-        ['会话粘性', `<label class="ovw-switch"><input type="checkbox" id="ovw-routing-affinity" aria-label="会话粘性路由"${r.session_affinity ? ' checked' : ''}/><span>${r.session_affinity ? '开启' : '关闭'}</span></label>`],
-        ['会话粘性 TTL', `<input class="ovw-control" id="ovw-routing-ttl" type="number" min="0" step="1" inputmode="numeric" placeholder="留空即关闭" aria-label="会话粘性 TTL（秒）" value="${escapeHtml(String(r.session_affinity_ttl ?? ''))}"/>`]
+        [t('overview.runtimeSessionAffinityLabel'), `<label class="ovw-switch"><input type="checkbox" id="ovw-routing-affinity" aria-label="${t('overview.runtimeAffinityAria')}"${r.session_affinity ? ' checked' : ''}/><span>${r.session_affinity ? t('overview.runtimeSwitchOn') : t('cpa.closeLabel')}</span></label>`],
+        [t('overview.runtimeSessionAffinityTtlLabel'), `<input class="ovw-control" id="ovw-routing-ttl" type="number" min="0" step="1" inputmode="numeric" placeholder="${t('overview.runtimeLeaveBlankToDisable')}" aria-label="${t('overview.runtimeAffinityTtlAria')}" value="${escapeHtml(String(r.session_affinity_ttl ?? ''))}"/>`]
       );
     }
 
@@ -663,7 +663,7 @@
         const on = target.checked;
         if (await saveRouting({ session_affinity: on }, target)) {
           const label = target.querySelector('span');
-          if (label) label.textContent = on ? '开启' : '关闭';
+          if (label) label.textContent = on ? t('overview.runtimeSwitchOn') : t('cpa.closeLabel');
         }
       } else if (target.id === 'ovw-routing-ttl') {
         await saveRouting({ session_affinity_ttl: target.value.trim() }, target);
@@ -677,13 +677,13 @@
     const facts = state.facts;
     if (facts?.degraded) {
       holder.className = 'ovw-banner is-error';
-      holder.innerHTML = `<strong>CPA 运行时不可达</strong><span>${escapeHtml(facts.error || '无法连接上游管理接口')}。本面板数据可能不完整，请检查 CPA 服务与 GATE_MGMT_SECRET。</span>`;
+      holder.innerHTML = `<strong>${t('overview.runtimeCpaUnreachable')}</strong><span>${escapeHtml(facts.error || t('overview.runtimeUpstreamApiUnreachable'))}${t('overview.runtimeDegradedDataNotice')}</span>`;
       holder.hidden = false;
       return;
     }
     if (facts?.providers_derived) {
       holder.className = 'ovw-banner';
-      holder.innerHTML = '<strong>供应商维度为推导值</strong><span>CPA 的 api-key-usage 暂不可用，供应商对比由凭据维度按 provider 归集得出。</span>';
+      holder.innerHTML = `<strong>${t('overview.runtimeProviderDerivedTitle')}</strong><span>${t('overview.runtimeProviderDerivedNote')}</span>`;
       holder.hidden = false;
       return;
     }
@@ -697,10 +697,10 @@
     if (!facts) { holder.innerHTML = ''; return; }
     if (facts.degraded) {
       holder.className = 'ovw-source-tag is-warn';
-      holder.innerHTML = 'CPA 运行时 · 降级';
+      holder.innerHTML = t('overview.runtimeCpaDegradedTag');
     } else {
       holder.className = 'ovw-source-tag';
-      holder.innerHTML = 'CPA 运行时事实';
+      holder.innerHTML = t('overview.runtimeCpaFactsTag');
     }
   }
 
@@ -708,12 +708,12 @@
     const holder = $('ovw-window-switcher');
     if (!holder) return;
     const available = state.facts?.available_windows || [
-      { id: '3h20m', short_label: '3h20m', label: '近 3 小时 20 分' },
-      { id: '5h', short_label: '5h', label: '近 5 小时' },
-      { id: '1d', short_label: '1d', label: '近 1 天' },
-      { id: '3d', short_label: '3d', label: '近 3 天' },
-      { id: '7d', short_label: '7d', label: '近 7 天' },
-      { id: '30d', short_label: '30d', label: '近 30 天' }
+      { id: '3h20m', short_label: '3h20m', label: t('overview.runtimeWindow3h20mLabel') },
+      { id: '5h', short_label: '5h', label: t('overview.runtimeWindow5hLabel') },
+      { id: '1d', short_label: '1d', label: t('overview.runtimeWindow1dLabel') },
+      { id: '3d', short_label: '3d', label: t('overview.runtimeWindow3dLabel') },
+      { id: '7d', short_label: '7d', label: t('stats.range7Days') },
+      { id: '30d', short_label: '30d', label: t('stats.range30Days') }
     ];
 
     holder.innerHTML = available.map(w => {
@@ -743,7 +743,7 @@
     renderStats(state.facts);
     // 动态更新实时流量描述
     const bucketMins = state.facts?.bucket_minutes || state.facts?.totals?.bucket_minutes || 10;
-    setText('ovw-chart-desc', `以 ${fmtBucketSpan(bucketMins).replace('每桶 ', '')}为粒度的吞吐，悬停任一柱可查看该时段精确构成。`);
+    setText('ovw-chart-desc', `${t('overview.runtimeThroughputPrefix')} ${fmtBucketSpan(bucketMins).replace(`${t('overview.runtimeBucketSpanPrefix')} `, '')}${t('overview.runtimeThroughputSuffix')}`);
 
     // 热更新悬停保护：若用户正在查看吞吐图柱子的 Tooltip，推迟吞吐图 SVG 重建，避免悬停被打断闪烁
     const tip = getOvwTooltip();
@@ -754,7 +754,7 @@
     renderFleet(state.facts);
     renderRuntime();
     const at = state.facts?.fetched_at;
-    setText('ovw-updated', at ? new Date(at).toLocaleTimeString('zh-CN') : '--');
+    setText('ovw-updated', at ? new Date(at).toLocaleTimeString(LOCALE) : '--');
   }
 
   async function fetchRuntimeFacts(force = false) {
@@ -798,25 +798,44 @@
     const workspace = document.getElementById('workspace');
     if (!nav || !workspace) return;
 
+    // 切换语言后需要重建一次性注入的模板（侧栏按钮 + 工作区骨架），否则仍是旧语言文案。
+    if (typeof onLocaleRebuild === 'function') {
+      onLocaleRebuild(function () {
+        const navBtn = document.getElementById(`tab-btn-${PAGE_ID}`);
+        if (navBtn) {
+          const label = navBtn.querySelector('span');
+          if (label) label.textContent = t('overview.runtimeTitle');
+        }
+        if (typeof pageMeta === 'object' && pageMeta) {
+          pageMeta[PAGE_ID] = {
+            title: 'overview.runtimeTitle',
+            eyebrow: 'RUNTIME OVERVIEW',
+            description: 'overview.runtimeDescription'
+          };
+        }
+        renderAll();
+      });
+    }
+
     // 侧栏首位；运行总览是进入工作台的第一屏（首屏切换见 promoteToFirstScreen）。
     nav.insertAdjacentHTML('afterbegin', `<button class="nav-tab-btn" id="tab-btn-${PAGE_ID}" onclick="switchNavTab('${PAGE_ID}')" type="button">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-      <span>运行总览</span>
+      <span data-i18n="overview.runtimeTitle">${t('overview.runtimeTitle')}</span>
     </button><div class="sidebar-section-divider"></div>`);
 
     workspace.insertAdjacentHTML('beforeend', `
 <div class="tab-page ovw-workspace" id="tab-page-${PAGE_ID}">
   <div class="ovw-panel ovw-hero">
     <div class="ovw-hero-main">
-      <div class="ovw-verdict" id="ovw-verdict"><span class="dot"></span><span>等待数据</span></div>
+      <div class="ovw-verdict" id="ovw-verdict"><span class="dot"></span><span data-i18n="stats.statusWaitingData">${t('stats.statusWaitingData')}</span></div>
       <div class="ovw-hero-figure">
         <span class="ovw-hero-value" id="ovw-hero-value">--</span>
-        <span class="ovw-hero-label" id="ovw-hero-label">已处理请求</span>
+        <span class="ovw-hero-label" id="ovw-hero-label" data-i18n="overview.runtimeHeroLabel">${t('overview.runtimeHeroLabel')}</span>
       </div>
-      <div class="ovw-hero-meta" id="ovw-hero-meta">等待 CPA 运行时数据</div>
+      <div class="ovw-hero-meta" id="ovw-hero-meta" data-i18n="overview.runtimeAwaitingData">${t('overview.runtimeAwaitingData')}</div>
       <div class="ovw-hero-split">
-        <span class="ovw-split-item"><i class="ovw-swatch is-success"></i>成功 <span class="ovw-split-value" id="ovw-split-success">--</span></span>
-        <span class="ovw-split-item"><i class="ovw-swatch is-failure"></i>失败 <span class="ovw-split-value" id="ovw-split-failed">--</span></span>
+        <span class="ovw-split-item"><i class="ovw-swatch is-success"></i><span data-i18n="overview.runtimeSuccessLabel">${t('overview.runtimeSuccessLabel')}</span> <span class="ovw-split-value" id="ovw-split-success">--</span></span>
+        <span class="ovw-split-item"><i class="ovw-swatch is-failure"></i><span data-i18n="overview.runtimeFailureLabel">${t('overview.runtimeFailureLabel')}</span> <span class="ovw-split-value" id="ovw-split-failed">--</span></span>
       </div>
     </div>
     <div class="ovw-hero-spark" id="ovw-hero-spark"></div>
@@ -828,8 +847,8 @@
     <div class="ovw-panel-head">
       <div>
         <div class="ovw-eyebrow">Core metrics</div>
-        <h3 class="ovw-title">核心指标</h3>
-        <p class="ovw-desc">数据来自 CPA 调度器的运行时统计，非 Gate 本地推算。</p>
+        <h3 class="ovw-title" data-i18n="overview.runtimeKeyMetricsTitle">${t('overview.runtimeKeyMetricsTitle')}</h3>
+        <p class="ovw-desc" data-i18n="overview.runtimeKeyMetricsSubtitle">${t('overview.runtimeKeyMetricsSubtitle')}</p>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <span class="ovw-source-tag" id="ovw-source-tag"></span>
@@ -843,10 +862,10 @@
     <div class="ovw-panel-head" style="align-items:center;">
       <div>
         <div class="ovw-eyebrow">Live traffic</div>
-        <h3 class="ovw-title">实时流量</h3>
-        <p class="ovw-desc" id="ovw-chart-desc">以 10 分钟为粒度的吞吐，悬停任一柱可查看该时段精确构成。</p>
+        <h3 class="ovw-title" data-i18n="overview.runtimeLiveTrafficTitle">${t('overview.runtimeLiveTrafficTitle')}</h3>
+        <p class="ovw-desc" id="ovw-chart-desc" data-i18n="overview.runtimeLiveTrafficSubtitle">${t('overview.runtimeLiveTrafficSubtitle')}</p>
       </div>
-      <div class="ovw-window-switcher" id="ovw-window-switcher" role="tablist" aria-label="时间窗口切换"></div>
+      <div class="ovw-window-switcher" id="ovw-window-switcher" role="tablist" aria-label="${t('overview.runtimeWindowSwitcherAria')}"></div>
     </div>
     <div id="ovw-chart-holder"></div>
   </div>
@@ -855,8 +874,8 @@
     <div class="ovw-panel-head">
       <div>
         <div class="ovw-eyebrow">Providers</div>
-        <h3 class="ovw-title">供应商横向对比</h3>
-        <p class="ovw-desc">同一窗口内各供应商的请求量与成功率。</p>
+        <h3 class="ovw-title" data-i18n="overview.runtimeProviderCompareTitle">${t('overview.runtimeProviderCompareTitle')}</h3>
+        <p class="ovw-desc" data-i18n="overview.runtimeProviderCompareSubtitle">${t('overview.runtimeProviderCompareSubtitle')}</p>
       </div>
     </div>
     <div class="ovw-fleet" id="ovw-fleet"></div>
@@ -866,8 +885,8 @@
     <div class="ovw-panel-head">
       <div>
         <div class="ovw-eyebrow">Runtime</div>
-        <h3 class="ovw-title">运行时一览</h3>
-        <p class="ovw-desc">CPA 当前生效的运行配置，只读展示。</p>
+        <h3 class="ovw-title" data-i18n="overview.runtimeAtGlanceTitle">${t('overview.runtimeAtGlanceTitle')}</h3>
+        <p class="ovw-desc" data-i18n="overview.runtimeAtGlanceSubtitle">${t('overview.runtimeAtGlanceSubtitle')}</p>
       </div>
     </div>
     <div class="ovw-runtime-grid" id="ovw-runtime-grid"></div>
@@ -883,9 +902,9 @@
 
     if (typeof pageMeta === 'object' && pageMeta) {
       pageMeta[PAGE_ID] = {
-        title: '运行总览',
+        title: 'overview.runtimeTitle',
         eyebrow: 'RUNTIME OVERVIEW',
-        description: '基于 CPA 调度器运行时事实的运行总览。'
+        description: 'overview.runtimeDescription'
       };
     }
 
