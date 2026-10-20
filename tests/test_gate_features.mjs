@@ -2633,4 +2633,118 @@ console.log('测试 25: 腾讯 WorkBuddy / CodeBuddy 上游提供商接入与全
   console.log('');
 }
 
+// -------------------------------------------------------------
+// 测试 32: 阿里通义灵码 (Qoder) 双域接入与全链路契约 (v2.10.7)
+// 说明：验证 Gate 跟进 CPA 接入 Qoder 国际版与国内版 (qoder-cn / 通义灵码) 的提供商注册表、
+//       统一推断优先级、管理后台上游凭证筛选标签、品牌呈现与 OAuth 路由契约。
+// -------------------------------------------------------------
+console.log('测试 32: 阿里通义灵码 (Qoder) 双域接入与全链路契约 (v2.10.7)');
+{
+  const reg = await import('../lib/core/provider-registry.mjs');
+  const adminHtml = fs.readFileSync('admin.html', 'utf8');
+  const adminRoutesSrc = fs.readFileSync('lib/routes/admin-routes.mjs', 'utf8');
+  const adminLogsJs = fs.readFileSync('admin-logs.js', 'utf8');
+  const adminQuotasJs = fs.readFileSync('admin-quotas.js', 'utf8');
+
+  // 1) 验证 INITIAL_PROVIDER_REGISTRY 包含 qoder 与 qoder-cn 及其展示与排序
+  const initList = reg.INITIAL_PROVIDER_REGISTRY;
+  const qoderCnItem = initList.find(p => p.provider_key === 'qoder-cn');
+  const qoderItem = initList.find(p => p.provider_key === 'qoder');
+  assert.ok(qoderCnItem, 'INITIAL_PROVIDER_REGISTRY 必须包含 qoder-cn');
+  assert.ok(qoderItem, 'INITIAL_PROVIDER_REGISTRY 必须包含 qoder');
+  assert.equal(qoderCnItem.label, 'Qoder (通义灵码)', 'qoder-cn label 校验');
+  assert.equal(qoderItem.label, 'Qoder 阿里通义灵码', 'qoder label 校验');
+  assert.ok(qoderCnItem.sort_order < qoderItem.sort_order, '国内版 qoder-cn 必须排在国际版 qoder 之前以防前缀抢夺');
+
+  // 2) 载入内置项并验证 inferProvider 对 qoder 与 qoder-cn 模型和 auth_index 的推断
+  for (const p of reg.INITIAL_PROVIDER_REGISTRY) {
+    if (p.provider_key === 'qoder' || p.provider_key === 'qoder-cn') {
+      reg.upsertProviderRegistry({
+        provider_key: p.provider_key,
+        label: p.label,
+        model_patterns: p.model_patterns,
+        auth_patterns: p.auth_patterns,
+        source: 'builtin',
+        sort_order: p.sort_order
+      });
+    }
+  }
+  reg.reloadProviderRegistry();
+
+  const inferQoderCnAuth = reg.inferProvider({ authIndex: 'qoder-cn:user123' });
+  assert.equal(inferQoderCnAuth.key, 'qoder-cn', 'auth_index 命中 qoder-cn');
+  assert.equal(inferQoderCnAuth.label, 'Qoder (通义灵码)');
+
+  const inferLingmaCnAuth = reg.inferProvider({ authIndex: 'lingma-cn:token' });
+  assert.equal(inferLingmaCnAuth.key, 'qoder-cn', 'auth_index 命中 lingma-cn');
+
+  const inferQoderAuth = reg.inferProvider({ authIndex: 'qoder:user456' });
+  assert.equal(inferQoderAuth.key, 'qoder', 'auth_index 命中 qoder');
+  assert.equal(inferQoderAuth.label, 'Qoder 阿里通义灵码');
+
+  const inferLingmaAuth = reg.inferProvider({ authIndex: 'lingma:token' });
+  assert.equal(inferLingmaAuth.key, 'qoder', 'auth_index 命中 lingma');
+
+  const inferQoderCnModel = reg.inferProvider({ model: 'qoder-cn-coder' });
+  assert.equal(inferQoderCnModel.key, 'qoder-cn', 'model 命中 qoder-cn');
+
+  const inferLingmaCnModel = reg.inferProvider({ model: 'lingma-cn-2.5' });
+  assert.equal(inferLingmaCnModel.key, 'qoder-cn', 'model 命中 lingma-cn');
+
+  const inferQoderModel = reg.inferProvider({ model: 'qoder-base-model' });
+  assert.equal(inferQoderModel.key, 'qoder', 'model 命中 qoder');
+
+  const inferLingmaModel = reg.inferProvider({ model: 'lingma-2.5' });
+  assert.equal(inferLingmaModel.key, 'qoder', 'model 命中 lingma');
+
+  console.log('  ✓ 提供商注册表与 Qoder 双域推断规则验证通过');
+
+  // 3) 验证 admin.html 中的上游凭证 Filter 标签与品牌定义
+  assert.ok(
+    adminHtml.includes("switchUpstreamFilter('qoder')"),
+    'admin.html 必须包含 switchUpstreamFilter(\'qoder\') 过滤标签按钮'
+  );
+  assert.ok(
+    adminHtml.includes('provider-icon-qoder') && adminHtml.includes('provider-pill-qoder'),
+    'admin.html 必须定义 Qoder 专属图标与胶囊样式类'
+  );
+  assert.ok(
+    adminHtml.includes("p.includes('qoder')") || adminHtml.includes("p.includes('lingma')"),
+    'admin.html 中的 getProviderBrand 必须包含 qoder 识别分支'
+  );
+
+  // 4) 验证 admin-quotas.js 中同时匹配 qoder 与 qoder-cn
+  assert.ok(
+    adminQuotasJs.includes("activeUpstreamFilter === 'qoder'"),
+    'admin-quotas.js 必须包含 qoder 上游过滤逻辑'
+  );
+  assert.ok(
+    adminQuotasJs.includes("prov === 'qoder-cn'") || adminQuotasJs.includes("'qoder-cn'"),
+    'admin-quotas.js 过滤 qoder 时必须联动包含 qoder-cn 凭证'
+  );
+
+  // 5) 验证 admin-logs.js 中的流水推断分支与预设选项
+  assert.ok(
+    adminLogsJs.includes("m.includes('qoder-cn')"),
+    'admin-logs.js 中的 resolveEventProvider 必须包含 qoder-cn 推断分支'
+  );
+  assert.ok(
+    adminLogsJs.includes("m.includes('qoder')"),
+    'admin-logs.js 中的 resolveEventProvider 必须包含 qoder 推断分支'
+  );
+  assert.ok(
+    adminLogsJs.includes("'qoder-cn'") && adminLogsJs.includes("'qoder'"),
+    'admin-logs.js 预设提供商中必须包含 qoder-cn 与 qoder'
+  );
+
+  // 6) 验证 lib/routes/admin-routes.mjs 中的 OAuth 映射
+  assert.ok(
+    adminRoutesSrc.includes("'qoder-cn': 'qoder-cn-auth-url'") && adminRoutesSrc.includes("qoder: 'qoder-auth-url'"),
+    'admin-routes.mjs 必须映射 qoder 与 qoder-cn 的 OAuth 地址'
+  );
+
+  console.log('  ✓ 前端控制台凭证过滤、品牌图标、流水推断与后端 OAuth 契约验证通过');
+  console.log('');
+}
+
 console.log('=== 全部集成测试用例执行完毕，全部通过！===');

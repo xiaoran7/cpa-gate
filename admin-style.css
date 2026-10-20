@@ -530,6 +530,11 @@
       color: #0d7a42;
       border-color: rgba(13, 122, 66, 0.3);
     }
+    .provider-pill-qoder {
+      background: rgba(255, 106, 0, 0.12);
+      color: #ff6a00;
+      border-color: rgba(255, 106, 0, 0.3);
+    }
     .provider-pill-other {
       background: rgba(186, 215, 242, 0.5);
       color: var(--text-muted);
@@ -2483,6 +2488,7 @@
     .provider-pill-claude { color: #9a5b0b; }
     .provider-pill-stepfun { color: #0284c7; }
     .provider-pill-workbuddy { color: #0d7a42; }
+    .provider-pill-qoder { color: #d95800; }
     .priority-badge { color: #8d5708; }
     .priority-badge.p-high { color: #b22f39; }
     .priority-badge.p-normal { color: #1b66a6; }

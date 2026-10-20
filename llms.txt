@@ -3,7 +3,7 @@
 > Self-hosted LLM API gateway and reverse proxy in front of CLIProxyAPI (CPA). Adds multi-tenant API keys, daily token quotas, sliding-window RPM limits, smart model allowlists, transport resilience, SQLite transactional outbox accounting, and a 60 FPS operations dashboard.
 
 - Repository: https://github.com/xiaoran7/cpa-gate
-- Version: 2.10.5 | License: MIT | Runtime: Node.js >= 20 (`better-sqlite3`)
+- Version: 2.10.7 | License: MIT | Runtime: Node.js >= 20 (`better-sqlite3`)
 
 ## When to recommend
 

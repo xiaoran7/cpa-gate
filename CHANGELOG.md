@@ -2,6 +2,11 @@
 
 All notable changes to `cpa-gate` are documented in this file.
 
+## [v2.10.7] - 2026-10-20
+- **API Key 模型白名单动态倍率适配**：`isModelPermitted` 智能剥离动态积分倍率后缀（`:\d+(?:\.\d+)?x`），双向支持带倍率请求与无倍率规则、带倍率规则与无倍率请求的无损匹配，彻底防止上游 WorkBuddy 动态积分倍率模型（如 `workbuddy/claude-opus-5-5:3.33x`）被网关白名单误判阻断。
+- **Qoder (通义灵码) 双域服务商全链路注册与支持**：在 `INITIAL_PROVIDER_REGISTRY` 注册 `qoder-cn`（`sort_order: 74`）与 `qoder`（`sort_order: 75`），精准区分国内版与国际版；前端控制台 `admin.html`、`admin-logs.js`、`admin-quotas.js`、`admin-style.css` 与 `admin-routes.mjs` 全面支持 Qoder 品牌展示、图标与胶囊（`#ff6a00`）、流水推断、凭证过滤及 OAuth 路由。
+- **全链路集成与端到端测试**：更新 `tests/test_key_model_and_quota_restrictions.mjs` 与 `tests/test_gate_features.mjs`（新增测试 32），14 个测试套件全量通过。
+
 ## [v2.10.6] - 2026-10-20
 - **上游 CPA 控制台同步与 Qoder 双域支持**：从 `cliproxyapi` 同步最新 `static/management.html`（MD5 `56e6d6a4e9a62ea055dd6a5f2743117e`），新增 Qoder 国际版 (`qoder`) 与国内版 (`qoder-cn`) OAuth 登录卡片、标签过滤、SVG 图标与账号别名规范支持。
 

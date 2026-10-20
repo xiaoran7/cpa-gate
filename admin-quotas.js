@@ -763,6 +763,10 @@
             const p = (a.provider || '').toLowerCase();
             return p === 'workbuddy' || p === 'workbuddy-cn';
           }
+          if (filter === 'qoder') {
+            const p = (a.provider || '').toLowerCase();
+            return p === 'qoder' || p === 'qoder-cn';
+          }
           return (a.provider || '').toLowerCase() === filter;
         }
         const prov = (a.provider || '').toLowerCase();
@@ -1148,6 +1152,9 @@
           const prov = (a.provider || '').toLowerCase();
           if (activeUpstreamFilter === 'workbuddy') {
             return prov === 'workbuddy' || prov === 'workbuddy-cn';
+          }
+          if (activeUpstreamFilter === 'qoder') {
+            return prov === 'qoder' || prov === 'qoder-cn';
           }
           return prov === activeUpstreamFilter;
         });

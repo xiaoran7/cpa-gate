@@ -1,7 +1,7 @@
 # cpa-gate — Full Technical Specification for AI Retrieval
 
 - **Project**: cpa-gate (`https://github.com/xiaoran7/cpa-gate`)
-- **Version**: 2.10.5 | **License**: MIT | **Runtime**: Node.js >= 20, ESM (`.mjs`), single runtime dependency `better-sqlite3`
+- **Version**: 2.10.7 | **License**: MIT | **Runtime**: Node.js >= 20, ESM (`.mjs`), single runtime dependency `better-sqlite3`
 - **Short index**: [llms.txt](https://github.com/xiaoran7/cpa-gate/blob/main/llms.txt)
 
 ## 1. What cpa-gate is, and what it is not

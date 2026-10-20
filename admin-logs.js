@@ -177,6 +177,8 @@
         { value: 'workbuddy', label: '腾讯 WorkBuddy' },
         { value: 'workbuddy-cn', label: 'WorkBuddy (CodeBuddy)' },
         { value: 'deepseek', label: 'DeepSeek' },
+        { value: 'qoder-cn', label: 'Qoder (通义灵码)' },
+        { value: 'qoder', label: 'Qoder 阿里通义灵码' },
         { value: 'openrouter', label: 'OpenRouter' },
         { value: 'qwen', label: 'Qwen 通义千问' },
         { value: 'moonshot', label: 'Moonshot Kimi' },
@@ -291,6 +293,8 @@
       if (m.includes('kimi') || m.includes('moonshot')) return 'moonshot';
       if (m.includes('glm') || m.includes('zhipu')) return 'zhipu';
       if (m.includes('workbuddy') || m.includes('codebuddy') || m.includes('copilot.tencent')) return 'workbuddy';
+      if (m.includes('qoder-cn') || m.includes('lingma-cn')) return 'qoder-cn';
+      if (m.includes('qoder') || m.includes('lingma')) return 'qoder';
       return '';
     }
 

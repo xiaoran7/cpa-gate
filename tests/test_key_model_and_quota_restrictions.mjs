@@ -140,12 +140,26 @@ console.log('测试 3: 智能模型匹配引擎 (isModelPermitted)');
   assert.equal(isModelPermitted('claude-3-7-sonnet-20250219', allowed), true);
   assert.equal(isModelPermitted('claude-3-7-sonnet@20250219', allowed), true);
 
+  // 动态倍率后缀匹配 (如 WorkBuddy :3.33x, :1x, :1.5x)
+  assert.equal(isModelPermitted('workbuddy/claude-3-7-sonnet:1.5x', allowed), true);
+  assert.equal(isModelPermitted('claude-3-7-sonnet:3.33x', allowed), true);
+  assert.equal(isModelPermitted('claude-3-7-sonnet-20250219:2x', allowed), true);
+  assert.equal(isModelPermitted('gpt-4o:1x', allowed), true);
+  assert.equal(isModelPermitted('gpt-4o-mini:1.25x', allowed), true);
+
+  // 白名单规则自身含倍率时，双向匹配无倍率与同倍率请求
+  const allowedWithMultiplier = new Set(['claude-opus-5-5:3.33x']);
+  assert.equal(isModelPermitted('claude-opus-5-5', allowedWithMultiplier), true);
+  assert.equal(isModelPermitted('workbuddy/claude-opus-5-5:3.33x', allowedWithMultiplier), true);
+  assert.equal(isModelPermitted('workbuddy/claude-opus-5-5', allowedWithMultiplier), true);
+
   // 未允许的模型被严格阻断
   assert.equal(isModelPermitted('deepseek-chat', allowed), false);
+  assert.equal(isModelPermitted('deepseek-chat:1x', allowed), false);
   assert.equal(isModelPermitted('o3-mini', allowed), false);
   assert.equal(isModelPermitted('claude-3-5-haiku', allowed), false);
 
-  console.log('  ✓ 精确匹配、大小写不敏感、厂商前缀剥离、通配符与日期后缀匹配验证通过');
+  console.log('  ✓ 精确匹配、大小写不敏感、厂商前缀剥离、通配符、日期后缀与动态倍率后缀匹配验证通过');
 }
 
 // -------------------------------------------------------------
