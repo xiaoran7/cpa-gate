@@ -226,7 +226,40 @@ console.log('测试 2: /admin/api/upstream-quotas 路由异步 await 与响应�
     assert.ok(Array.isArray(parsed.accounts));
   }
 
-  console.log('  ✓ GET、GET?refresh=1 与 POST /admin/api/upstream-quotas 响应与 Content-Length 完整性验证通过');
+  // 2.4 /console/api/upstream-quotas 别名映射透传与响应完整性
+  {
+    let statusCode = null;
+    let headers = {};
+    let writtenBody = null;
+    const res = {
+      headersSent: false,
+      writeHead(s, h) {
+        statusCode = s;
+        Object.assign(headers, h);
+        this.headersSent = true;
+      },
+      end(b) {
+        writtenBody = b;
+      }
+    };
+    const req = {
+      method: 'GET',
+      url: '/console/api/upstream-quotas',
+      headers: {
+        authorization: `Bearer ${adminSecret}`
+      }
+    };
+
+    const handled = await handleAdminRoutes(req, res, '/console/api/upstream-quotas', adminSecret, 1048576);
+    assert.strictEqual(handled, true);
+    assert.strictEqual(statusCode, 200);
+    assert.ok(headers['Content-Length'] > 0);
+    assert.strictEqual(headers['Content-Length'], writtenBody.length);
+    const parsed = JSON.parse(writtenBody.toString('utf8'));
+    assert.ok(Array.isArray(parsed.accounts));
+  }
+
+  console.log('  ✓ GET、GET?refresh=1 与 POST /admin/api/upstream-quotas 及 /console/api 别名响应完整性验证通过');
 }
 
 // -------------------------------------------------------------

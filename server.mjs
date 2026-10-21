@@ -87,10 +87,10 @@ async function requestHandler(req, res) {
     return;
   }
 
-  // 4.1 上游原生管理控制台受控反向代理通道 (/admin/upstream/*)
+  // 4.1 上游原生管理控制台受控反向代理通道 (/admin/upstream/* 与 /console/upstream/*)
   // 必须经由 Gate 管理密钥 (GATE_ADMIN_SECRET) 鉴权，且由 Gate 服务端强行注入 CPA_MGMT_SECRET，
   // 既保留原生 management.html 与全部调试 API 访问，又彻底阻止未鉴权直连触发 CPA 防爆破 IP 封禁。
-  if (urlPath.startsWith('/admin/upstream')) {
+  if (urlPath.startsWith('/admin/upstream') || urlPath.startsWith('/console/upstream')) {
     if (await handleUpstreamManagementProxy(req, res, urlPath, ADMIN_SECRET, CPA_MGMT_SECRET, UPSTREAM_HOST, UPSTREAM_PORT)) {
       return;
     }

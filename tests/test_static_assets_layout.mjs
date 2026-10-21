@@ -50,6 +50,8 @@ console.log('测试 1: 默认布局下静态资源从安装根目录命中');
   const cases = [
     ['/admin', [200]],
     ['/admin/', [200]],
+    ['/console', [200]],
+    ['/console/', [200]],
     ['/member', [200]],
     ['/admin/style.css', [200]],
     ['/admin/quotas.js', [200]],
@@ -64,7 +66,19 @@ console.log('测试 1: 默认布局下静态资源从安装根目录命中');
     ['/admin/assets/sakura-gate-v2.webp', [200]],
     ['/admin/assets/gate-sakura-mark-128.png', [200]],
     ['/admin/assets/qoder-light.png', [200]],
-    ['/admin/assets/qoder.svg', [200]]
+    ['/admin/assets/qoder.svg', [200]],
+    ['/console/style.css', [200]],
+    ['/console/quotas.js', [200]],
+    ['/console/keys.js', [200]],
+    ['/console/stats.js', [200]],
+    ['/console/logs.js', [200]],
+    ['/console/i18n.js', [200]],
+    ['/console/overview.js', [200]],
+    ['/console/overview.css', [200]],
+    ['/console/cpa-management.js', [200]],
+    ['/console/cpa-management.css', [200]],
+    ['/console/assets/sakura-gate-v2.webp', [200]],
+    ['/console/assets/qoder.svg', [200]]
   ];
   for (const [target, expected] of cases) {
     // 与 server.mjs 的接线方式一致：GUARD_DIR 是数据目录，STATIC_DIR 是安装根目录。

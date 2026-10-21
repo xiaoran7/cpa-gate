@@ -2,6 +2,10 @@
 
 All notable changes to `cpa-gate` are documented in this file.
 
+## [Unreleased]
+- **控制台路径完整对齐与镜像支持 (`/console/*`)**：在 `lib/routes/static-routes.mjs`、`lib/routes/admin-routes.mjs` 与 `lib/routes/upstream-proxy.mjs` 中为 `/console` 及其静态资源、API、上游反代路径提供对等镜像别名，使 `/console/api/upstream-quotas` 与 `/console/upstream/` 全链路与原生 CPA 控制台平滑互通。
+- **上游原生控制台动态前缀感知与脚本注入**：升级 `getScriptInjection()` 中的 URL 重写逻辑，根据当前视窗路由自动区分 `/console/upstream` 或 `/admin/upstream` 基准前缀，保持反向代理受控隔离通道一致性。
+
 ## [v2.11.1] - 2026-10-21
 - **上游凭证配额网络异常与空 JSON 解析崩溃修复**：彻底解决上游凭证控制台因 `Failed to execute 'json' on 'Response': Unexpected end of JSON input` 抛出拉取网络异常的缺陷。在 `admin-quotas.js` 中引入安全文本流读取（`await res.text()`）与结构化 JSON 解析，对空响应或异常文本安全降级至 `{ accounts: [] }` 并保持控制台正常渲染。
 - **服务端 JSON 响应序列化生命周期加固**：重构 `lib/config.mjs`、`lib/routes/admin-routes.mjs` 与 `lib/routes/member-routes.mjs` 中的 `writeJson` 实现，确保在调用 `res.writeHead` 提交 HTTP 状态头之前完成 `JSON.stringify(payload ?? null)`，杜绝因未定义或不可序列化字段导致头部提前下发后产生 0 字节截断；显式计算 UTF-8 字节长度并输出精确的 `Content-Length` 头，阻断 Transfer-Encoding: chunked 提前终止风险。
