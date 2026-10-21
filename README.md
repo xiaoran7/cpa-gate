@@ -10,7 +10,7 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg?style=flat-square&color=0284c7)](https://nodejs.org/)
 [![Database](https://img.shields.io/badge/SQLite-WAL%20%2B%20Outbox-orange.svg?style=flat-square)](https://sqlite.org/)
 [![UI Style](https://img.shields.io/badge/Design-Aozora%20UI%2060FPS-informational.svg?style=flat-square)](https://github.com/xiaoran7/cpa-gate)
-[![Tests](https://img.shields.io/badge/tests-15%20suites%20passing-10b981.svg?style=flat-square)](https://github.com/xiaoran7/cpa-gate/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-16%20suites%20passing-10b981.svg?style=flat-square)](https://github.com/xiaoran7/cpa-gate/actions/workflows/ci.yml)
 [![Upstream](https://img.shields.io/badge/upstream-CLIProxyAPI-64748b.svg?style=flat-square)](https://github.com/router-for-me/CLIProxyAPI)
 
 [English](./README.md) | [中文说明](#中文介绍) · [AI Spec (llms-full.txt)](./llms-full.txt)

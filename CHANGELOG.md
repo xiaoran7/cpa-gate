@@ -2,6 +2,13 @@
 
 All notable changes to `cpa-gate` are documented in this file.
 
+## [v2.11.1] - 2026-10-21
+- **上游凭证配额网络异常与空 JSON 解析崩溃修复**：彻底解决上游凭证控制台因 `Failed to execute 'json' on 'Response': Unexpected end of JSON input` 抛出拉取网络异常的缺陷。在 `admin-quotas.js` 中引入安全文本流读取（`await res.text()`）与结构化 JSON 解析，对空响应或异常文本安全降级至 `{ accounts: [] }` 并保持控制台正常渲染。
+- **服务端 JSON 响应序列化生命周期加固**：重构 `lib/config.mjs`、`lib/routes/admin-routes.mjs` 与 `lib/routes/member-routes.mjs` 中的 `writeJson` 实现，确保在调用 `res.writeHead` 提交 HTTP 状态头之前完成 `JSON.stringify(payload ?? null)`，杜绝因未定义或不可序列化字段导致头部提前下发后产生 0 字节截断；显式计算 UTF-8 字节长度并输出精确的 `Content-Length` 头，阻断 Transfer-Encoding: chunked 提前终止风险。
+- **异步刷新路由对齐与 Key 删除统一 await**：将 `/admin/api/upstream-quotas` 带有 `?refresh=1` 或 POST 刷新的路由重构为 `await syncUpstreamQuotas(true)`，并将 `/admin/api/keys/:id` 删除重构为统一 `await` 异步等待，防止外层处理函数在异步 I/O 结束前提前退出。
+- **国际化函数 t() 局部变量遮蔽防护**：修复 `admin.html` 中 `formatResetAbs`（`const t = new Date(iso)`）与 `admin-logs.js` 中 `errorTypeLabel(t)` 局部形参遮蔽全局翻译函数 `t()` 导致的潜在 `TypeError`；在 `tests/test_i18n.mjs` 补充静态语法树扫描守卫（测试 8），防止未来代码引入局部 `t` 标识符。
+- **新增上游配额路由与安全序列化测试套件**：新增 `tests/test_upstream_quotas_route.mjs`，包含 `writeJson` 异常捕获与字节头精确对齐、`/admin/api/upstream-quotas` 完整生命周期、以及前端解析弹性沙箱单测，全量 16 个自动化测试套件全绿。
+
 ## [v2.11.0] - 2026-10-20
 - **控制台中英双语国际化 (i18n) 全栈落地**：上线 `admin-i18n.js` 集中翻译字典（1099 条 `{ zh, en }`）与全局 `t(key, vars?)` helper，顶栏新增语言切换按钮（`EN` / `中文`），支持 `zh-CN` 与 `en` 实时无缝切换与 `localStorage['gate_lang']` 持久化；管理台 `admin.html`、`admin-*.js`、导航侧边栏、表单提示、表格字段、图表文字及状态胶囊全面覆盖双语字典，彻底告别中文单语。
 - **静态与动态文案双向打通**：静态文案通过 `data-i18n` / `data-i18n-title` / `data-i18n-placeholder` / `data-i18n-aria-label` 绑定，动态渲染文案在渲染时经 `t()` 取值；`pageMeta` 改为存储字典 key 而非已翻译文案，使 `admin-overview.js` 的运行时写入在切换语言后依然正确。切换后 `relocalizeDynamicUI()` 依据内存 `cached*` 缓存重绘当前页，无需重新请求网络；`<html lang>` 与 `Intl` / `toLocaleString` 的显示 locale 同步切换。

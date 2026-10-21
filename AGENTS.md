@@ -14,6 +14,6 @@
 - **职责与拓扑**：本仓是 CLIProxyAPI (`127.0.0.1:8315`) 前方的多租户网关与反向代理（默认监听 `8316` 反代入口、`8317` 本地直连）；上游凭据存储与 OAuth 刷新留在 CPA，本仓负责多协议 Key 鉴权、RPM/Token 限额、模型白名单、传输守卫、SQLite Outbox 记账与 `/admin` 控制台。
 - **跨仓静态同步红线**：`static/management.html` 源头在 `Project/cliproxyapi`；源头变更必须同步复制到本仓并校验 MD5 一致，部署替换后必须执行 `systemctl restart gate` 并走 `/admin/upstream/management.html` 鉴权路径验证。
 - **版本与防缓存同步**：发版递增 `package.json`（及 `package-lock.json`）版本时，必须同步更新 `admin.html` 中的版本徽章与 `admin-*.js/css?v=` 缓存参数。
-- **验证与深入文档**：代码改动必须通过 `npm test`（15 个隔离 SQLite 测试套件，含 `test_repo_hygiene.mjs` 凭据扫描）。深入契约见 [docs/cpa-upstream.md](docs/cpa-upstream.md)、[docs/workbuddy-integration.md](docs/workbuddy-integration.md) 与 [llms-full.txt](llms-full.txt)。
+- **验证与深入文档**：代码改动必须通过 `npm test`（16 个隔离 SQLite 测试套件，含 `test_repo_hygiene.mjs` 凭据扫描）。深入契约见 [docs/cpa-upstream.md](docs/cpa-upstream.md)、[docs/workbuddy-integration.md](docs/workbuddy-integration.md) 与 [llms-full.txt](llms-full.txt)。
 
 长期偏好见 [MEMORY.md](MEMORY.md)。
