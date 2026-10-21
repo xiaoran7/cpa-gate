@@ -3,6 +3,10 @@
 All notable changes to `cpa-gate` are documented in this file.
 
 ## [Unreleased]
+- **Antigravity 多模型组（Claude 与 Gemini）配额盲区根除与双指示条精细渲染**：
+  - 修复此前紧凑模式卡片（`admin-quotas.js`）过滤排除 Claude/GPT 模型组且仅提取渲染 Gemini 5h / 周限额的盲区，彻底解决用户明明消耗了 Claude 额度（如降至 50%）而控制台仍只显示 Gemini 100% 的认知误导；重构 Antigravity 紧凑仪表逻辑，当 Claude 与 Gemini 主力模型组均存在时，并排呈现 `Claude 5h` 与 `Gemini 5h` 独立进度条与激活倒计时，并在悬浮提示中展示各自周限额；
+  - 修复 `lib/analytics/status-summary.mjs` 在计算账号整体 5 小时周期（`quota_5h`）时因 `!quota5h` 提前锁定第 0 组（Gemini 100%）而漏掉第 1 组（Claude 50%）的缺陷，重构为多组瓶颈动态筛选（选取剩余百分比最小的紧缺窗口，同等比例下优先倾斜 Claude），确保总览大盘与运行卡片精准反映真实额度瓶颈；
+  - 在 `admin-i18n.js` 补齐 `quotas.bucket.claudeRolling5h`、`quotas.bucket.claudeWeekly` 与 `quotas.bucket.claudeWeeklyTotal` 双语翻译词条，通过 `tests/test_i18n.mjs` 字典完整性与 16 组全量自动化集成测试。
 - **控制台路径完整对齐与镜像支持 (`/console/*`)**：在 `lib/routes/static-routes.mjs`、`lib/routes/admin-routes.mjs` 与 `lib/routes/upstream-proxy.mjs` 中为 `/console` 及其静态资源、API、上游反代路径提供对等镜像别名，使 `/console/api/upstream-quotas` 与 `/console/upstream/` 全链路与原生 CPA 控制台平滑互通。
 - **上游原生控制台动态前缀感知与脚本注入**：升级 `getScriptInjection()` 中的 URL 重写逻辑，根据当前视窗路由自动区分 `/console/upstream` 或 `/admin/upstream` 基准前缀，保持反向代理受控隔离通道一致性。
 
