@@ -445,4 +445,83 @@ console.log('测试 7: 残留中文字面量闸门');
   console.log('  ✓ 未发现残留的中文字面量');
 }
 
+// -------------------------------------------------------------
+// 测试 8: 防止局部标识符 t 遮蔽全局国际化函数 t()
+// -------------------------------------------------------------
+// 背景：控制台各模块严重依赖全局 t(key, vars) 做多语言翻译。
+// 若在局部作用域定义 const/let/var t，或函数形参命名为 t，例如
+// function formatResetAbs(iso) { const t = new Date(iso); ... t('key'); }
+// 会导致 t 变成 Date 对象或普通变量，调用 t(...) 时抛出 TypeError: t is not a function。
+console.log('测试 8: 防止局部标识符 t 遮蔽全局国际化函数 t()');
+{
+  const shadowOffenders = [];
+  const checkShadow = (origin, code) => {
+    const stripped = code
+      .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, ' '))
+      .replace(/^\s*\/\/.*$/gm, m => m.replace(/[^\n]/g, ' '));
+    const lines = stripped.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/\b(var|let|const)\s+t\b/.test(line)) {
+        shadowOffenders.push(`${origin}:${i + 1}: 声明了局部变量 t: ${line.trim()}`);
+      }
+      if (/function\s*[a-zA-Z0-9_]*\s*\([^)]*\bt\b[^)]*\)/.test(line)) {
+        const paramMatch = line.match(/function\s*[a-zA-Z0-9_]*\s*\(([^)]*)\)/);
+        if (paramMatch) {
+          const params = paramMatch[1].split(',').map(p => p.trim());
+          if (params.some(p => p === 't' || /^t\s*=/.test(p))) {
+            shadowOffenders.push(`${origin}:${i + 1}: 形参名为 t: ${line.trim()}`);
+          }
+        }
+      }
+      if (/=>/.test(line)) {
+        const arrowMatch = line.match(/\(([^)]*)\)\s*=>/);
+        if (arrowMatch) {
+          const params = arrowMatch[1].split(',').map(p => p.trim());
+          if (params.some(p => p === 't' || /^t\s*=/.test(p))) {
+            shadowOffenders.push(`${origin}:${i + 1}: 箭头函数形参名为 t: ${line.trim()}`);
+          }
+        }
+      }
+      if (/catch\s*\(\s*t\s*\)/.test(line)) {
+        shadowOffenders.push(`${origin}:${i + 1}: catch 形参名为 t: ${line.trim()}`);
+      }
+    }
+  };
+
+  checkShadow(HTML_FILE, htmlSource);
+  for (const [f, src] of scriptSources) checkShadow(f, src);
+
+  assert.deepEqual(shadowOffenders, [],
+    `发现局部标识符 t 遮蔽全局国际化函数 t()：\n    ${shadowOffenders.join('\n    ')}`);
+  console.log('  ✓ 未发现局部标识符 t 遮蔽全局国际化函数 t()');
+
+  // 沙箱执行验证 formatResetAbs 与 errorTypeLabel
+  const ctx = vm.createContext({
+    window: {},
+    t: (k, vars) => `${k}:${JSON.stringify(vars || {})}`,
+    LOCALE: 'zh-CN',
+    Date: globalThis.Date,
+    isNaN: globalThis.isNaN,
+    String: globalThis.String,
+    JSON: globalThis.JSON,
+    console
+  });
+  ctx.window.t = ctx.t;
+
+  const resetAbsMatch = htmlSource.match(/function formatResetAbs[\s\S]*?^    }/m);
+  assert.ok(resetAbsMatch, '必须能从 admin.html 提取 formatResetAbs');
+  vm.runInContext(resetAbsMatch[0], ctx);
+  const formatted = vm.runInContext("formatResetAbs('2026-10-21T18:00:00Z')", ctx);
+  assert.ok(formatted && formatted.includes('reset.absDateTime'), `formatResetAbs 输出异常：${formatted}`);
+
+  const logsSrc = scriptSources.get('admin-logs.js');
+  const errTypeMatch = logsSrc.match(/function errorTypeLabel[\s\S]*?^    }/m);
+  assert.ok(errTypeMatch, '必须能从 admin-logs.js 提取 errorTypeLabel');
+  vm.runInContext(errTypeMatch[0], ctx);
+  const errLabel = vm.runInContext("errorTypeLabel('quota_exceeded')", ctx);
+  assert.ok(errLabel && errLabel.includes('logs.errorQuotaExceeded'), `errorTypeLabel 输出异常：${errLabel}`);
+  console.log('  ✓ formatResetAbs 与 errorTypeLabel 沙箱调用正常');
+}
+
 console.log('\n=== 控制台中英双语回归测试全部通过 ===\n');

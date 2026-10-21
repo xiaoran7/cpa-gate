@@ -685,10 +685,29 @@
           headers: { 'Authorization': 'Bearer ' + secret }
         });
         if (res.status === 200) {
-          cachedUpstream = await res.json();
-          upstreamLoaded = true;
-          renderUpstreamCards();
-          renderStatusCards();
+          const rawText = await res.text();
+          let parsedData = null;
+          if (rawText && rawText.trim()) {
+            try {
+              parsedData = JSON.parse(rawText);
+            } catch (jsonErr) {
+              console.warn('Failed to parse upstream quotas JSON:', jsonErr.message, rawText.slice(0, 100));
+            }
+          }
+          if (parsedData && typeof parsedData === 'object') {
+            cachedUpstream = parsedData;
+            upstreamLoaded = true;
+            renderUpstreamCards();
+            renderStatusCards();
+          } else {
+            console.warn('Empty or invalid upstream quota payload received:', rawText);
+            if (!cachedUpstream || !Array.isArray(cachedUpstream.accounts)) {
+              cachedUpstream = { accounts: [] };
+            }
+            upstreamLoaded = true;
+            renderUpstreamCards();
+            renderStatusCards();
+          }
         } else if (res.status === 401 || res.status === 403) {
           upstreamLoaded = false;
           cachedUpstream = { accounts: [] };
