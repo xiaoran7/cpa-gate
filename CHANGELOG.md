@@ -3,6 +3,8 @@
 All notable changes to `cpa-gate` are documented in this file.
 
 ## [v2.11.2] - 2026-10-22
+- **单凭据主动刷新探针与错误透传加固 (`admin-quotas.js`)**：
+  - 在 `admin-quotas.js` 的 `triggerActivateQuotaWindow` 中增加 `data.success === false` 的显式异常拦截，精确捕获并弹出后端上游探针返回的真实错误原因（`data.message || data.error`），杜绝因 HTTP 200 状态码而误报"配额查询完成"；
 - **Antigravity 上游周限额瓶颈约束、Disabled 桶拦截与模型冷却解耦渲染**：
   - 深度修复前端在处理 Google Cloud Code PA (`retrieveUserQuotaSummary`) 配额时的逻辑盲区：上游在周限额超限后会将 5 小时滑动窗口标记为 `disabled: true` 但仍返回 `remainingFraction: 1.0`；重构 `admin-quotas.js` 中的 `buildAntigravityMeter`，严格检查 `bkt.disabled` 并在周限额存在时进行瓶颈截断（`effectiveRem = isBktDisabled ? 0 : (isWeeklyBottleneck ? weeklyRem : rawRem)`），彻底根除额度已被周限额扼死却仍死板显示 100% 满额的误导；
   - 解耦单模型冷却与凭证级锁定状态：此前单个模型（如 `claude-3-5-sonnet`）触发 429 冷却时，前端将整个凭据标记为 `isBlocked` 并将全部进度条替换为"额度已隐藏"，同时隐藏"刷新额度"按钮；重构后仅对整凭据冷却（`credential`）隐藏额度，模型级冷却（`models`）展示橙色告警条与精确恢复倒计时，Gemini 等未受限模型进度条保持可见，且"刷新额度"按钮保持可用；
