@@ -2,6 +2,12 @@
 
 All notable changes to `cpa-gate` are documented in this file.
 
+## [Archived] - 2026-10-22
+- **Node.js Gate 仓库正式归档与历史留痕 (Archive Notice)**：
+  - 独立 Node.js Gate 网关正式退役归档，由 `Project/cliproxyapi` 原生内嵌网关控制台（`internal/console/`）全面接管；
+  - 东京主力机（`vps-tokyo-02`）与美西沙箱机（`us-zenix`）的 `gate.service` 已全部停止并禁用（`systemctl disable --now gate.service`），8316/8317 端口及 `/console`、`/admin`、`/member` 路由全量由 CPA 原生二进制统一接管；
+  - 跨仓静态文件同步机制正式废止，本仓转为历史只读归档留存。
+
 ## [v2.11.2] - 2026-10-22
 - **单凭据主动刷新探针与错误透传加固 (`admin-quotas.js`)**：
   - 在 `admin-quotas.js` 的 `triggerActivateQuotaWindow` 中增加 `data.success === false` 的显式异常拦截，精确捕获并弹出后端上游探针返回的真实错误原因（`data.message || data.error`），杜绝因 HTTP 200 状态码而误报"配额查询完成"；

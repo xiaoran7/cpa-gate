@@ -1,5 +1,12 @@
 # cpa-gate
 
+> ⚠️ **ARCHIVED / 已归档**
+> **This repository is officially archived as of 2026-10-22.**
+> Standalone Node.js `gate` has been superseded by the native Go console subsystem embedded in [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) (`internal/console/`).
+> All multi-tenant API key authentication, daily token quotas, sliding-window RPM limits, model whitelists, and Aozora UI dashboards are now natively integrated into CPA with zero external Node.js dependencies.
+> 
+> 本仓库已于 2026-10-22 正式归档。独立的 Node.js Gate 网关已由 `CLIProxyAPI` 原生内嵌控制台（`internal/console/`）全面接管，生产与沙箱机已完成平滑迁移下线。
+
 <div align="center">
 
 <img src="./gate-assets/gate-sakura-mark-v2.png" alt="cpa-gate logo" width="128" />
@@ -117,6 +124,8 @@ When troubleshooting provider credentials or the upstream management UI, check u
 <div id="中文介绍"></div>
 
 ## 中文介绍
+
+> ⚠️ **仓库归档通知**：本独立 Node.js 项目已全面归档。其全部网关路由、多租户鉴权、配额流控、Aozora UI 管理控制台及 SQLite 数据库已全量原生收拢至 `CLIProxyAPI`（`internal/console/`）。
 
 **cpa-gate** 是位于 [CLIProxyAPI (CPA)](https://github.com/router-for-me/CLIProxyAPI) 前方的高性能自建 LLM API 网关与反向代理：
 - **多租户与多协议鉴权**：按 Key 配置日 Token 硬限额、60s 滑动窗口 RPM 与智能模型白名单（支持通配符、厂商前缀与日期后缀），穿透识别 Bearer、`x-api-key`、`api-key`、`x-goog-api-key` 及 URL `?key=`；
