@@ -3,6 +3,10 @@
 All notable changes to `cpa-gate` are documented in this file.
 
 ## [v2.11.2] - 2026-10-22
+- **Antigravity 上游周限额瓶颈约束、Disabled 桶拦截与模型冷却解耦渲染**：
+  - 深度修复前端在处理 Google Cloud Code PA (`retrieveUserQuotaSummary`) 配额时的逻辑盲区：上游在周限额超限后会将 5 小时滑动窗口标记为 `disabled: true` 但仍返回 `remainingFraction: 1.0`；重构 `admin-quotas.js` 中的 `buildAntigravityMeter`，严格检查 `bkt.disabled` 并在周限额存在时进行瓶颈截断（`effectiveRem = isBktDisabled ? 0 : (isWeeklyBottleneck ? weeklyRem : rawRem)`），彻底根除额度已被周限额扼死却仍死板显示 100% 满额的误导；
+  - 解耦单模型冷却与凭证级锁定状态：此前单个模型（如 `claude-3-5-sonnet`）触发 429 冷却时，前端将整个凭据标记为 `isBlocked` 并将全部进度条替换为"额度已隐藏"，同时隐藏"刷新额度"按钮；重构后仅对整凭据冷却（`credential`）隐藏额度，模型级冷却（`models`）展示橙色告警条与精确恢复倒计时，Gemini 等未受限模型进度条保持可见，且"刷新额度"按钮保持可用；
+  - 在 `admin-i18n.js` 补齐 `quotas.bucket.weeklyExhausted`、`quotas.bucket.weeklyBottleneck`、`quotas.bucket.cooldownResume` 等 14 项完整双语词条，通过 `test_i18n.mjs` 及全量测试套件。
 - **Antigravity 多模型组（Claude 与 Gemini）配额盲区根除与双指示条精细渲染**：
   - 修复此前紧凑模式卡片（`admin-quotas.js`）过滤排除 Claude/GPT 模型组且仅提取渲染 Gemini 5h / 周限额的盲区，彻底解决用户明明消耗了 Claude 额度（如降至 50%）而控制台仍只显示 Gemini 100% 的认知误导；重构 Antigravity 紧凑仪表逻辑，当 Claude 与 Gemini 主力模型组均存在时，并排呈现 `Claude 5h` 与 `Gemini 5h` 独立进度条与激活倒计时，并在悬浮提示中展示各自周限额；
   - 修复 `lib/analytics/status-summary.mjs` 在计算账号整体 5 小时周期（`quota_5h`）时因 `!quota5h` 提前锁定第 0 组（Gemini 100%）而漏掉第 1 组（Claude 50%）的缺陷，重构为多组瓶颈动态筛选（选取剩余百分比最小的紧缺窗口，同等比例下优先倾斜 Claude），确保总览大盘与运行卡片精准反映真实额度瓶颈；
