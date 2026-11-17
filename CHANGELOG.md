@@ -2,6 +2,10 @@
 
 All notable changes to `cpa-gate` are documented in this file.
 
+## Documentation update - 2026-11-17
+
+- README 明确标注停更并补充独立 Node.js 控制台实拍，说明当时承接功能的是本项目的 CLIProxyAPI fork。
+
 ## [Archived] - 2026-10-22
 - **Node.js Gate 仓库正式归档与历史留痕 (Archive Notice)**：
   - 独立 Node.js Gate 网关正式退役归档，由 `Project/cliproxyapi` 原生内嵌网关控制台（`internal/console/`）全面接管；

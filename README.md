@@ -1,11 +1,11 @@
 # cpa-gate
 
-> ⚠️ **ARCHIVED / 已归档**
-> **This repository is officially archived as of 2026-10-22.**
-> Standalone Node.js `gate` has been superseded by the native Go console subsystem embedded in [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) (`internal/console/`).
-> All multi-tenant API key authentication, daily token quotas, sliding-window RPM limits, model whitelists, and Aozora UI dashboards are now natively integrated into CPA with zero external Node.js dependencies.
-> 
-> 本仓库已于 2026-10-22 正式归档。独立的 Node.js Gate 网关已由 `CLIProxyAPI` 原生内嵌控制台（`internal/console/`）全面接管，生产与沙箱机已完成平滑迁移下线。
+> [!IMPORTANT]
+> **Unmaintained since October 22, 2026 / 已于 2026-10-22 停止维护**
+>
+> cpa-gate was a standalone Node.js quota and audit gateway for CLIProxyAPI. Its multi-tenant keys, rate limits, quotas, model allowlists, usage accounting, and admin UI moved into the Go console of [our CLIProxyAPI fork](https://github.com/xiaoran7/CLIProxyAPI). That fork has also stopped maintenance. This repository is kept for historical reference.
+>
+> cpa-gate 曾为 CLIProxyAPI 提供独立的 Node.js 多租户配额与审计网关。密钥管理、限流、配额、模型白名单、用量记账和管理界面随后迁入[我们的 CLIProxyAPI fork](https://github.com/xiaoran7/CLIProxyAPI) 的 Go 控制台。该 fork 也已停更。本仓库保留作历史参考。
 
 <div align="center">
 
@@ -23,6 +23,16 @@
 [English](./README.md) | [中文说明](#中文介绍) · [AI Spec (llms-full.txt)](./llms-full.txt)
 
 </div>
+
+---
+
+## Historical console screenshot / 历史控制台截图
+
+![Request log in the standalone cpa-gate admin console / cpa-gate 独立管理控制台的请求流水](docs/screenshots/archived-console.png)
+
+Captured from the retired Node.js gateway running locally with an empty database and no upstream connected.
+
+使用空数据库和无上游连接的本地实例复现历史管理界面。
 
 ---
 
